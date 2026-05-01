@@ -1,10 +1,10 @@
-# Macro Valuation Research Desk (MVR Desk)
+# Macro Valuation Desk (MVD)
 
 ## Original Project Intent
 
 ### Project
 
-Macro Valuation Research Desk (MVR Desk), a macro and valuation research workspace.
+Macro Valuation Desk (MVD), a macro and valuation workspace.
 
 ### Goals and Purpose
 
@@ -35,7 +35,7 @@ Data may accumulate if we build a data warehouse, but it should still work local
 
 ### Architecture Considerations
 
-I am completely fine if it runs locally, for example with my own backend logic and a database inside local Docker containers. But I want the service to be easy to host in the cloud with the same architecture and without major changes. It should be production-ready for the cloud, but also local-ready as a research desk.
+I am completely fine if it runs locally, for example with my own backend logic and a database inside local Docker containers. But I want the service to be easy to host in the cloud with the same architecture and without major changes. It should be production-ready for the cloud, but also local-ready as a valuation desk.
 
 I also want to consider using the OpenBB platform as a ready-made component where it makes sense.
 
@@ -49,7 +49,7 @@ The value creation focus should stay on macro analysis, valuation context, and m
 
 ## Architecture Summary
 
-MVR Desk will use a lean monorepo architecture with a clear split between product UI, application API, data pipelines, and storage.
+MVD will use a lean monorepo architecture with a clear split between product UI, application API, data pipelines, and storage.
 
 ### Core Stack
 
@@ -73,7 +73,7 @@ MVR Desk will use a lean monorepo architecture with a clear split between produc
 
 ### Web
 
-The web app is the research desk interface. Its job is to present data, support navigation, establish the product identity, and handle the user experience for the `Macro` and `Stock Markets` sections.
+The web app is the valuation desk interface. Its job is to present data, support navigation, establish the product identity, and handle the user experience for the `Macro` and `Stock Markets` sections.
 
 The web app should not know where data originally comes from. It should only consume clean API responses.
 
@@ -121,7 +121,7 @@ flowchart LR
 3. Pipeline code validates, cleans, and models the data.
 4. Pipelines write directly to PostgreSQL.
 5. The API reads ready-to-serve data from PostgreSQL.
-6. The web app fetches data from the API and renders the research desk UI.
+6. The web app fetches data from the API and renders the valuation desk UI.
 
 Important boundary: pipelines do not write through the API. They write directly to the database. The API exists mainly for product consumption, not for ETL transport.
 
@@ -177,9 +177,9 @@ Used this way, OpenBB supports the learning goals instead of weakening them.
 
 ## UI and Product Direction
 
-The MVR Desk UI should feel premium, focused, and trustworthy. The visual language should fit serious financial use, but still feel current and sharp.
+The MVD UI should feel premium, focused, and trustworthy. The visual language should fit serious financial use, but still feel current and sharp.
 
-The product should support both dark and light themes from the start. Dark mode can lean more toward research desk energy, while light mode can feel more like a clean institutional research terminal.
+The product should support both dark and light themes from the start. Dark mode can lean more toward desk energy, while light mode can feel more like a clean institutional research terminal.
 
 The product shell should already reserve clear primary navigation for:
 
@@ -226,7 +226,7 @@ That is enough to prove the architecture, the development workflow, and the cros
 - large-scale observability stack
 - every chart and dashboard idea at once
 
-These can all come later. The first win is a clean, serious, expandable research desk foundation.
+These can all come later. The first win is a clean, serious, expandable valuation desk foundation.
 
 ## What Good Looks Like
 
@@ -235,7 +235,7 @@ Phase 1 is successful if:
 - the repo structure feels clean and intentional
 - the local stack starts reliably with Docker Compose
 - the data flow is understandable end to end
-- the web app already looks like an MVR Desk product, even as a skeleton
+- the web app already looks like an MVD product, even as a skeleton
 - the architecture feels cloud-ready rather than local-only
 - future data sources and future dashboards clearly have a place to go
 

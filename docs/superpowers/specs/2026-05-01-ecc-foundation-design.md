@@ -1,12 +1,12 @@
-# MVR Desk Foundation Design
+# MVD Foundation Design
 
 ## Goal
 
-Define the foundational architecture, data flow, responsibility boundaries, and phase 1 skeleton scope for Macro Valuation Research Desk (MVR Desk), so the project can start with a cloud-shaped but local-friendly structure that supports serious data engineering learning and product growth.
+Define the foundational architecture, data flow, responsibility boundaries, and phase 1 skeleton scope for Macro Valuation Desk (MVD), so the project can start with a cloud-shaped but local-friendly structure that supports serious data engineering learning and product growth.
 
 ## Project Context
 
-MVR Desk is a macro and valuation research workspace focused on macroeconomics and stock market valuations, especially from the perspective of a value investor. The system should be informed by real data, economic reasoning, and statistical thinking. It should also function as a practical learning vehicle for professional-grade data engineering architecture, ETL methodology, and tool choices.
+MVD is a macro and valuation workspace focused on macroeconomics and stock market valuations, especially from the perspective of a value investor. The system should be informed by real data, economic reasoning, and statistical thinking. It should also function as a practical learning vehicle for professional-grade data engineering architecture, ETL methodology, and tool choices.
 
 The project has a hard cost constraint of `0 EUR/month`. Local-first development is acceptable and preferred, but the architecture must stay easy to deploy to the cloud later without a major redesign.
 
@@ -21,7 +21,7 @@ The project has a hard cost constraint of `0 EUR/month`. Local-first development
 
 ## Selected Architecture
 
-MVR Desk will use a lean monorepo with clearly separated product, API, pipeline, and data layers.
+MVD will use a lean monorepo with clearly separated product, API, pipeline, and data layers.
 
 ### Stack
 
@@ -46,7 +46,7 @@ It also aligns well with the learning goal: Python is used where modern data eng
 
 ### Web Layer
 
-The web application is the user-facing MVR Desk product. It owns:
+The web application is the user-facing MVD product. It owns:
 
 - shell navigation
 - theme system
@@ -131,7 +131,7 @@ economic-command-center/
 
 ### Responsibility Split
 
-- `apps/web`: research desk UI
+- `apps/web`: valuation desk UI
 - `apps/api`: data-serving contracts for the product
 - `apps/pipelines`: data ingestion and transformation runtime
 - `packages/shared`: shared contracts, schemas, and helper types
@@ -140,12 +140,12 @@ economic-command-center/
 
 ## Data Modeling Direction
 
-MVR Desk should adopt a simple warehouse-style modeling path from the beginning:
+MVD should adopt a simple warehouse-style modeling path from the beginning:
 
 - `raw`: source-aligned landed data
 - `staging`: standardized and cleaned tables
 - `warehouse` or `core`: durable domain-level entities and time series
-- `marts`: product-serving views or tables shaped for MVR Desk screens
+- `marts`: product-serving views or tables shaped for MVD screens
 
 This approach is sophisticated enough to teach the right habits without forcing a large enterprise platform.
 
@@ -155,16 +155,16 @@ OpenBB is allowed as a selective helper in the source ingestion layer.
 
 It is useful when it reduces unnecessary custom integration effort for macro or market data sources. It should not become the owner of:
 
-- MVR Desk's warehouse model
-- MVR Desk's orchestration design
-- MVR Desk's API contracts
-- MVR Desk's product architecture
+- MVD's warehouse model
+- MVD's orchestration design
+- MVD's API contracts
+- MVD's product architecture
 
 Used selectively, it accelerates the project without reducing the learning value.
 
 ## Deployment Philosophy
 
-MVR Desk should be `Docker Compose first`.
+MVD should be `Docker Compose first`.
 
 This means the local development stack should already resemble the intended production shape:
 
@@ -179,7 +179,7 @@ The local stack should be easy to boot, but not fake the architecture with short
 
 The UI should feel premium, modern, and controlled. It should be credible in front of a banker, fund manager, or serious private investor, but not old-fashioned. The tone should be younger, sharper, and cleaner than a traditional finance terminal while staying restrained.
 
-The system must support both light and dark themes from the start. Dark mode can carry more research desk energy, while light mode should feel clean, high-signal, and institutional.
+The system must support both light and dark themes from the start. Dark mode can carry more desk energy, while light mode should feel clean, high-signal, and institutional.
 
 Phase 1 must already establish the product shell with clear navigation for:
 
@@ -241,4 +241,4 @@ Choose mature, boring defaults where possible and let complexity appear only whe
 
 ## Design Outcome
 
-The result should be an MVR Desk skeleton that already behaves like a real multi-service financial data product, even though the feature depth is still intentionally limited.
+The result should be an MVD skeleton that already behaves like a real multi-service financial data product, even though the feature depth is still intentionally limited.

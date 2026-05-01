@@ -1,10 +1,10 @@
-# MVR Desk Skeleton Foundation Implementation Plan
+# MVD Skeleton Foundation Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Build the first end-to-end Macro Valuation Research Desk skeleton with a cloud-shaped local architecture, including web, API, pipelines, PostgreSQL, and one thin working data flow.
+**Goal:** Build the first end-to-end Macro Valuation Desk skeleton with a cloud-shaped local architecture, including web, API, pipelines, PostgreSQL, and one thin working data flow.
 
-**Architecture:** MVR Desk uses a lean monorepo with separate services for the web UI, product API, and Python pipelines. Docker Compose boots the local system, PostgreSQL acts as the source of truth, Prefect orchestrates the data layer, and the UI/API contracts establish clean product boundaries from the start.
+**Architecture:** MVD uses a lean monorepo with separate services for the web UI, product API, and Python pipelines. Docker Compose boots the local system, PostgreSQL acts as the source of truth, Prefect orchestrates the data layer, and the UI/API contracts establish clean product boundaries from the start.
 
 **Tech Stack:** Next.js, TypeScript, Chakra UI, Node.js, Fastify, Python, Prefect, PostgreSQL, Docker Compose, pnpm or npm workspaces, pytest, Vitest
 
@@ -100,7 +100,7 @@ Expected: PASS
 
 ```bash
 git add package.json pnpm-workspace.yaml apps/web/package.json apps/api/package.json packages/shared/package.json tests/workspace-structure.test.ts README.md
-git commit -m "feat: add mvr desk monorepo skeleton"
+git commit -m "feat: add mvd monorepo skeleton"
 ```
 
 ## Task 2: Add Docker Compose Local Infrastructure
@@ -154,7 +154,7 @@ Expected: PASS
 
 ```bash
 git add docker-compose.yml infra/docker/postgres/init/001_schema.sql infra/compose/.env.example tests/docker-compose-contract.test.ts
-git commit -m "feat: add mvr desk local docker compose stack"
+git commit -m "feat: add mvd local docker compose stack"
 ```
 
 ## Task 3: Build the Web Shell and Theme Foundation
@@ -177,7 +177,7 @@ import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import HomePage from "../src/app/page";
 
-describe("MVR Desk home shell", () => {
+describe("MVD home shell", () => {
   it("renders the primary sections", () => {
     render(<HomePage />);
     expect(screen.getByText("Macro")).toBeInTheDocument();
@@ -209,7 +209,7 @@ Expected: PASS
 
 ```bash
 git add apps/web
-git commit -m "feat: add mvr desk web shell and theme foundation"
+git commit -m "feat: add mvd web shell and theme foundation"
 ```
 
 ## Task 4: Create the API Skeleton with Shared Contracts
@@ -262,7 +262,7 @@ Expected: PASS
 
 ```bash
 git add apps/api packages/shared
-git commit -m "feat: add mvr desk api skeleton and shared contracts"
+git commit -m "feat: add mvd api skeleton and shared contracts"
 ```
 
 ## Task 5: Wire the Pipelines Service with Prefect
@@ -310,7 +310,7 @@ Expected: PASS
 
 ```bash
 git add apps/pipelines
-git commit -m "feat: add mvr desk prefect pipeline skeleton"
+git commit -m "feat: add mvd prefect pipeline skeleton"
 ```
 
 ## Task 6: Connect the End-to-End Vertical Slice
@@ -365,7 +365,7 @@ Expected: PASS
 
 ```bash
 git add infra/docker/postgres/init/001_schema.sql apps/api/src/routes/macro-overview.ts apps/web/src/app/macro/page.tsx tests/ecc-end-to-end-contract.test.ts
-git commit -m "feat: wire mvr desk macro vertical slice"
+git commit -m "feat: wire mvd macro vertical slice"
 ```
 
 ## Task 7: Document Developer Workflow and Architecture Notes
@@ -417,7 +417,7 @@ Expected: PASS
 
 ```bash
 git add README.md docs/architecture/2026-05-01-ecc-local-dev-architecture.md tests/documentation-contract.test.ts
-git commit -m "docs: add mvr desk architecture and developer workflow notes"
+git commit -m "docs: add mvd architecture and developer workflow notes"
 ```
 
 ## Spec Coverage Check
