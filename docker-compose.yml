@@ -1,0 +1,56 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: mvd
+      POSTGRES_USER: mvd
+      POSTGRES_PASSWORD: mvd
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./infra/docker/postgres/init:/docker-entrypoint-initdb.d
+
+  api:
+    image: node:22-alpine
+    working_dir: /workspace
+    command: ["sh", "-lc", "npm install && npm run dev --workspace @mvd/api"]
+    environment:
+      NODE_ENV: development
+      DATABASE_URL: postgresql://mvd:mvd@postgres:5432/mvd
+      PORT: 4000
+    ports:
+      - "4000:4000"
+    volumes:
+      - ./:/workspace
+    depends_on:
+      - postgres
+
+  web:
+    image: node:22-alpine
+    working_dir: /workspace
+    command: ["sh", "-lc", "npm install && npm run dev --workspace @mvd/web"]
+    environment:
+      NODE_ENV: development
+      API_BASE_URL: http://api:4000
+      PORT: 3000
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./:/workspace
+    depends_on:
+      - api
+
+  pipelines:
+    image: python:3.13-slim
+    working_dir: /workspace/apps/pipelines
+    command: ["sh", "-lc", "pip install -e . && python -m src.flows.macro_seed_flow"]
+    environment:
+      DATABASE_URL: postgresql://mvd:mvd@postgres:5432/mvd
+    volumes:
+      - ./:/workspace
+    depends_on:
+      - postgres
+
+volumes:
+  postgres-data:
