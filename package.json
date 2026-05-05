@@ -8,9 +8,16 @@
     "packages/*"
   ],
   "scripts": {
+    "dev": "concurrently -k -n api,web \"npm:dev:api\" \"npm:dev:web\"",
+    "dev:db": "docker compose up -d postgres",
+    "dev:web": "npm run dev --workspace @mvd/web",
+    "dev:api": "npm run dev --workspace @mvd/api",
+    "dev:pipeline": "cd apps/pipelines && python -m src.flows.macro_seed_flow",
+    "dev:stack": "docker compose up",
     "test": "vitest run"
   },
   "devDependencies": {
+    "concurrently": "^9.2.1",
     "typescript": "^5.8.3",
     "vitest": "^3.2.4"
   }

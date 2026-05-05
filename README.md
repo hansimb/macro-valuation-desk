@@ -32,6 +32,13 @@ The project is designed around Docker Compose first. The intended local runtime 
 - `pipelines` owns ingestion and Prefect-driven flow execution
 - `postgres` stores raw, staging, warehouse, and marts-oriented data
 
+Local scripts:
+
+- `npm run dev:db` starts PostgreSQL only in docker
+- `npm run dev` starts `api` and `web` dev servers
+- `npm run dev:pipeline` runs a pipeline flow once
+- `npm run dev:stack` starts the full Compose stack
+
 ## First Vertical Slice
 
 The initial end-to-end slice is a `Macro` overview flow:
