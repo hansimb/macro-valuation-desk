@@ -1,3 +1,4 @@
+import React from "react";
 import { Box, Grid, Heading, Link, Stack, Text } from "@chakra-ui/react";
 
 const sections = [
