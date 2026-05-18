@@ -1,30 +1,36 @@
 import NextLink from "next/link";
 import {
-  Box,
-  Grid,
   Heading,
-  HStack,
   Link,
   SimpleGrid,
   Stack,
   Text
 } from "@chakra-ui/react";
 
-const insightStrip = [
+const overviewCards = [
   {
     eyebrow: "Macro",
-    title: "Credit is tight before damage is obvious",
-    detail: "Financing stress usually matters before lagging growth data admits it."
+    label: "GDP growth",
+    value: "2.1%",
+    detail: "Placeholder context for directionality, change, and regional framing."
+  },
+  {
+    eyebrow: "Macro",
+    label: "CPI",
+    value: "2.9%",
+    detail: "Placeholder context for directionality, change, and regional framing."
   },
   {
     eyebrow: "Equity",
-    title: "Valuation breadth matters more than one multiple",
-    detail: "Broad-market pricing needs history, composition, and discount-rate context."
+    label: "S&P 500 P/E",
+    value: "24.1x",
+    detail: "Placeholder context for valuation level, history, and posture."
   },
   {
-    eyebrow: "Method",
-    title: "Signal density over dashboard sprawl",
-    detail: "The product stays narrow on purpose and goes deeper where the causal chain is strongest."
+    eyebrow: "Equity",
+    label: "STOXX Europe 600 P/E",
+    value: "14.8x",
+    detail: "Placeholder context for valuation level, history, and posture."
   }
 ];
 
@@ -32,86 +38,46 @@ const sectionEntries = [
   {
     href: "/macro",
     label: "Macro",
-    title: "Track the six macro driver families that matter most.",
-    description:
-      "Follow liquidity, credit, inflation transmission, demand resilience, trade, and housing in a tighter analytic frame."
+    title: "Six driver families.",
+    description: "Liquidity, credit, inflation, demand, trade, and housing."
   },
   {
     href: "/equity-markets",
     label: "Equity Markets",
-    title: "Read broad market valuation before you read narratives.",
-    description:
-      "Use earnings, balance-sheet, cash-flow, and macro-relative lenses to judge broad equity-market risk more seriously."
+    title: "Main index shortlist.",
+    description: "Broad-market valuation across the main reference indexes."
   }
 ];
 
 export default function HomePage() {
   return (
     <Stack gap={{ base: "12", md: "16" }}>
-      <Grid gap="8" templateColumns={{ base: "1fr", xl: "1.2fr 0.8fr" }} alignItems="end">
-        <Stack gap="5" maxW="4xl">
-          <Text
-            alignSelf="flex-start"
-            borderWidth="1px"
-            borderColor="accent"
-            color="accent"
-            fontSize="xs"
-            letterSpacing="0.16em"
-            px="3"
-            py="1"
-            textTransform="uppercase"
-          >
-            Research Product Skeleton
-          </Text>
-          <Heading as="h1" fontSize={{ base: "4xl", md: "6xl" }} lineHeight="0.98" maxW="5xl">
-            Macro and valuation context that makes serious browsing immediately worth it.
-          </Heading>
-          <Text color="muted" fontSize={{ base: "lg", md: "xl" }} lineHeight="1.5" maxW="3xl">
-            Macro Valuation Desk is being built as a tighter research shell for macro regime
-            reading and broad equity valuation framing, with less dashboard sprawl and more
-            signal discipline.
-          </Text>
-        </Stack>
-
-        <Stack
-          bg="surface"
-          borderColor="edge"
+      <Stack gap="5" maxW="4xl">
+        <Text
+          alignSelf="flex-start"
           borderWidth="1px"
-          gap="4"
-          justifySelf="stretch"
-          p={{ base: "5", md: "6" }}
-          rounded="panel"
+          borderColor="accent"
+          color="accent"
+          fontSize="xs"
+          letterSpacing="0.16em"
+          px="3"
+          py="1"
+          textTransform="uppercase"
         >
-          <Text color="muted" fontSize="xs" letterSpacing="0.16em" textTransform="uppercase">
-            Fast orientation
-          </Text>
-          <Stack gap="3">
-            <HStack align="start" justify="space-between">
-              <Text color="muted" fontSize="sm">
-                Macro focus
-              </Text>
-              <Text fontSize="sm">6 driver families</Text>
-            </HStack>
-            <HStack align="start" justify="space-between">
-              <Text color="muted" fontSize="sm">
-                Equity framing
-              </Text>
-              <Text fontSize="sm">Multi-lens valuation</Text>
-            </HStack>
-            <HStack align="start" justify="space-between">
-              <Text color="muted" fontSize="sm">
-                Product posture
-              </Text>
-              <Text fontSize="sm">Method-first</Text>
-            </HStack>
-          </Stack>
-        </Stack>
-      </Grid>
+          Desk Overview
+        </Text>
+        <Heading as="h1" fontSize={{ base: "4xl", md: "6xl" }} lineHeight="0.98" maxW="5xl">
+          Macro and valuation overview.
+        </Heading>
+        <Text color="muted" fontSize={{ base: "lg", md: "xl" }} lineHeight="1.5" maxW="3xl">
+          Fast macro context and broad-market equity signals.
+        </Text>
+      </Stack>
 
-      <SimpleGrid columns={{ base: 1, md: 3 }} gap="4">
-        {insightStrip.map((insight) => (
+      <SimpleGrid columns={{ base: 1, md: 2, xl: 4 }} gap="4">
+        {overviewCards.map((card) => (
           <Stack
-            key={insight.title}
+            key={`${card.eyebrow}-${card.label}`}
             bg="surface"
             borderColor="edge"
             borderWidth="1px"
@@ -121,26 +87,33 @@ export default function HomePage() {
             rounded="panel"
           >
             <Text color="accent" fontSize="xs" letterSpacing="0.16em" textTransform="uppercase">
-              {insight.eyebrow}
+              {card.eyebrow}
             </Text>
-            <Heading as="h2" fontSize={{ base: "xl", md: "2xl" }} lineHeight="1.05">
-              {insight.title}
+            <Text color="muted" fontSize="xs" letterSpacing="0.16em" textTransform="uppercase">
+              {card.label}
+            </Text>
+            <Heading as="h2" fontSize={{ base: "2xl", md: "3xl" }} lineHeight="1">
+              {card.value}
             </Heading>
-            <Text color="muted">{insight.detail}</Text>
+            <Text color="muted" fontSize="sm">
+              {card.detail}
+            </Text>
           </Stack>
         ))}
       </SimpleGrid>
 
       <Stack gap="5">
         <Text color="muted" fontSize="xs" letterSpacing="0.16em" textTransform="uppercase">
-          Browse the desk
+          Sections
         </Text>
         <SimpleGrid columns={{ base: 1, xl: 2 }} gap="6">
           {sectionEntries.map((entry) => (
             <Link
               asChild
               key={entry.href}
+              display="block"
               textDecoration="none"
+              w="full"
               _hover={{ textDecoration: "none" }}
             >
               <NextLink href={entry.href}>
@@ -172,11 +145,6 @@ export default function HomePage() {
                       {entry.description}
                     </Text>
                   </Stack>
-                  <Box borderTopWidth="1px" borderColor="edge" pt="4">
-                    <Text color="muted" fontSize="sm">
-                      Open section
-                    </Text>
-                  </Box>
                 </Stack>
               </NextLink>
             </Link>

@@ -14,6 +14,7 @@ describe("MVD home shell", () => {
 
     expect(screen.getByText("Macro")).toBeInTheDocument();
     expect(screen.getByText("Equity Markets")).toBeInTheDocument();
-    expect(screen.getByText("Signal density over dashboard sprawl")).toBeInTheDocument();
+    expect(screen.getByText("GDP growth")).toBeInTheDocument();
+    expect(screen.getByText("S&P 500 P/E")).toBeInTheDocument();
   });
 });
