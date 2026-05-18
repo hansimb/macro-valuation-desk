@@ -34,7 +34,7 @@ export default async function MacroDriverPage({
           {current.title}
         </Heading>
         <Text color="muted" fontSize={{ base: "lg", md: "xl" }} maxW="3xl">
-          Detailed driver page placeholder for charts, interpretation, and methodology.
+          Analysis coming soon.
         </Text>
       </Stack>
 
@@ -44,8 +44,7 @@ export default async function MacroDriverPage({
             Analysis
           </Text>
           <Text color="muted">
-            Placeholder analysis block for {current.title}. This page is where the fuller chart set,
-            interpretation, and methodology notes will live.
+            Detailed charts, interpretation, and methodology for {current.title} are coming soon.
           </Text>
         </Stack>
       </Box>

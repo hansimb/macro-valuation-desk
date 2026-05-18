@@ -18,8 +18,7 @@ export function SiteFooter() {
     >
       <Stack gap={2} maxW="2xl">
         <Text color="text">
-          Macro Valuation Desk is a research-oriented workspace for fast macro context and
-          serious broad-market valuation framing.
+          Macro context and broad-market valuation framing.
         </Text>
         <Flex align="center" color="muted" fontSize="sm" gap={4} wrap="wrap">
           {siteNavigationItems.map((item) => (
@@ -36,8 +35,16 @@ export function SiteFooter() {
         </Flex>
       </Stack>
       <Stack align={{ base: "start", md: "end" }} gap={1}>
-        <Text color="text">Phase 1 Skeleton</Text>
-        <Text>Methodology-first placeholders. Models and formulas come next.</Text>
+        <Text color="text">Site by: Hans Imberg</Text>
+        <Link
+          color="muted"
+          href="https://imberg.dev/"
+          target="_blank"
+          rel="noreferrer"
+          _hover={{ color: "accent" }}
+        >
+          https://imberg.dev/
+        </Link>
       </Stack>
     </Flex>
   );

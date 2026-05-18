@@ -34,7 +34,7 @@ export default async function EquityMarketDetailPage({
           {current.market}
         </Heading>
         <Text color="muted" fontSize={{ base: "lg", md: "xl" }} maxW="4xl">
-          Detailed market page placeholder for valuation history, methodology, and interpretation.
+          Analysis coming soon.
         </Text>
       </Stack>
 
@@ -44,7 +44,7 @@ export default async function EquityMarketDetailPage({
             Analysis
           </Text>
           <Text color="muted">{current.region} · {current.ticker}</Text>
-          <Text color="muted">Current posture: {current.posture}</Text>
+          <Text color="muted">Detailed valuation work for this market is coming soon.</Text>
         </Stack>
       </Box>
     </Stack>
