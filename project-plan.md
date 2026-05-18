@@ -12,7 +12,13 @@ The goal is to provide information about macroeconomics and stock market valuati
 
 ### Style and UI/UX
 
-The style should be very modern. It can take a little inspiration from the other project in `../pro-site-cms`, but not with a dark-only style. A white/light site style should also be supported, so both dark and light themes are part of the product.
+The style should be very modern. It can take a little inspiration from the other project in `../pro-site-cms`.
+
+Current UI direction update:
+
+- the active implementation direction is `dark theme only`
+- the web shell should use one strong theme rather than a dual-theme system for now
+- light mode can be revisited later only if there is a strong product reason
 
 The overall feel should be something a banker or investment fund manager could use, but a bit younger and more restrained in a command center direction. Do not overdo it. It should feel more like a 30-year-old banker, portfolio manager, or serious private investor than a 55-year-old old-school bank guy.
 
@@ -179,7 +185,7 @@ Used this way, OpenBB supports the learning goals instead of weakening them.
 
 The MVD UI should feel premium, focused, and trustworthy. The visual language should fit serious financial use, but still feel current and sharp.
 
-The product should support both dark and light themes from the start. Dark mode can lean more toward desk energy, while light mode can feel more like a clean institutional research terminal.
+The active implementation direction is a single dark theme. It should lean toward desk energy, high contrast, and a sharp research-product feel. Light mode is not part of the current implementation scope.
 
 The product shell should already reserve clear primary navigation for:
 

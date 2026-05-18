@@ -196,7 +196,7 @@ Expected: FAIL because the page and theme files do not exist yet
 Implement:
 
 - Chakra provider wiring
-- light and dark theme tokens
+- single dark-theme tokens
 - a polished landing shell
 - first-class routes for `Macro` and `Stock Markets`
 

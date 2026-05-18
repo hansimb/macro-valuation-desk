@@ -4,7 +4,7 @@
 
 **Goal:** Refresh the MVD web shell and core pages into a sharper single-theme research product UI with shared navigation, footer, and stronger macro/equity placeholders.
 
-**Architecture:** Reuse the structural patterns from `pro-site-cms` by introducing a small site-shell layer inside `apps/web`, then rebuild `Home`, `Macro`, and `Equity Markets` on top of that shell. Keep pages mostly server-rendered, push route-aware nav into client components, and preserve Chakra v3 tokens as the single styling system.
+**Architecture:** Reuse the structural patterns from `pro-site-cms` by introducing a small site-shell layer inside `apps/web`, then rebuild `Home`, `Macro`, and `Equity Markets` on top of that shell. Keep pages mostly server-rendered, push route-aware nav into client components, and preserve Chakra v3 tokens as the single styling system. This plan assumes one dark theme only, with no light-mode branch to maintain.
 
 **Tech Stack:** Next.js App Router, React 19, Chakra UI v3, Vitest, Testing Library
 

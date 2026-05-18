@@ -179,7 +179,7 @@ The local stack should be easy to boot, but not fake the architecture with short
 
 The UI should feel premium, modern, and controlled. It should be credible in front of a banker, fund manager, or serious private investor, but not old-fashioned. The tone should be younger, sharper, and cleaner than a traditional finance terminal while staying restrained.
 
-The system must support both light and dark themes from the start. Dark mode can carry more desk energy, while light mode should feel clean, high-signal, and institutional.
+The original foundation direction considered both light and dark themes. That has since been superseded by the current UI decision: the active product shell uses a single dark theme only. Light mode is out of scope unless revisited later.
 
 Phase 1 must already establish the product shell with clear navigation for:
 
@@ -206,7 +206,7 @@ Included:
 - monorepo structure
 - Docker Compose local stack
 - web application shell
-- theme foundation with light and dark support
+- theme foundation with a single dark-theme shell
 - API service skeleton
 - pipelines service skeleton with Prefect wired in
 - PostgreSQL integration
