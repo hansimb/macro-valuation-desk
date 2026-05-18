@@ -50,7 +50,7 @@ export function LayoutShell({ children }: PropsWithChildren) {
           as="nav"
           align="center"
           borderBottomWidth="1px"
-          borderColor="border.default"
+          borderColor="edge"
           gap={{ base: 3, md: 6 }}
           justify="space-between"
           pb={4}
@@ -70,7 +70,7 @@ export function LayoutShell({ children }: PropsWithChildren) {
             <NextLink href="/">
               <Stack gap="0" maxW="100%">
                 <Text lineHeight="1.15">Macro Valuation Desk</Text>
-                <Text color="fg.muted" fontSize={{ base: "10px", md: "xs" }} fontWeight="400">
+                <Text color="muted" fontSize={{ base: "10px", md: "xs" }} fontWeight="400">
                   Macro context and equity valuation framing
                 </Text>
               </Stack>

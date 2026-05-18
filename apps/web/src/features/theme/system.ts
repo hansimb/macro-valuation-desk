@@ -12,6 +12,9 @@ export const mvdThemeConfig = defineConfig({
       fontFeatureSettings: '"tnum"',
       letterSpacing: "0"
     },
+    "h1, h2, h3, h4, h5, h6": {
+      color: "heading"
+    },
     "::selection": {
       bg: "accent",
       color: "#050816"
@@ -21,12 +24,13 @@ export const mvdThemeConfig = defineConfig({
     tokens: {
       colors: {
         accent: { value: "#8adfe5" },
-        canvas: { value: "#050816" },
-        edge: { value: "#1a2236" },
-        muted: { value: "#8b97b3" },
-        surface: { value: "#0a1224" },
-        surfaceRaised: { value: "#101a31" },
-        text: { value: "#eef2ff" }
+        canvas: { value: "#040612" },
+        edge: { value: "#7e91a8" },
+        muted: { value: "#d7c7b8" },
+        surface: { value: "#181A1B" },
+        surfaceRaised: { value: "#181A1B" },
+        text: { value: "#d9e8ff" },
+        heading: { value: "#b9d8ff" }
       },
       fonts: {
         body: { value: "var(--font-sans), sans-serif" },
@@ -36,15 +40,6 @@ export const mvdThemeConfig = defineConfig({
         panel: { value: "6px" },
         control: { value: "4px" },
         sharp: { value: "0" }
-      }
-    },
-    semanticTokens: {
-      colors: {
-        "bg.panel": { value: "{colors.surface}" },
-        "bg.panel.raised": { value: "{colors.surfaceRaised}" },
-        "fg.default": { value: "{colors.text}" },
-        "fg.muted": { value: "{colors.muted}" },
-        "border.default": { value: "{colors.edge}" }
       }
     }
   }

@@ -74,25 +74,25 @@ export default function EquityMarketsPage() {
           <Heading as="h1" fontSize={{ base: "4xl", md: "5xl" }} lineHeight="0.98">
             Equity Markets
           </Heading>
-          <Text color="fg.muted" fontSize={{ base: "lg", md: "xl" }} maxW="4xl">
+          <Text color="muted" fontSize={{ base: "lg", md: "xl" }} maxW="4xl">
             Broad-market valuation research built for asset allocators and serious value investors,
             not for single-stock noise or simplistic country ranking.
           </Text>
           <SimpleGrid columns={{ base: 1, md: 3 }} gap="4">
-            <Stack bg="bg.panel" borderColor="border.default" borderWidth="1px" gap="2" p="5" rounded="panel">
-              <Text color="fg.muted" fontSize="xs" letterSpacing="0.16em" textTransform="uppercase">
+            <Stack bg="surface" borderColor="edge" borderWidth="1px" gap="2" p="5" rounded="panel">
+              <Text color="muted" fontSize="xs" letterSpacing="0.16em" textTransform="uppercase">
                 Structure
               </Text>
               <Text>Separate the lenses before drawing conclusions.</Text>
             </Stack>
-            <Stack bg="bg.panel" borderColor="border.default" borderWidth="1px" gap="2" p="5" rounded="panel">
-              <Text color="fg.muted" fontSize="xs" letterSpacing="0.16em" textTransform="uppercase">
+            <Stack bg="surface" borderColor="edge" borderWidth="1px" gap="2" p="5" rounded="panel">
+              <Text color="muted" fontSize="xs" letterSpacing="0.16em" textTransform="uppercase">
                 History
               </Text>
               <Text>Position markets against their own valuation history first.</Text>
             </Stack>
-            <Stack bg="bg.panel" borderColor="border.default" borderWidth="1px" gap="2" p="5" rounded="panel">
-              <Text color="fg.muted" fontSize="xs" letterSpacing="0.16em" textTransform="uppercase">
+            <Stack bg="surface" borderColor="edge" borderWidth="1px" gap="2" p="5" rounded="panel">
+              <Text color="muted" fontSize="xs" letterSpacing="0.16em" textTransform="uppercase">
                 Method
               </Text>
               <Text>Keep the measured object and substitution logic explicit.</Text>
@@ -101,20 +101,20 @@ export default function EquityMarketsPage() {
         </Stack>
 
         <Stack
-          bg="bg.panel"
-          borderColor="border.default"
+          bg="surface"
+          borderColor="edge"
           borderWidth="1px"
           gap="5"
           p={{ base: "6", md: "7" }}
           rounded="panel"
         >
-          <Text color="fg.muted" fontSize="xs" letterSpacing="0.16em" textTransform="uppercase">
+          <Text color="muted" fontSize="xs" letterSpacing="0.16em" textTransform="uppercase">
             Historical valuation position
           </Text>
           <Heading as="h2" fontSize={{ base: "2xl", md: "3xl" }} lineHeight="1.05">
             A navigation aid for historical positioning, not a fake fair-value engine.
           </Heading>
-          <Text color="fg.muted">
+          <Text color="muted">
             The overview layer stays narrow on purpose: compare broad-market valuation against
             that market&apos;s own history and keep the posture qualitative.
           </Text>
@@ -122,8 +122,8 @@ export default function EquityMarketsPage() {
             {valuationStates.map((state) => (
               <Box
                 key={state}
-                bg="bg.panel.raised"
-                borderColor="border.default"
+                bg="surfaceRaised"
+                borderColor="edge"
                 borderWidth="1px"
                 px="4"
                 py="3"
@@ -138,15 +138,15 @@ export default function EquityMarketsPage() {
 
       <SimpleGrid columns={{ base: 1, lg: 2 }} gap="6">
         <Stack
-          bg="bg.panel"
-          borderColor="border.default"
+          bg="surface"
+          borderColor="edge"
           borderWidth="1px"
           gap="5"
           p={{ base: "6", md: "7" }}
           rounded="panel"
         >
           <Stack gap="2">
-            <Text color="fg.muted" fontSize="xs" letterSpacing="0.16em" textTransform="uppercase">
+            <Text color="muted" fontSize="xs" letterSpacing="0.16em" textTransform="uppercase">
               Valuation lens families
             </Text>
             <Heading as="h2" fontSize="3xl">
@@ -157,14 +157,14 @@ export default function EquityMarketsPage() {
             {valuationLenses.map((family) => (
               <Box
                 key={family.title}
-                bg="bg.panel.raised"
-                borderColor="border.default"
+                bg="surfaceRaised"
+                borderColor="edge"
                 borderWidth="1px"
                 p="4"
                 rounded="control"
               >
                 <Text fontWeight="semibold">{family.title}</Text>
-                <Text color="fg.muted" mt="2">
+                <Text color="muted" mt="2">
                   {family.detail}
                 </Text>
               </Box>
@@ -173,15 +173,15 @@ export default function EquityMarketsPage() {
         </Stack>
 
         <Stack
-          bg="bg.panel"
-          borderColor="border.default"
+          bg="surface"
+          borderColor="edge"
           borderWidth="1px"
           gap="5"
           p={{ base: "6", md: "7" }}
           rounded="panel"
         >
           <Stack gap="2">
-            <Text color="fg.muted" fontSize="xs" letterSpacing="0.16em" textTransform="uppercase">
+            <Text color="muted" fontSize="xs" letterSpacing="0.16em" textTransform="uppercase">
               Coverage shortlist
             </Text>
             <Heading as="h2" fontSize="3xl">
@@ -193,8 +193,8 @@ export default function EquityMarketsPage() {
               <HStack
                 key={`${market.market}-${market.ticker}`}
                 align="start"
-                bg="bg.panel.raised"
-                borderColor="border.default"
+                bg="surfaceRaised"
+                borderColor="edge"
                 borderWidth="1px"
                 gap="4"
                 justify="space-between"
@@ -204,7 +204,7 @@ export default function EquityMarketsPage() {
               >
                 <Stack gap="1">
                   <Text fontWeight="semibold">{market.market}</Text>
-                  <Text color="fg.muted" fontSize="sm">
+                  <Text color="muted" fontSize="sm">
                     {market.region} · {market.ticker}
                   </Text>
                 </Stack>
@@ -219,15 +219,15 @@ export default function EquityMarketsPage() {
 
       <Grid gap="6" templateColumns={{ base: "1fr", xl: "1.1fr 0.9fr" }}>
         <Stack
-          bg="bg.panel"
-          borderColor="border.default"
+          bg="surface"
+          borderColor="edge"
           borderWidth="1px"
           gap="5"
           p={{ base: "6", md: "7" }}
           rounded="panel"
         >
           <Stack gap="2">
-            <Text color="fg.muted" fontSize="xs" letterSpacing="0.16em" textTransform="uppercase">
+            <Text color="muted" fontSize="xs" letterSpacing="0.16em" textTransform="uppercase">
               Page structure
             </Text>
             <Heading as="h2" fontSize="3xl">
@@ -238,14 +238,14 @@ export default function EquityMarketsPage() {
             {workflowBlocks.map((block) => (
               <Box
                 key={block.title}
-                bg="bg.panel.raised"
-                borderColor="border.default"
+                bg="surfaceRaised"
+                borderColor="edge"
                 borderWidth="1px"
                 p="4"
                 rounded="control"
               >
                 <Text fontWeight="semibold">{block.title}</Text>
-                <Text color="fg.muted" mt="2">
+                <Text color="muted" mt="2">
                   {block.detail}
                 </Text>
               </Box>
@@ -254,48 +254,48 @@ export default function EquityMarketsPage() {
         </Stack>
 
         <Stack
-          bg="bg.panel"
-          borderColor="border.default"
+          bg="surface"
+          borderColor="edge"
           borderWidth="1px"
           gap="5"
           p={{ base: "6", md: "7" }}
           rounded="panel"
         >
           <Stack gap="2">
-            <Text color="fg.muted" fontSize="xs" letterSpacing="0.16em" textTransform="uppercase">
+            <Text color="muted" fontSize="xs" letterSpacing="0.16em" textTransform="uppercase">
               Methodology posture
             </Text>
             <Heading as="h2" fontSize="3xl">
               No fake precision, no black-box market score.
             </Heading>
           </Stack>
-          <Text color="fg.muted">
+          <Text color="muted">
             The page should support judgment, not replace it. Historical valuation position can
             help navigation, but the research experience stays explicit about what it measures and
             what it does not.
           </Text>
           <Stack gap="3">
             <Box
-              bg="bg.panel.raised"
-              borderColor="border.default"
+              bg="surfaceRaised"
+              borderColor="edge"
               borderWidth="1px"
               p="4"
               rounded="control"
             >
               <Text fontWeight="semibold">Measured object</Text>
-              <Text color="fg.muted" mt="2">
+              <Text color="muted" mt="2">
                 Prefer the actual broad market index and clearly disclose any ETF-proxy substitutions.
               </Text>
             </Box>
             <Box
-              bg="bg.panel.raised"
-              borderColor="border.default"
+              bg="surfaceRaised"
+              borderColor="edge"
               borderWidth="1px"
               p="4"
               rounded="control"
             >
               <Text fontWeight="semibold">Interpretation discipline</Text>
-              <Text color="fg.muted" mt="2">
+              <Text color="muted" mt="2">
                 Elevated valuations frame thinner asymmetry and compressed valuations frame better
                 asymmetry, but neither becomes a simplistic buy or sell signal.
               </Text>

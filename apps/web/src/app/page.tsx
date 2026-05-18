@@ -53,7 +53,7 @@ export default function HomePage() {
           <Text
             alignSelf="flex-start"
             borderWidth="1px"
-            borderColor="border.default"
+            borderColor="accent"
             color="accent"
             fontSize="xs"
             letterSpacing="0.16em"
@@ -66,7 +66,7 @@ export default function HomePage() {
           <Heading as="h1" fontSize={{ base: "4xl", md: "6xl" }} lineHeight="0.98" maxW="5xl">
             Macro and valuation context that makes serious browsing immediately worth it.
           </Heading>
-          <Text color="fg.muted" fontSize={{ base: "lg", md: "xl" }} lineHeight="1.5" maxW="3xl">
+          <Text color="muted" fontSize={{ base: "lg", md: "xl" }} lineHeight="1.5" maxW="3xl">
             Macro Valuation Desk is being built as a tighter research shell for macro regime
             reading and broad equity valuation framing, with less dashboard sprawl and more
             signal discipline.
@@ -74,32 +74,32 @@ export default function HomePage() {
         </Stack>
 
         <Stack
-          bg="bg.panel"
-          borderColor="border.default"
+          bg="surface"
+          borderColor="edge"
           borderWidth="1px"
           gap="4"
           justifySelf="stretch"
           p={{ base: "5", md: "6" }}
           rounded="panel"
         >
-          <Text color="fg.muted" fontSize="xs" letterSpacing="0.16em" textTransform="uppercase">
+          <Text color="muted" fontSize="xs" letterSpacing="0.16em" textTransform="uppercase">
             Fast orientation
           </Text>
           <Stack gap="3">
             <HStack align="start" justify="space-between">
-              <Text color="fg.muted" fontSize="sm">
+              <Text color="muted" fontSize="sm">
                 Macro focus
               </Text>
               <Text fontSize="sm">6 driver families</Text>
             </HStack>
             <HStack align="start" justify="space-between">
-              <Text color="fg.muted" fontSize="sm">
+              <Text color="muted" fontSize="sm">
                 Equity framing
               </Text>
               <Text fontSize="sm">Multi-lens valuation</Text>
             </HStack>
             <HStack align="start" justify="space-between">
-              <Text color="fg.muted" fontSize="sm">
+              <Text color="muted" fontSize="sm">
                 Product posture
               </Text>
               <Text fontSize="sm">Method-first</Text>
@@ -112,8 +112,8 @@ export default function HomePage() {
         {insightStrip.map((insight) => (
           <Stack
             key={insight.title}
-            bg="bg.panel"
-            borderColor="border.default"
+            bg="surface"
+            borderColor="edge"
             borderWidth="1px"
             gap="3"
             minH="12rem"
@@ -126,13 +126,13 @@ export default function HomePage() {
             <Heading as="h2" fontSize={{ base: "xl", md: "2xl" }} lineHeight="1.05">
               {insight.title}
             </Heading>
-            <Text color="fg.muted">{insight.detail}</Text>
+            <Text color="muted">{insight.detail}</Text>
           </Stack>
         ))}
       </SimpleGrid>
 
       <Stack gap="5">
-        <Text color="fg.muted" fontSize="xs" letterSpacing="0.16em" textTransform="uppercase">
+        <Text color="muted" fontSize="xs" letterSpacing="0.16em" textTransform="uppercase">
           Browse the desk
         </Text>
         <SimpleGrid columns={{ base: 1, xl: 2 }} gap="6">
@@ -145,8 +145,8 @@ export default function HomePage() {
             >
               <NextLink href={entry.href}>
                 <Stack
-                  bg="bg.panel"
-                  borderColor="border.default"
+                  bg="surface"
+                  borderColor="edge"
                   borderWidth="1px"
                   gap="4"
                   h="full"
@@ -168,12 +168,12 @@ export default function HomePage() {
                     <Heading as="h2" fontSize={{ base: "2xl", md: "3xl" }} lineHeight="1.05">
                       {entry.title}
                     </Heading>
-                    <Text color="fg.muted" maxW="2xl">
+                    <Text color="muted" maxW="2xl">
                       {entry.description}
                     </Text>
                   </Stack>
-                  <Box borderTopWidth="1px" borderColor="border.default" pt="4">
-                    <Text color="fg.muted" fontSize="sm">
+                  <Box borderTopWidth="1px" borderColor="edge" pt="4">
+                    <Text color="muted" fontSize="sm">
                       Open section
                     </Text>
                   </Box>

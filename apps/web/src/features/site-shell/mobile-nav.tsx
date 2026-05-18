@@ -66,8 +66,8 @@ export function MobileNav() {
         <Drawer.Backdrop bg="rgba(5, 8, 22, 0.7)" />
         <Drawer.Positioner>
           <Drawer.Content
-            bg="bg.panel"
-            borderColor="border.default"
+            bg="surface"
+            borderColor="edge"
             borderLeftWidth="1px"
             maxW="xs"
           >
@@ -102,12 +102,12 @@ export function MobileNav() {
                     );
                   })}
                 </Stack>
-                <Flex borderTopWidth="1px" borderColor="border.default" pt="4">
+                <Flex borderTopWidth="1px" borderColor="edge" pt="4">
                   <Stack gap="1">
-                    <Link asChild color="fg.muted" fontSize="sm" textDecoration="none" _hover={{ color: "accent" }}>
+                    <Link asChild color="muted" fontSize="sm" textDecoration="none" _hover={{ color: "accent" }}>
                       <NextLink href="/macro">Research workspace</NextLink>
                     </Link>
-                    <Link asChild color="fg.muted" fontSize="sm" textDecoration="none" _hover={{ color: "accent" }}>
+                    <Link asChild color="muted" fontSize="sm" textDecoration="none" _hover={{ color: "accent" }}>
                       <NextLink href="/equity-markets">Method-first market framing</NextLink>
                     </Link>
                   </Stack>

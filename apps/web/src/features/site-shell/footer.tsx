@@ -8,8 +8,8 @@ export function SiteFooter() {
     <Flex
       as="footer"
       borderTopWidth="1px"
-      borderColor="border.default"
-      color="fg.muted"
+      borderColor="edge"
+      color="muted"
       fontSize="sm"
       gap={4}
       justify="space-between"
@@ -17,15 +17,15 @@ export function SiteFooter() {
       wrap={{ base: "wrap", md: "nowrap" }}
     >
       <Stack gap={2} maxW="2xl">
-        <Text color="fg.default">
+        <Text color="text">
           Macro Valuation Desk is a research-oriented workspace for fast macro context and
           serious broad-market valuation framing.
         </Text>
-        <Flex align="center" color="fg.muted" fontSize="sm" gap={4} wrap="wrap">
+        <Flex align="center" color="muted" fontSize="sm" gap={4} wrap="wrap">
           {siteNavigationItems.map((item) => (
             <Link
               asChild
-              color="fg.muted"
+              color="muted"
               key={item.href}
               textDecoration="none"
               _hover={{ color: "accent" }}
@@ -36,7 +36,7 @@ export function SiteFooter() {
         </Flex>
       </Stack>
       <Stack align={{ base: "start", md: "end" }} gap={1}>
-        <Text color="fg.default">Phase 1 Skeleton</Text>
+        <Text color="text">Phase 1 Skeleton</Text>
         <Text>Methodology-first placeholders. Models and formulas come next.</Text>
       </Stack>
     </Flex>

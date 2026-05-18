@@ -25,7 +25,7 @@ export function SiteNavigation() {
         return (
           <Link
             asChild
-            color={isActive ? "accent" : "fg.muted"}
+            color={isActive ? "accent" : "muted"}
             fontSize={{ base: "xs", md: "sm" }}
             key={item.href}
             textDecoration="none"
