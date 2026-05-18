@@ -3,32 +3,48 @@ import { createSystem, defaultConfig, defineConfig } from "@chakra-ui/react";
 export const mvdThemeConfig = defineConfig({
   globalCss: {
     html: {
-      colorPalette: "blue"
+      colorPalette: "accent"
     },
     body: {
-      bg: "bg.subtle",
-      color: "fg",
+      bg: "canvas",
+      color: "text",
       margin: "0",
-      fontFeatureSettings: '"tnum"'
+      fontFeatureSettings: '"tnum"',
+      letterSpacing: "0"
+    },
+    "::selection": {
+      bg: "accent",
+      color: "#050816"
     }
   },
   theme: {
     tokens: {
+      colors: {
+        accent: { value: "#8adfe5" },
+        canvas: { value: "#050816" },
+        edge: { value: "#1a2236" },
+        muted: { value: "#8b97b3" },
+        surface: { value: "#0a1224" },
+        surfaceRaised: { value: "#101a31" },
+        text: { value: "#eef2ff" }
+      },
       fonts: {
-        body: { value: "Georgia, Cambria, 'Times New Roman', serif" },
-        heading: { value: "'Avenir Next', 'Segoe UI', sans-serif" }
+        body: { value: "var(--font-sans), sans-serif" },
+        heading: { value: "var(--font-serif), serif" }
       },
       radii: {
-        panel: { value: "24px" }
-      },
+        panel: { value: "6px" },
+        control: { value: "4px" },
+        sharp: { value: "0" }
+      }
+    },
+    semanticTokens: {
       colors: {
-        brand: {
-          50: { value: "#eff6ff" },
-          100: { value: "#dbeafe" },
-          500: { value: "#2563eb" },
-          700: { value: "#1d4ed8" },
-          950: { value: "#172554" }
-        }
+        "bg.panel": { value: "{colors.surface}" },
+        "bg.panel.raised": { value: "{colors.surfaceRaised}" },
+        "fg.default": { value: "{colors.text}" },
+        "fg.muted": { value: "{colors.muted}" },
+        "border.default": { value: "{colors.edge}" }
       }
     }
   }
