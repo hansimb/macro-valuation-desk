@@ -6,7 +6,7 @@ import EquityMarketsPage from "../src/app/equity-markets/page";
 import { ThemeProvider } from "../src/features/theme/provider";
 
 describe("Equity Markets page", () => {
-  it("renders the valuation overview draft structure", () => {
+  it("renders the reduced market overview list", () => {
     render(
       <ThemeProvider>
         <EquityMarketsPage />
@@ -14,9 +14,11 @@ describe("Equity Markets page", () => {
     );
 
     expect(screen.getByRole("heading", { name: "Equity Markets" })).toBeInTheDocument();
-    expect(screen.getByText("Historical valuation position")).toBeInTheDocument();
-    expect(screen.getByText("Valuation lens families")).toBeInTheDocument();
     expect(screen.getByText("Coverage shortlist")).toBeInTheDocument();
-    expect(screen.getByText("Methodology posture")).toBeInTheDocument();
+    expect(screen.getByText("S&P 500")).toBeInTheDocument();
+    expect(screen.getByText("OMX Helsinki 25")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /S&P 500/i })).toBeInTheDocument();
+    expect(screen.queryByText("Valuation lens families")).not.toBeInTheDocument();
+    expect(screen.queryByText("Methodology posture")).not.toBeInTheDocument();
   });
 });

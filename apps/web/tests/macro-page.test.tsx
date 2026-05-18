@@ -16,5 +16,7 @@ describe("Macro page", () => {
     expect(screen.getByText("Driver analysis")).toBeInTheDocument();
     expect(screen.getByText("Liquidity and Money Impulse")).toBeInTheDocument();
     expect(screen.getByText("Housing and Construction Transmission")).toBeInTheDocument();
+    expect(screen.queryByText("Drilldown-oriented layer")).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /Liquidity and Money Impulse/i })).toBeInTheDocument();
   });
 });
