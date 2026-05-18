@@ -2,20 +2,20 @@ import React from "react";
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import StockMarketsPage from "../src/app/stock-markets/page";
+import EquityMarketsPage from "../src/app/equity-markets/page";
 import { ThemeProvider } from "../src/features/theme/provider";
 
-describe("Stock Markets page", () => {
+describe("Equity Markets page", () => {
   it("renders the valuation overview draft structure", () => {
     render(
       <ThemeProvider>
-        <StockMarketsPage />
+        <EquityMarketsPage />
       </ThemeProvider>
     );
 
-    expect(screen.getByRole("heading", { name: "Stock Markets" })).toBeInTheDocument();
-    expect(screen.getByText("Historical Valuation Position")).toBeInTheDocument();
-    expect(screen.getByText("Core metric families")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Equity Markets" })).toBeInTheDocument();
+    expect(screen.getByText("Historical valuation position")).toBeInTheDocument();
+    expect(screen.getByText("Valuation lens families")).toBeInTheDocument();
     expect(screen.getByText("Coverage shortlist")).toBeInTheDocument();
     expect(screen.getByText("Methodology posture")).toBeInTheDocument();
   });

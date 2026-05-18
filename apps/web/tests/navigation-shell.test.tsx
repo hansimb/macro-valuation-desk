@@ -13,6 +13,7 @@ describe("MVD home shell", () => {
     );
 
     expect(screen.getByText("Macro")).toBeInTheDocument();
-    expect(screen.getByText("Stock Markets")).toBeInTheDocument();
+    expect(screen.getByText("Equity Markets")).toBeInTheDocument();
+    expect(screen.getByText("Signal density over dashboard sprawl")).toBeInTheDocument();
   });
 });
