@@ -1,7 +1,9 @@
+import NextLink from "next/link";
 import { notFound } from "next/navigation";
 import {
   Box,
   Heading,
+  Link,
   Stack,
   Text
 } from "@chakra-ui/react";
@@ -27,6 +29,18 @@ export default async function MacroDriverPage({
   return (
     <Stack gap={{ base: "8", md: "10" }}>
       <Stack gap="4" maxW="4xl">
+        <Link
+          asChild
+          alignSelf="flex-start"
+          color="muted"
+          fontSize="sm"
+          gap="2"
+          textDecoration="none"
+          transition="color 0.2s ease"
+          _hover={{ color: "text", textDecoration: "none" }}
+        >
+          <NextLink href="/macro">← Back to Macro</NextLink>
+        </Link>
         <Text color="accent" fontSize="xs" letterSpacing="0.16em" textTransform="uppercase">
           Macro Driver
         </Text>
