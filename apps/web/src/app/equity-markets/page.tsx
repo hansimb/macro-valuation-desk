@@ -53,8 +53,8 @@ export default function EquityMarketsPage() {
                         gap="4"
                         px={{ base: "5", md: "6" }}
                         py={{ base: "4", md: "5" }}
-                        transition="background-color 0.2s ease"
-                        _hover={{ bg: "surfaceRaised" }}
+                        transition="background-color 0.2s ease, transform 0.2s ease"
+                        _hover={{ bg: "surfaceRaised", transform: "translateX(2px)" }}
                       >
                         <Stack gap="1">
                           <Text fontWeight="semibold">{market.market}</Text>

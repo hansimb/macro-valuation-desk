@@ -25,13 +25,13 @@ export default function MacroPage() {
           Macro
         </Heading>
         <Text color="muted" fontSize={{ base: "lg", md: "xl" }} maxW="3xl">
-          Macro overview built around a small set of drivers and a compact headline layer.
+          Six drivers, one framework, and a compact macro read.
         </Text>
       </Stack>
 
       <Stack gap="5">
         <Text color="muted" fontSize="xs" letterSpacing="0.16em" textTransform="uppercase">
-          Headline layer
+          Overview
         </Text>
         <HStack flexWrap="wrap" gap="3" align="stretch">
           {regions.map((region) => (
@@ -59,6 +59,8 @@ export default function MacroPage() {
               minH="9rem"
               p={{ base: "5", md: "6" }}
               rounded="panel"
+              transition="border-color 0.2s ease"
+              _hover={{ borderColor: "rgba(138, 223, 229, 0.72)" }}
             >
               <Text color="muted" fontSize="xs" letterSpacing="0.16em" textTransform="uppercase">
                 {metric.label}
