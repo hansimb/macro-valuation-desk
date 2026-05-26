@@ -25,10 +25,15 @@ export function SiteNavigation() {
         return (
           <Link
             asChild
+            border="0"
             color={isActive ? "accent" : "muted"}
+            css={{ WebkitTapHighlightColor: "transparent" }}
             fontSize={{ base: "xs", md: "sm" }}
             key={item.href}
             textDecoration="none"
+            _active={{ borderColor: "transparent", boxShadow: "none", color: "accent", outline: "none" }}
+            _focus={{ borderColor: "transparent", boxShadow: "none", outline: "none" }}
+            _focusVisible={{ borderColor: "transparent", boxShadow: "none", outline: "none" }}
             _hover={{ color: "accent" }}
           >
             <NextLink href={item.href}>{item.label}</NextLink>

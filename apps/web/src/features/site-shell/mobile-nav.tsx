@@ -90,11 +90,16 @@ export function MobileNav() {
                     return (
                       <Link
                         asChild
+                        border="0"
                         color={isActive ? "accent" : "text"}
+                        css={{ WebkitTapHighlightColor: "transparent" }}
                         fontSize="sm"
                         key={item.href}
                         onClick={() => setOpen(false)}
                         textDecoration="none"
+                        _active={{ borderColor: "transparent", boxShadow: "none", color: "accent", outline: "none" }}
+                        _focus={{ borderColor: "transparent", boxShadow: "none", outline: "none" }}
+                        _focusVisible={{ borderColor: "transparent", boxShadow: "none", outline: "none" }}
                         _hover={{ color: "accent" }}
                       >
                         <NextLink href={item.href}>{item.label}</NextLink>

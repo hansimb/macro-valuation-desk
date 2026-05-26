@@ -58,14 +58,18 @@ export function LayoutShell({ children }: PropsWithChildren) {
         >
           <Link
             asChild
+            border="0"
             color="text"
             css={{ WebkitTapHighlightColor: "transparent" }}
+            flex="1 1 auto"
             fontSize="sm"
             fontWeight="700"
             letterSpacing="0"
-            textDecoration="none"
-            flex="1 1 auto"
             minW={0}
+            textDecoration="none"
+            _active={{ borderColor: "transparent", boxShadow: "none", color: "text", outline: "none" }}
+            _focus={{ borderColor: "transparent", boxShadow: "none", outline: "none" }}
+            _focusVisible={{ borderColor: "transparent", boxShadow: "none", outline: "none" }}
           >
             <NextLink href="/">
               <Stack gap="0" maxW="100%">
