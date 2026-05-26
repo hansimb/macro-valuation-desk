@@ -1,12 +1,6 @@
 import NextLink from "next/link";
 import { notFound } from "next/navigation";
-import {
-  Box,
-  Heading,
-  Link,
-  Stack,
-  Text
-} from "@chakra-ui/react";
+import { Box, Heading, Link, Stack, Text } from "@chakra-ui/react";
 
 import { macroDrivers } from "../../../features/site-shell/mvd-data";
 
@@ -39,7 +33,7 @@ export default async function MacroDriverPage({
           transition="color 0.2s ease"
           _hover={{ color: "text", textDecoration: "none" }}
         >
-          <NextLink href="/macro">← Back to Macro</NextLink>
+          <NextLink href="/macro">Back to Macro</NextLink>
         </Link>
         <Text color="accent" fontSize="xs" letterSpacing="0.16em" textTransform="uppercase">
           Macro Driver
@@ -48,17 +42,19 @@ export default async function MacroDriverPage({
           {current.title}
         </Heading>
         <Text color="muted" fontSize={{ base: "lg", md: "xl" }} maxW="3xl">
-          Analysis coming soon.
+          {current.summary}
         </Text>
       </Stack>
 
       <Box bg="surface" borderColor="edge" borderWidth="1px" p={{ base: "6", md: "7" }} rounded="panel">
         <Stack gap="3">
           <Text color="accent" fontSize="xs" letterSpacing="0.16em" textTransform="uppercase">
-            Analysis
+            Current read
           </Text>
+          <Text color="muted">{current.cue}</Text>
           <Text color="muted">
-            Detailed charts, interpretation, and methodology for {current.title} are coming soon.
+            This page is reserved for the deeper charts, interpretation, and methodology behind this
+            macro driver.
           </Text>
         </Stack>
       </Box>

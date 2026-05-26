@@ -69,9 +69,9 @@ export function LayoutShell({ children }: PropsWithChildren) {
           >
             <NextLink href="/">
               <Stack gap="0" maxW="100%">
-                <Text lineHeight="1.15">Macro Valuation Desk</Text>
+                <Text lineHeight="1.15">Hans Imberg</Text>
                 <Text color="muted" fontSize={{ base: "10px", md: "xs" }} fontWeight="400">
-                  Macro context and equity valuation framing
+                  Macro analysis, equity valuation, and data pipeline work
                 </Text>
               </Stack>
             </NextLink>

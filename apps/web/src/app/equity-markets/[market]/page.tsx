@@ -1,12 +1,6 @@
 import NextLink from "next/link";
 import { notFound } from "next/navigation";
-import {
-  Box,
-  Heading,
-  Link,
-  Stack,
-  Text
-} from "@chakra-ui/react";
+import { Box, Heading, Link, Stack, Text } from "@chakra-ui/react";
 
 import { equityCoverage } from "../../../features/site-shell/mvd-data";
 
@@ -39,7 +33,7 @@ export default async function EquityMarketDetailPage({
           transition="color 0.2s ease"
           _hover={{ color: "text", textDecoration: "none" }}
         >
-          <NextLink href="/equity-markets">← Back to Equity Markets</NextLink>
+          <NextLink href="/equity-markets">Back to Equity Markets</NextLink>
         </Link>
         <Text color="accent" fontSize="xs" letterSpacing="0.16em" textTransform="uppercase">
           Equity Market
@@ -48,7 +42,7 @@ export default async function EquityMarketDetailPage({
           {current.market}
         </Heading>
         <Text color="muted" fontSize={{ base: "lg", md: "xl" }} maxW="4xl">
-          Analysis coming soon.
+          Standardized valuation view for this market within the global comparison framework.
         </Text>
       </Stack>
 
@@ -57,8 +51,13 @@ export default async function EquityMarketDetailPage({
           <Text color="accent" fontSize="xs" letterSpacing="0.16em" textTransform="uppercase">
             Analysis
           </Text>
-          <Text color="muted">{current.region} · {current.ticker}</Text>
-          <Text color="muted">Detailed valuation work for this market is coming soon.</Text>
+          <Text color="muted">
+            {current.flagEmoji} {current.region} | {current.ticker}
+          </Text>
+          <Text color="muted">
+            The detailed page will use the same datasource logic and valuation template as the
+            broader equity coverage table.
+          </Text>
         </Stack>
       </Box>
     </Stack>

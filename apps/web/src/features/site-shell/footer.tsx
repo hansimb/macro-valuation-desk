@@ -18,7 +18,7 @@ export function SiteFooter() {
     >
       <Stack gap={2} maxW="2xl">
         <Text color="text">
-          Macro context and broad-market valuation framing.
+          Personal market analysis with transparent reasoning and updateable data workflows.
         </Text>
         <Flex align="center" color="muted" fontSize="sm" gap={4} wrap="wrap">
           {siteNavigationItems.map((item) => (
@@ -35,7 +35,7 @@ export function SiteFooter() {
         </Flex>
       </Stack>
       <Stack align={{ base: "start", md: "end" }} gap={1}>
-        <Text color="text">Site by: Hans Imberg</Text>
+        <Text color="text">Research and build by Hans Imberg</Text>
         <Link
           color="muted"
           href="https://imberg.dev/"
