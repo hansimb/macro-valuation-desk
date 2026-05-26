@@ -4,20 +4,42 @@ This directory is the home for analysis-specific planning and development work.
 
 It exists for both humans and agents.
 
-When a new analysis is started, its design, assumptions, data choices, and implementation notes should be documented here before deeper implementation begins.
+The purpose of this directory is not to create a large number of small documents for every analysis.
+
+The default model is:
+
+- one shared `README.md` for analysis guidelines
+- one analysis-specific master plan per analysis
+
+## Core Principle
+
+Each analysis should begin with a single master plan document.
+
+That master plan should describe:
+
+- what the analysis is trying to answer
+- what variables it needs
+- what assumptions it uses
+- what the user should be able to do
+- how the analysis should behave in the app
+- how the work should be implemented in small phases
+
+The master plan should not try to fully document all system architecture in one place.
+
+System-level architecture work should be handled later, phase by phase, through the needs exposed by the analysis master plan.
 
 ## What Goes Here
 
-Each analysis should get its own markdown document in this directory.
+Recommended contents of this directory:
 
-Recommended naming:
-
-- `YYYY-MM-DD-<analysis-name>-design.md` for the design/spec
-- optional follow-up files later if the analysis becomes large
+- `README.md`
+- `<analysis-name>-master-plan.md`
 
 Example:
 
-- `2026-05-26-taylor-rule-design.md`
+- `taylor-rule-master-plan.md`
+
+If an analysis later becomes large enough to justify extra documentation, that should happen only after the master plan has exposed a clear need for it.
 
 ## Macro Analysis Guidelines
 
@@ -25,7 +47,7 @@ These are the default rules for macro analysis work in MVD.
 
 ### 1. Data First
 
-The analysis should be built around data, tables, formulas, and scenario outputs.
+The analysis should be built around data, formulas, tables, and scenario outputs.
 
 Text should stay short and only explain the most important interpretation.
 
@@ -83,21 +105,40 @@ Each analysis page should answer one clear question.
 
 If the page starts trying to answer several different macro questions at once, split it into separate analyses.
 
-## Required Sections For A New Analysis Doc
+## What A Master Plan Must Cover
 
-Every new analysis design doc should cover:
+Each analysis master plan should cover these sections in one document:
 
 1. Goal
-2. Why this analysis matters
-3. Page structure
-4. Formula or framework
-5. Inputs from real data
-6. Inputs from assumptions
-7. User-adjustable parameters
-8. Scenario design
-9. Interpretation rules
+2. Core question
+3. Why the analysis matters
+4. Variable map
+5. Formula or analytical framework
+6. Data needs
+7. Assumptions
+8. User interaction model
+9. Interpretation model
 10. References plan
-11. Implementation notes
+11. Phase-by-phase implementation path
+
+## Phase-First Working Style
+
+The analysis master plan should be used to break implementation into small, careful phases.
+
+Example style:
+
+- Phase A: analysis variable map
+- Phase B: reusable data source architecture
+- Phase C: first raw ingestion for one USA series
+- Phase D: first EU series
+- Phase E: normalization layer
+- Phase F: analysis input mart
+- Phase G: API endpoint
+- Phase H: analysis page
+
+These phases are not all solved at once.
+
+They are worked through one by one, with system design decisions made only when that phase is being addressed.
 
 ## Working Rule
 
@@ -108,5 +149,6 @@ If there is uncertainty, prefer:
 - stronger defaults
 - clearer methodology
 - more visible references
+- smaller implementation steps
 
-This directory should become the canonical place to understand how MVD analyses are designed and expanded over time.
+This directory should remain the easiest place for both humans and agents to understand how MVD analyses are planned and expanded over time.
