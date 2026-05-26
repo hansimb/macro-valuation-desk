@@ -2,10 +2,10 @@ import { notFound } from "next/navigation";
 import { Box, Heading, Stack, Text } from "@chakra-ui/react";
 
 import { BackLink } from "../../../features/site-shell/back-link";
-import { equityCoverage } from "../../../features/site-shell/mvd-data";
+import { equityMarketAnalyses } from "../../../features/site-shell/mvd-data";
 
 export function generateStaticParams() {
-  return equityCoverage.map((market) => ({ market: market.slug }));
+  return equityMarketAnalyses.map((market) => ({ market: market.slug }));
 }
 
 export default async function EquityMarketDetailPage({
@@ -14,7 +14,7 @@ export default async function EquityMarketDetailPage({
   params: Promise<{ market: string }>;
 }) {
   const { market } = await params;
-  const current = equityCoverage.find((item) => item.slug === market);
+  const current = equityMarketAnalyses.find((item) => item.slug === market);
 
   if (!current) {
     notFound();
@@ -25,13 +25,13 @@ export default async function EquityMarketDetailPage({
       <Stack gap="4" maxW="4xl">
         <BackLink href="/equity-markets" label="Back to Equity Markets" />
         <Text color="accent" fontSize="xs" letterSpacing="0.16em" textTransform="uppercase">
-          Equity Market
+          {current.eyebrow}
         </Text>
         <Heading as="h1" fontSize={{ base: "4xl", md: "5xl" }} lineHeight="0.98">
           {current.market}
         </Heading>
         <Text color="muted" fontSize={{ base: "lg", md: "xl" }} maxW="4xl">
-          Standardized valuation view for this market within the global comparison framework.
+          {current.summary}
         </Text>
       </Stack>
 
@@ -43,10 +43,7 @@ export default async function EquityMarketDetailPage({
           <Text color="muted">
             {current.flagEmoji} {current.region} | {current.ticker}
           </Text>
-          <Text color="muted">
-            The detailed page will use the same datasource logic and valuation template as the
-            broader equity coverage table.
-          </Text>
+          <Text color="muted">{current.methodologyNote}</Text>
         </Stack>
       </Box>
     </Stack>

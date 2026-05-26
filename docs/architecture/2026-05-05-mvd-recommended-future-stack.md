@@ -2,69 +2,96 @@
 
 ## Purpose
 
-Capture the most relevant next-step data and analytics tooling candidates for MVD without committing to unnecessary platform complexity too early.
+Capture the most relevant future additions for the reusable MVD data platform without adding unnecessary complexity too early.
+
+## Current Core Stack
+
+The current architectural direction is:
+
+- `Next.js` for web
+- `Fastify` for API
+- `Python` for data ingestion and preparation
+- `PostgreSQL` for durable storage
+- `Docker Compose` for local runtime
 
 ## Recommended Additions Later
 
 ### `dbt`
 
-Best candidate for a later addition once the warehouse model grows beyond the current skeleton.
+Strong candidate once warehouse modeling starts to grow.
 
 Why it may help:
 
-- formalizes SQL transformations
-- fits the `raw -> staging -> warehouse -> marts` model well
-- improves testability and documentation of warehouse logic
+- formalizes transformation layers
+- fits `raw -> staging -> mart` thinking
+- improves warehouse documentation and testing
 
 Recommended timing:
 
-- after the first real warehouse and marts layers start to grow
+- after the first real reusable pipeline flows are in place
+
+### `Polars`
+
+Good candidate once transformation logic becomes heavier.
+
+Why it may help:
+
+- fast dataframe-style transforms
+- useful for pipeline normalization and preparation work
+- better fit than overusing plain ad hoc Python loops
+
+Recommended timing:
+
+- once multiple real source ingestions exist
 
 ## Conditional Candidate
 
 ### `DuckDB`
 
-Potentially useful, but not as the main source-of-truth database.
+Useful as a local analysis helper, but not as the main application database.
 
 Good use cases:
 
-- local analysis
-- ad hoc data exploration
+- ad hoc local analysis
+- quick exploration of extracted datasets
 - CSV or Parquet inspection
-- lightweight local research workflows
 
-Important guardrail:
+Guardrail:
 
-- do not let it replace PostgreSQL in the core product architecture
-- use it only if it clearly improves local development or analysis workflows
+- do not replace PostgreSQL with it in the core system
+
+### `OpenBB`
+
+Useful only as an optional helper inside the source layer.
+
+Good use case:
+
+- accelerating selected provider integrations
+
+Guardrail:
+
+- do not make OpenBB the architecture
+- the reusable source layer must still own the internal data contract
 
 ## Not Recommended Now
 
 ### `Spark`
 
-Too heavy for the current scale and product stage.
+Too heavy for the current scale.
 
 ### `Kafka`
 
-Not a good fit for a scheduled batch-oriented analytics product at this stage.
+Not a good fit for the current batch-oriented data flow.
 
 ### `Airflow`
 
-Not needed while `Prefect` already fills the orchestration role.
-
-## Current Recommendation Order
-
-1. `dbt`
-2. `Polars`
-3. `DuckDB`
-4. `Pandas` as likely baseline pipeline utility
+Not needed unless orchestration complexity grows far beyond the current stage.
 
 ## Summary
 
-The best near-future additions are the ones that reinforce the existing architecture:
+The best future additions are the ones that reinforce the reusable data platform:
 
 - `dbt` for warehouse modeling
-- `Polars` and likely some `Pandas` for richer pipeline transforms
-- `DuckDB` only as a local helper, not as the main application database
-
-Everything else should stay out unless the product shape changes materially.
+- `Polars` for richer transforms
+- `DuckDB` for local analysis only
+- `OpenBB` only as an optional source-layer helper

@@ -1,43 +1,68 @@
 # MVD Local Development Architecture
 
+## Purpose
+
+Describe the current local runtime shape of `Macro Valuation Desk`.
+
+This is the practical development setup, not the full reusable data-platform design.
+
 ## Services
 
 ### Web
 
-`apps/web` owns the user-facing Macro Valuation Desk shell, including the primary `Macro` and `Stock Markets` sections.
+`apps/web` owns the user-facing site shell and analysis pages.
+
+It should remain a presentation layer, not a place where provider access or core data preparation logic lives.
 
 ### API
 
-`apps/api` is a Fastify service that reads prepared data from PostgreSQL and exposes stable product-facing routes.
+`apps/api` is the serving layer.
+
+Its job is to read prepared data from PostgreSQL and expose stable product-facing routes for the web app and other consumers.
 
 ### Pipelines
 
-`apps/pipelines` contains Python pipeline code and Prefect-based orchestration. It is responsible for ingesting, normalizing, and loading data into PostgreSQL.
+`apps/pipelines` contains Python ingestion and preparation logic.
+
+It is responsible for:
+
+- calling the reusable data source layer
+- ingesting source data
+- normalizing it
+- preparing analysis-ready datasets
+- loading them into PostgreSQL
 
 ### Database
 
-`postgres` is the source of truth and the durable store for the first vertical slice.
+`postgres` is the durable system store and the main source of truth for application-facing data.
 
 ## Local Runtime Shape
 
-The stack is designed to run through Docker Compose with separate containers for:
+The local stack is designed to run through Docker Compose with separate containers for:
 
 - `web`
 - `api`
 - `pipelines`
 - `postgres`
 
-This keeps the local environment close to the intended production service boundaries.
+This keeps local development close to the intended long-term service boundaries.
 
-## First Macro Slice
+## Current Direction
 
-The first skeleton slice flows like this:
+The intended flow is:
 
-1. a Prefect-backed pipeline prepares macro seed data
-2. the data is loaded into `raw.macro_series`
-3. the Fastify route `/macro/overview` reads or falls back to a stable seed response
-4. the web `Macro` page consumes the API response
+1. source layer fetches external data
+2. pipelines ingest and standardize it
+3. PostgreSQL stores prepared data
+4. API serves it
+5. web renders it
 
-## Why This Matters
+In short:
 
-This foundation proves the repo structure, runtime boundaries, and data-serving model before deeper analytics and broader market coverage are added.
+`source -> pipeline -> postgres -> api -> web`
+
+## Notes
+
+- the reusable data source architecture is designed separately from this document
+- the API should normally read from PostgreSQL, not from live providers
+- analysis pages should consume prepared data, not provider-specific payloads
