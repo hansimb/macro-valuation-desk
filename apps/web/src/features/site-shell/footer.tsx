@@ -18,7 +18,7 @@ export function SiteFooter() {
     >
       <Stack gap={2} maxW="2xl">
         <Text color="text">
-          Personal market analysis with transparent reasoning and updateable data workflows.
+          Macro context and broad-market valuation framing.
         </Text>
         <Flex align="center" color="muted" fontSize="sm" gap={4} wrap="wrap">
           {siteNavigationItems.map((item) => (
