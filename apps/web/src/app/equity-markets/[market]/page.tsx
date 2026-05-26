@@ -1,7 +1,7 @@
-import NextLink from "next/link";
 import { notFound } from "next/navigation";
-import { Box, Heading, Link, Stack, Text } from "@chakra-ui/react";
+import { Box, Heading, Stack, Text } from "@chakra-ui/react";
 
+import { BackLink } from "../../../features/site-shell/back-link";
 import { equityCoverage } from "../../../features/site-shell/mvd-data";
 
 export function generateStaticParams() {
@@ -23,18 +23,7 @@ export default async function EquityMarketDetailPage({
   return (
     <Stack gap={{ base: "8", md: "10" }}>
       <Stack gap="4" maxW="4xl">
-        <Link
-          asChild
-          alignSelf="flex-start"
-          color="muted"
-          fontSize="sm"
-          gap="2"
-          textDecoration="none"
-          transition="color 0.2s ease"
-          _hover={{ color: "text", textDecoration: "none" }}
-        >
-          <NextLink href="/equity-markets">Back to Equity Markets</NextLink>
-        </Link>
+        <BackLink href="/equity-markets" label="Back to Equity Markets" />
         <Text color="accent" fontSize="xs" letterSpacing="0.16em" textTransform="uppercase">
           Equity Market
         </Text>

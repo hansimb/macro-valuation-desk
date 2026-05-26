@@ -8,10 +8,10 @@ export default function EquityMarketsPage() {
     <Stack gap={{ base: "8", md: "10" }}>
       <Stack gap="4" maxW="4xl">
         <Text color="accent" fontSize="xs" letterSpacing="0.16em" textTransform="uppercase">
-          Equity market index valuation analysis
+          Global Equity Valuation
         </Text>
         <Heading as="h1" fontSize={{ base: "4xl", md: "5xl" }} lineHeight="0.98">
-          Index Valuations
+          Equity market index valuation analysis
         </Heading>
         <Text color="muted" fontSize={{ base: "lg", md: "xl" }} maxW="4xl">
           Broad-market valuation overview across the main reference indexes.
