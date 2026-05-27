@@ -371,7 +371,7 @@ git commit -m "feat: wire mvd macro vertical slice"
 ## Task 7: Document Developer Workflow and Architecture Notes
 
 **Files:**
-- Create: `docs/architecture/2026-05-01-ecc-local-dev-architecture.md`
+- Create: `docs/architecture/2026-05-01-local-dev.md`
 - Modify: `README.md`
 - Test: `tests/documentation-contract.test.ts`
 
@@ -416,7 +416,7 @@ Expected: PASS
 - [ ] **Step 5: Commit**
 
 ```bash
-git add README.md docs/architecture/2026-05-01-ecc-local-dev-architecture.md tests/documentation-contract.test.ts
+git add README.md docs/architecture/2026-05-01-local-dev.md tests/documentation-contract.test.ts
 git commit -m "docs: add mvd architecture and developer workflow notes"
 ```
 
