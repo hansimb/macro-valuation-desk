@@ -73,6 +73,77 @@ Ingestion should stay relatively thin.
 
 It is not the place for major business logic or analytical calculations.
 
+## Incremental Processing Responsibilities
+
+The pipeline layer is also responsible for avoiding unnecessary repeated work.
+
+This is primarily a pipeline concern, not a source-layer concern.
+
+The main mechanisms are:
+
+1. `incremental fetch`
+2. `high-water mark / checkpoint`
+3. `reprocessing window`
+4. `change detection`
+
+### 1. Incremental Fetch
+
+The pipeline should avoid re-fetching full long histories by default.
+
+Instead, ingestion should usually request only:
+
+- new observations after the latest known point
+- or a bounded recent window when revision risk exists
+
+The source layer may support this with fetch options, but the pipeline owns the decision logic.
+
+### 2. High-Water Mark / Checkpoint
+
+The pipeline should maintain a notion of how far a given series or domain run has already progressed.
+
+This checkpoint state supports:
+
+- incremental fetching
+- resumability
+- controlled reruns
+
+The database stores the checkpoint state, but the pipeline owns how it is used.
+
+### 3. Reprocessing Window
+
+Some providers revise recent history.
+
+Because of that, the pipeline should be able to re-fetch a recent rolling window instead of only fetching strictly unseen dates.
+
+Examples:
+
+- last `30` days
+- last `3` months
+
+This is a pipeline policy decision.
+
+### 4. Change Detection
+
+Even when data is fetched again, the pipeline should be able to determine whether anything materially changed.
+
+This helps avoid unnecessary downstream processing and rewrites.
+
+Typical change detection may compare:
+
+- observation values
+- row-level hashes
+- relevant metadata used in transforms
+
+## Ownership Of Incremental Logic
+
+The responsibility split is:
+
+- `pipeline` decides what to fetch and what to reprocess
+- `database/load` persists checkpoint and layer data
+- `source layer` executes constrained fetches when supported
+
+This keeps the core orchestration intelligence in the pipeline layer.
+
 ## 2. Staging Transform
 
 Staging transform is responsible for technical cleanup and standardization.
@@ -206,6 +277,7 @@ The reusable pipeline design is:
 - split into `ingestion`, `staging transform`, and `analytical transform`
 - domain-first rather than analysis-first
 - able to update multiple warehouse layers in one ETL run
+- responsible for incremental processing strategy
 - focused on preparing reusable data rather than presentation-ready data
 
 ## Next Planning Steps
