@@ -1,6 +1,6 @@
 import type { FastifyInstance } from "fastify";
 
-import type { MacroOverviewResponse } from "../../../packages/shared/src/contracts/macro-overview";
+import type { MacroOverviewResponse } from "../../../../packages/shared/src/contracts/macro-overview";
 import { getDbPool } from "../lib/db";
 
 export async function registerMacroOverviewRoute(app: FastifyInstance) {

@@ -53,3 +53,7 @@ SERIES_REGISTRY: dict[str, SeriesDefinition] = {
 
 def get_series_definition(key: str) -> SeriesDefinition:
     return SERIES_REGISTRY[key]
+
+
+def get_series_definitions(keys: list[str]) -> list[SeriesDefinition]:
+    return [get_series_definition(key) for key in keys]

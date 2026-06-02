@@ -1,4 +1,9 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+
+vi.mock("next/font/google", () => ({
+  Manrope: () => ({ variable: "font-sans" }),
+  Newsreader: () => ({ variable: "font-serif" })
+}));
 
 import RootLayout from "../src/app/layout";
 import { EmotionRegistry } from "../src/features/theme/emotion-registry";

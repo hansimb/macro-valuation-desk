@@ -2,6 +2,7 @@ import Fastify from "fastify";
 
 import { registerHealthRoute } from "./routes/health";
 import { registerMacroOverviewRoute } from "./routes/macro-overview";
+import { registerTaylorRuleRoute } from "./routes/taylor-rule";
 
 export function buildServer() {
   const app = Fastify({
@@ -10,6 +11,7 @@ export function buildServer() {
 
   registerHealthRoute(app);
   registerMacroOverviewRoute(app);
+  registerTaylorRuleRoute(app);
 
   return app;
 }

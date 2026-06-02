@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "next dev --turbopack",
-    "test": "vitest run"
+    "test": "vitest run --config vitest.config.mjs"
   },
   "dependencies": {
     "@chakra-ui/react": "^3.27.1",

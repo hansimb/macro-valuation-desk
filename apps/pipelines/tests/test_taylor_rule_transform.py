@@ -1,0 +1,87 @@
+from src.lib.pipeline.transforms.taylor_rule import build_taylor_rule_inputs
+
+
+def test_build_taylor_rule_inputs_creates_us_and_eu_rows():
+    staging_rows = [
+        {
+            "series_id": "us_policy_rate",
+            "observation_date": "2026-05-01",
+            "numeric_value": 4.5,
+            "category": "policy_rate",
+            "region": "US",
+            "frequency": "daily",
+            "unit": "percent",
+            "provider": "fred",
+            "is_valid": True,
+        },
+        {
+            "series_id": "us_cpi_headline",
+            "observation_date": "2026-05-01",
+            "numeric_value": 2.9,
+            "category": "inflation",
+            "region": "US",
+            "frequency": "monthly",
+            "unit": "percentage_change",
+            "provider": "fred",
+            "is_valid": True,
+        },
+        {
+            "series_id": "eu_policy_rate",
+            "observation_date": "2026-05-01",
+            "numeric_value": 2.25,
+            "category": "policy_rate",
+            "region": "EU",
+            "frequency": "daily",
+            "unit": "percent",
+            "provider": "ecb",
+            "is_valid": True,
+        },
+        {
+            "series_id": "eu_hicp_headline",
+            "observation_date": "2026-05-01",
+            "numeric_value": 2.1,
+            "category": "inflation",
+            "region": "EU",
+            "frequency": "monthly",
+            "unit": "percentage_change",
+            "provider": "ecb",
+            "is_valid": True,
+        },
+    ]
+
+    rows = build_taylor_rule_inputs(staging_rows)
+
+    assert rows == [
+        {
+            "region": "EU",
+            "as_of_date": "2026-05-01",
+            "policy_rate": 2.25,
+            "inflation": 2.1,
+            "inflation_target": 2.0,
+            "neutral_rate": 1.0,
+            "slack_proxy": 0.0,
+            "implied_rate": 3.15,
+            "policy_gap": -0.9,
+            "policy_series_key": "eu_policy_rate",
+            "policy_source_url": "https://data.ecb.europa.eu/data/datasets/FM/FM.D.U2.EUR.4F.KR.DFR.LEV",
+            "inflation_series_key": "eu_hicp_headline",
+            "inflation_source_url": "https://data.ecb.europa.eu/data/datasets/HICP/HICP.M.U2.N.000000.4D0.ANR",
+            "slack_source_note": "Assumed neutral slack proxy in v1",
+        },
+        {
+            "region": "US",
+            "as_of_date": "2026-05-01",
+            "policy_rate": 4.5,
+            "inflation": 2.9,
+            "inflation_target": 2.0,
+            "neutral_rate": 1.0,
+            "slack_proxy": 0.0,
+            "implied_rate": 4.35,
+            "policy_gap": 0.15,
+            "policy_series_key": "us_policy_rate",
+            "policy_source_url": "https://fred.stlouisfed.org/series/DFEDTARU",
+            "inflation_series_key": "us_cpi_headline",
+            "inflation_source_url": "https://fred.stlouisfed.org/series/CPIAUCSL",
+            "slack_source_note": "Assumed neutral slack proxy in v1",
+        },
+    ]

@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/server.ts",
-    "test": "vitest run"
+    "test": "vitest run --config vitest.config.mjs"
   },
   "dependencies": {
     "fastify": "^5.2.1",
