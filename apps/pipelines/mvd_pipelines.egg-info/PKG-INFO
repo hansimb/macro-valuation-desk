@@ -1,0 +1,8 @@
+Metadata-Version: 2.4
+Name: mvd-pipelines
+Version: 0.1.0
+Summary: Macro Valuation Desk pipeline service
+Requires-Python: >=3.13
+Requires-Dist: prefect>=3.2.0
+Requires-Dist: psycopg[binary]>=3.2.9
+Requires-Dist: pytest>=8.3.5

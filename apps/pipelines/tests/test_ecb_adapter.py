@@ -28,7 +28,7 @@ def test_ecb_adapter_returns_standardized_success(monkeypatch):
     writer.writerow({"TIME_PERIOD": "2026-04", "OBS_VALUE": "2.10"})
 
     def fake_urlopen(request):
-        assert "FM.D.U2.EUR.4F.KR.DFR.LEV" in request.full_url
+        assert "service/data/FM/FM.D.U2.EUR.4F.KR.DFR.LEV" in request.full_url
         assert "startPeriod=2026-01-01" in request.full_url
         return _FakeResponse(output.getvalue().encode("utf-8"))
 

@@ -1,4 +1,5 @@
 import json
+import os
 
 from src.lib.source.adapters.fred import FredAdapter
 from src.lib.source.fetch import fetch_registered_series
@@ -21,6 +22,7 @@ class _FakeResponse:
 
 
 def test_fred_adapter_returns_standardized_success(monkeypatch):
+    monkeypatch.setenv("FRED_API_KEY", "test-key")
     payload = json.dumps(
         {
             "observations": [
@@ -32,6 +34,7 @@ def test_fred_adapter_returns_standardized_success(monkeypatch):
 
     def fake_urlopen(request):
         assert "series_id=DFEDTARU" in request.full_url
+        assert "api_key=test-key" in request.full_url
         assert "observation_start=2026-05-01" in request.full_url
         return _FakeResponse(payload)
 
@@ -53,6 +56,8 @@ def test_fred_adapter_returns_standardized_success(monkeypatch):
 
 
 def test_fetch_registered_series_returns_structured_adapter_failure(monkeypatch):
+    monkeypatch.setenv("FRED_API_KEY", "test-key")
+
     def fake_urlopen(_request):
         raise RuntimeError("provider unavailable")
 
@@ -71,3 +76,18 @@ def test_fetch_registered_series_returns_structured_adapter_failure(monkeypatch)
     assert result.error.external_series_id == "CPIAUCSL"
     assert result.error.error_type == "fetch_error"
     assert "provider unavailable" in result.error.message
+
+
+def test_fred_adapter_returns_config_failure_when_api_key_is_missing(monkeypatch):
+    monkeypatch.delenv("FRED_API_KEY", raising=False)
+
+    result = FredAdapter().fetch_series(
+        get_series_definition("us_policy_rate"),
+        FetchOptions(),
+    )
+
+    assert result.ok is False
+    assert result.series is None
+    assert result.error is not None
+    assert result.error.error_type == "config_error"
+    assert "FRED_API_KEY" in result.error.message

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
@@ -16,8 +17,19 @@ class FredAdapter(SourceAdapter):
         series_definition: SeriesDefinition,
         fetch_options: FetchOptions,
     ) -> FetchResult:
+        api_key = os.getenv("FRED_API_KEY")
+        if not api_key:
+            return FetchResult.failure(
+                provider=series_definition.provider,
+                key=series_definition.key,
+                external_series_id=series_definition.external_series_id,
+                error_type="config_error",
+                message="FRED_API_KEY is required for FRED series requests.",
+            )
+
         query_params = {
             "series_id": series_definition.external_series_id,
+            "api_key": api_key,
             "file_type": "json",
         }
         if fetch_options.start_date:
