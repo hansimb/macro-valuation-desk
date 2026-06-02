@@ -42,7 +42,34 @@ describe("taylor rule route", () => {
           policy_source_url: "https://data.ecb.europa.eu/data/datasets/FM/FM.D.U2.EUR.4F.KR.DFR.LEV",
           inflation_series_key: "eu_hicp_headline",
           inflation_source_url: "https://data.ecb.europa.eu/data/datasets/HICP/HICP.M.U2.N.000000.4D0.ANR",
-          slack_source_note: "Assumed neutral slack proxy in v1"
+          slack_source_note: "Assumed neutral slack proxy in v1",
+          headline_inflation: "2.10",
+          headline_inflation_as_of_date: "2026-04-01",
+          core_inflation: "2.30",
+          core_inflation_as_of_date: "2026-04-01",
+          policy_real_rate: "0.15",
+          policy_real_rate_as_of_date: "2026-04-01",
+          market_real_rate: "0.46",
+          market_real_rate_as_of_date: "2026-04-01",
+          gdp_growth_yoy_current: "4.06",
+          gdp_growth_yoy_historical_average: "4.06",
+          gdp_growth_yoy_gap: "0.00",
+          gdp_growth_yoy_as_of_date: "2026-01-01",
+          gdp_growth_yoy_history_window: "2026-01-01",
+          gdp_growth_qoq_annualized_current: "4.04",
+          gdp_growth_qoq_annualized_historical_average: "4.04",
+          gdp_growth_qoq_annualized_gap: "0.00",
+          gdp_growth_qoq_annualized_as_of_date: "2026-01-01",
+          gdp_growth_qoq_annualized_history_window: "2025-04-01 to 2026-01-01",
+          headline_series_key: "eu_hicp_headline",
+          headline_source_url: "https://data.ecb.europa.eu/data/datasets/HICP/HICP.M.U2.N.000000.4D0.ANR",
+          core_series_key: "eu_hicp_core",
+          core_source_url: "https://data.ecb.europa.eu/data/datasets/HICP/HICP.M.U2.N.XEFUN0.4D0.ANR",
+          market_real_rate_series_key: "eu_market_real_rate",
+          market_real_rate_source_url: "https://data.ecb.europa.eu/data/datasets/FM/FM.M.U2.EUR.4F.BB.R_U2_10Y.YLDA",
+          gdp_series_key: "eu_real_gdp",
+          gdp_source_url: "https://data.ecb.europa.eu/data/datasets/MNA/MNA.Q.Y.I9.W2.S1.S1.B.B1GQ._Z._Z._Z.EUR.LR.N",
+          policy_real_rate_note: "Policy real rate = policy rate minus headline inflation."
         },
         {
           region: "US",
@@ -58,7 +85,34 @@ describe("taylor rule route", () => {
           policy_source_url: "https://fred.stlouisfed.org/series/DFEDTARU",
           inflation_series_key: "us_cpi_headline",
           inflation_source_url: "https://fred.stlouisfed.org/series/CPIAUCSL",
-          slack_source_note: "Assumed neutral slack proxy in v1"
+          slack_source_note: "Assumed neutral slack proxy in v1",
+          headline_inflation: "3.00",
+          headline_inflation_as_of_date: "2026-04-01",
+          core_inflation: "3.00",
+          core_inflation_as_of_date: "2026-04-01",
+          policy_real_rate: "1.50",
+          policy_real_rate_as_of_date: "2026-04-01",
+          market_real_rate: "2.10",
+          market_real_rate_as_of_date: "2026-04-01",
+          gdp_growth_yoy_current: "4.06",
+          gdp_growth_yoy_historical_average: "4.06",
+          gdp_growth_yoy_gap: "0.00",
+          gdp_growth_yoy_as_of_date: "2026-01-01",
+          gdp_growth_yoy_history_window: "2026-01-01",
+          gdp_growth_qoq_annualized_current: "4.04",
+          gdp_growth_qoq_annualized_historical_average: "4.04",
+          gdp_growth_qoq_annualized_gap: "0.00",
+          gdp_growth_qoq_annualized_as_of_date: "2026-01-01",
+          gdp_growth_qoq_annualized_history_window: "2025-04-01 to 2026-01-01",
+          headline_series_key: "us_cpi_headline",
+          headline_source_url: "https://fred.stlouisfed.org/series/CPIAUCSL",
+          core_series_key: "us_cpi_core",
+          core_source_url: "https://fred.stlouisfed.org/series/CPILFESL",
+          market_real_rate_series_key: "us_market_real_rate",
+          market_real_rate_source_url: "https://data.ecb.europa.eu/data/datasets/FM/FM.M.US.USD.4F.BB.R_US10YT_RR.YLDA",
+          gdp_series_key: "us_real_gdp",
+          gdp_source_url: "https://fred.stlouisfed.org/series/GDPC1",
+          policy_real_rate_note: "Policy real rate = policy rate minus headline inflation."
         }
       ]
     });
@@ -93,6 +147,30 @@ describe("taylor rule route", () => {
             inflationSeriesKey: "eu_hicp_headline",
             inflationSourceUrl: "https://data.ecb.europa.eu/data/datasets/HICP/HICP.M.U2.N.000000.4D0.ANR",
             slackSourceNote: "Assumed neutral slack proxy in v1"
+          },
+          referenceMetrics: {
+            headlineInflation: { value: "2.10", asOf: "2026-04-01" },
+            coreInflation: { value: "2.30", asOf: "2026-04-01" },
+            policyRealRate: {
+              value: "0.15",
+              asOf: "2026-04-01",
+              note: "Policy real rate = policy rate minus headline inflation."
+            },
+            marketRealRate: { value: "0.46", asOf: "2026-04-01" },
+            gdpGrowthYoy: {
+              current: "4.06",
+              historicalAverage: "4.06",
+              gap: "0.00",
+              asOf: "2026-01-01",
+              historyWindow: "2026-01-01"
+            },
+            gdpGrowthQoqAnnualized: {
+              current: "4.04",
+              historicalAverage: "4.04",
+              gap: "0.00",
+              asOf: "2026-01-01",
+              historyWindow: "2025-04-01 to 2026-01-01"
+            }
           }
         },
         {
@@ -111,6 +189,30 @@ describe("taylor rule route", () => {
             inflationSeriesKey: "us_cpi_headline",
             inflationSourceUrl: "https://fred.stlouisfed.org/series/CPIAUCSL",
             slackSourceNote: "Assumed neutral slack proxy in v1"
+          },
+          referenceMetrics: {
+            headlineInflation: { value: "3.00", asOf: "2026-04-01" },
+            coreInflation: { value: "3.00", asOf: "2026-04-01" },
+            policyRealRate: {
+              value: "1.50",
+              asOf: "2026-04-01",
+              note: "Policy real rate = policy rate minus headline inflation."
+            },
+            marketRealRate: { value: "2.10", asOf: "2026-04-01" },
+            gdpGrowthYoy: {
+              current: "4.06",
+              historicalAverage: "4.06",
+              gap: "0.00",
+              asOf: "2026-01-01",
+              historyWindow: "2026-01-01"
+            },
+            gdpGrowthQoqAnnualized: {
+              current: "4.04",
+              historicalAverage: "4.04",
+              gap: "0.00",
+              asOf: "2026-01-01",
+              historyWindow: "2025-04-01 to 2026-01-01"
+            }
           }
         }
       ],
@@ -150,5 +252,62 @@ describe("taylor rule route", () => {
       regions: [],
       references: []
     });
+  });
+
+  it("omits reference metrics when the joined reference-metrics row is missing", async () => {
+    queryMock.mockResolvedValue({
+      rows: [
+        {
+          region: "EU",
+          as_of_date: "2026-05-01",
+          policy_rate: "2.25",
+          inflation: "2.10",
+          inflation_target: "2.00",
+          neutral_rate: "1.00",
+          slack_proxy: "0.00",
+          implied_rate: "3.15",
+          policy_gap: "-0.90",
+          policy_series_key: "eu_policy_rate",
+          policy_source_url: "https://data.ecb.europa.eu/data/datasets/FM/FM.D.U2.EUR.4F.KR.DFR.LEV",
+          inflation_series_key: "eu_hicp_headline",
+          inflation_source_url: "https://data.ecb.europa.eu/data/datasets/HICP/HICP.M.U2.N.000000.4D0.ANR",
+          slack_source_note: "Assumed neutral slack proxy in v1",
+          headline_inflation: null,
+          headline_inflation_as_of_date: null,
+          core_inflation: null,
+          core_inflation_as_of_date: null,
+          policy_real_rate: null,
+          policy_real_rate_as_of_date: null,
+          market_real_rate: null,
+          market_real_rate_as_of_date: null,
+          gdp_growth_yoy_current: null,
+          gdp_growth_yoy_historical_average: null,
+          gdp_growth_yoy_gap: null,
+          gdp_growth_yoy_as_of_date: null,
+          gdp_growth_yoy_history_window: null,
+          gdp_growth_qoq_annualized_current: null,
+          gdp_growth_qoq_annualized_historical_average: null,
+          gdp_growth_qoq_annualized_gap: null,
+          gdp_growth_qoq_annualized_as_of_date: null,
+          gdp_growth_qoq_annualized_history_window: null,
+          headline_series_key: null,
+          headline_source_url: null,
+          core_series_key: null,
+          core_source_url: null,
+          market_real_rate_series_key: null,
+          market_real_rate_source_url: null,
+          gdp_series_key: null,
+          gdp_source_url: null,
+          policy_real_rate_note: null
+        }
+      ]
+    });
+
+    const response = await app.inject({ method: "GET", url: "/macro/taylor-rule" });
+    const body = response.json();
+
+    expect(response.statusCode).toBe(200);
+    expect(body.regions).toHaveLength(1);
+    expect(body.regions[0]).not.toHaveProperty("referenceMetrics");
   });
 });

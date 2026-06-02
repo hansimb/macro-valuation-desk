@@ -14,6 +14,32 @@ export interface TaylorRuleRegionReferences {
   slackSourceNote: string;
 }
 
+export interface TaylorRuleMetricPoint {
+  value: string;
+  asOf: string;
+}
+
+export interface TaylorRuleGrowthMetric {
+  current: string;
+  historicalAverage: string;
+  gap: string;
+  asOf: string;
+  historyWindow: string;
+}
+
+export interface TaylorRulePolicyRealRateMetric extends TaylorRuleMetricPoint {
+  note: string;
+}
+
+export interface TaylorRuleReferenceMetrics {
+  headlineInflation: TaylorRuleMetricPoint;
+  coreInflation: TaylorRuleMetricPoint;
+  policyRealRate: TaylorRulePolicyRealRateMetric;
+  marketRealRate: TaylorRuleMetricPoint;
+  gdpGrowthYoy: TaylorRuleGrowthMetric;
+  gdpGrowthQoqAnnualized: TaylorRuleGrowthMetric;
+}
+
 export interface TaylorRuleRegionComparison {
   region: string;
   asOf: string;
@@ -25,6 +51,7 @@ export interface TaylorRuleRegionComparison {
   impliedRate: string;
   policyGap: string;
   references: TaylorRuleRegionReferences;
+  referenceMetrics?: TaylorRuleReferenceMetrics;
 }
 
 export interface TaylorRuleReferenceItem {

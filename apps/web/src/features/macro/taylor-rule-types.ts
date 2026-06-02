@@ -14,6 +14,32 @@ export type TaylorRuleRegionReferences = {
   slackSourceNote: string;
 };
 
+export type TaylorRuleMetricPoint = {
+  value: string;
+  asOf: string;
+};
+
+export type TaylorRuleGrowthMetric = {
+  current: string;
+  historicalAverage: string;
+  gap: string;
+  asOf: string;
+  historyWindow: string;
+};
+
+export type TaylorRulePolicyRealRateMetric = TaylorRuleMetricPoint & {
+  note: string;
+};
+
+export type TaylorRuleReferenceMetrics = {
+  headlineInflation: TaylorRuleMetricPoint;
+  coreInflation: TaylorRuleMetricPoint;
+  policyRealRate: TaylorRulePolicyRealRateMetric;
+  marketRealRate: TaylorRuleMetricPoint;
+  gdpGrowthYoy: TaylorRuleGrowthMetric;
+  gdpGrowthQoqAnnualized: TaylorRuleGrowthMetric;
+};
+
 export type TaylorRuleRegionComparison = {
   region: string;
   asOf: string;
@@ -25,6 +51,7 @@ export type TaylorRuleRegionComparison = {
   impliedRate: string;
   policyGap: string;
   references: TaylorRuleRegionReferences;
+  referenceMetrics?: TaylorRuleReferenceMetrics;
 };
 
 export type TaylorRuleReferenceItem = {
@@ -41,8 +68,8 @@ export type TaylorRulePageData = {
   references: TaylorRuleReferenceItem[];
 };
 
-export const fallbackTaylorRulePageData: TaylorRulePageData = {
-  asOf: "2026-05-01",
+export const emptyTaylorRulePageData: TaylorRulePageData = {
+  asOf: null,
   formula: "i = r* + pi + 0.5(pi - pi*) + 0.5(slack)",
   assumptions: {
     neutralRate: "1.00",
@@ -51,64 +78,6 @@ export const fallbackTaylorRulePageData: TaylorRulePageData = {
     inflationWeight: "0.50",
     slackWeight: "0.50"
   },
-  regions: [
-    {
-      region: "EU",
-      asOf: "2026-05-01",
-      policyRate: "2.25",
-      inflation: "2.10",
-      target: "2.00",
-      neutralRate: "1.00",
-      slackProxy: "0.00",
-      impliedRate: "3.15",
-      policyGap: "-0.90",
-      references: {
-        policySeriesKey: "eu_policy_rate",
-        policySourceUrl: "https://data.ecb.europa.eu/data/datasets/FM/FM.D.U2.EUR.4F.KR.DFR.LEV",
-        inflationSeriesKey: "eu_hicp_headline",
-        inflationSourceUrl: "https://data.ecb.europa.eu/data/datasets/HICP/HICP.M.U2.N.000000.4D0.ANR",
-        slackSourceNote: "Assumed neutral slack proxy in v1"
-      }
-    },
-    {
-      region: "US",
-      asOf: "2026-05-01",
-      policyRate: "4.50",
-      inflation: "2.90",
-      target: "2.00",
-      neutralRate: "1.00",
-      slackProxy: "0.00",
-      impliedRate: "4.35",
-      policyGap: "0.15",
-      references: {
-        policySeriesKey: "us_policy_rate",
-        policySourceUrl: "https://fred.stlouisfed.org/series/DFEDTARU",
-        inflationSeriesKey: "us_cpi_headline",
-        inflationSourceUrl: "https://fred.stlouisfed.org/series/CPIAUCSL",
-        slackSourceNote: "Assumed neutral slack proxy in v1"
-      }
-    }
-  ],
-  references: [
-    {
-      label: "EU policy rate",
-      url: "https://data.ecb.europa.eu/data/datasets/FM/FM.D.U2.EUR.4F.KR.DFR.LEV"
-    },
-    {
-      label: "EU inflation",
-      url: "https://data.ecb.europa.eu/data/datasets/HICP/HICP.M.U2.N.000000.4D0.ANR"
-    },
-    {
-      label: "US policy rate",
-      url: "https://fred.stlouisfed.org/series/DFEDTARU"
-    },
-    {
-      label: "US inflation",
-      url: "https://fred.stlouisfed.org/series/CPIAUCSL"
-    },
-    {
-      label: "Slack proxy",
-      note: "Assumed neutral slack proxy in v1"
-    }
-  ]
+  regions: [],
+  references: []
 };

@@ -40,9 +40,13 @@ class FakeCursor:
 class FakeConnection:
     def __init__(self, fetchone_result=None):
         self.cursor_instance = FakeCursor(fetchone_result=fetchone_result)
+        self.commit_count = 0
 
     def cursor(self):
         return self.cursor_instance
+
+    def commit(self):
+        self.commit_count += 1
 
     def __enter__(self):
         return self
@@ -131,6 +135,7 @@ def test_upsert_helpers_write_expected_row_shapes():
     assert any("insert into staging.series_observations" in query.lower() for query, _ in commands)
     assert any("insert into mart.taylor_rule_inputs" in query.lower() for query, _ in commands)
     assert any("delete from mart.taylor_rule_inputs" in query.lower() for query, _ in commands)
+    assert connection.commit_count == 4
 
 
 def test_checkpoint_helpers_read_write_and_build_reprocessing_window():
@@ -167,3 +172,4 @@ def test_checkpoint_helpers_read_write_and_build_reprocessing_window():
         "insert into etl.pipeline_runs" in query.lower()
         for query, _ in write_connection.cursor_instance.commands
     )
+    assert write_connection.commit_count == 2

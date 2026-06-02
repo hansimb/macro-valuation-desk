@@ -44,7 +44,7 @@ services:
   pipelines:
     image: python:3.13-slim
     working_dir: /workspace/apps/pipelines
-    command: ["sh", "-lc", "pip install -e . && python -m src.flows.macro_seed_flow"]
+    command: ["sh", "-lc", "pip install -e . && python -m src.flows.all_flows"]
     environment:
       DATABASE_URL: postgresql://mvd:mvd@postgres:5432/mvd
     volumes:

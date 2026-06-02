@@ -2,7 +2,8 @@ from __future__ import annotations
 
 from prefect import flow
 
-from src.lib.db import get_connection
+from src.lib.db import bootstrap_taylor_rule_schema, get_connection
+from src.lib.pipeline.transforms.reference_metrics import build_macro_reference_metrics
 from src.lib.pipeline.transforms.staging import stage_standardized_series
 from src.lib.pipeline.transforms.taylor_rule import build_taylor_rule_inputs
 from src.tasks import load_taylor_layers as load_taylor_layers_module
@@ -19,6 +20,8 @@ def _call_task(task_or_fn, *args, **kwargs):
 
 def run_taylor_rule_flow() -> dict[str, object]:
     connection = get_connection()
+    if connection is not None:
+        bootstrap_taylor_rule_schema(connection)
     if connection is None:
         fetch_results = _call_task(run_us_macro_core_etl_module.run_us_macro_core_etl)
         fetch_results += _call_task(run_eu_macro_core_etl_module.run_eu_macro_core_etl)
@@ -41,12 +44,14 @@ def run_taylor_rule_flow() -> dict[str, object]:
         for row in stage_standardized_series(result.series)
     ]
     mart_rows = build_taylor_rule_inputs(staging_rows)
+    reference_metric_rows = build_macro_reference_metrics(staging_rows)
     load_summary = _call_task(
         load_taylor_layers_module.load_taylor_layers,
         connection,
         fetch_results=fetch_results,
         staging_rows=staging_rows,
         mart_rows=mart_rows,
+        reference_metric_rows=reference_metric_rows,
     )
 
     return {
@@ -54,6 +59,7 @@ def run_taylor_rule_flow() -> dict[str, object]:
         "series_fetched": len(fetch_results),
         "staging_rows": len(staging_rows),
         "mart_rows": len(mart_rows),
+        "reference_metric_rows": len(reference_metric_rows),
         "load_summary": load_summary,
     }
 
@@ -61,3 +67,7 @@ def run_taylor_rule_flow() -> dict[str, object]:
 @flow(name="taylor-rule-flow")
 def taylor_rule_flow() -> dict[str, object]:
     return run_taylor_rule_flow()
+
+
+if __name__ == "__main__":
+    taylor_rule_flow()

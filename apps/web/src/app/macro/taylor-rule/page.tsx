@@ -1,28 +1,29 @@
 import React from "react";
-import { Heading, Stack, Text } from "@chakra-ui/react";
+import { Box, Heading, Stack, Text } from "@chakra-ui/react";
 
 import { TaylorRuleClient } from "../../../features/macro/taylor-rule-client";
-import { fallbackTaylorRulePageData, type TaylorRulePageData } from "../../../features/macro/taylor-rule-types";
+import { emptyTaylorRulePageData, type TaylorRulePageData } from "../../../features/macro/taylor-rule-types";
 import { BackLink } from "../../../features/site-shell/back-link";
 
-async function getTaylorRulePageData(): Promise<TaylorRulePageData> {
-  const apiBaseUrl = process.env.MVD_API_URL ?? "http://127.0.0.1:4000";
+async function getTaylorRulePageData(): Promise<{ data: TaylorRulePageData; unavailable: boolean }> {
+  const apiBaseUrl = process.env.MVD_API_URL ?? process.env.API_BASE_URL ?? "http://127.0.0.1:4000";
 
   try {
     const response = await fetch(`${apiBaseUrl}/macro/taylor-rule`, { cache: "no-store" });
 
     if (!response.ok) {
-      return fallbackTaylorRulePageData;
+      return { data: emptyTaylorRulePageData, unavailable: true };
     }
 
-    return (await response.json()) as TaylorRulePageData;
+    const data = (await response.json()) as TaylorRulePageData;
+    return { data, unavailable: data.regions.length === 0 };
   } catch {
-    return fallbackTaylorRulePageData;
+    return { data: emptyTaylorRulePageData, unavailable: true };
   }
 }
 
 export default async function TaylorRulePage() {
-  const data = await getTaylorRulePageData();
+  const { data, unavailable } = await getTaylorRulePageData();
 
   return (
     <Stack gap={{ base: "8", md: "10" }}>
@@ -41,6 +42,17 @@ export default async function TaylorRulePage() {
           As of {data.asOf ?? "latest available update"}
         </Text>
       </Stack>
+
+      {unavailable ? (
+        <Box bg="surface" borderColor="edge" borderWidth="1px" p={{ base: "5", md: "6" }} rounded="panel">
+          <Stack gap="2">
+            <Text fontWeight="semibold">Live Taylor Rule data is unavailable right now.</Text>
+            <Text color="muted">
+              Start the API and run the Taylor Rule pipeline to populate current values.
+            </Text>
+          </Stack>
+        </Box>
+      ) : null}
 
       <TaylorRuleClient data={data} />
     </Stack>

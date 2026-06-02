@@ -12,7 +12,7 @@
     "dev:db": "docker compose up -d postgres",
     "dev:web": "npm run dev --workspace @mvd/web",
     "dev:api": "npm run dev --workspace @mvd/api",
-    "dev:pipeline": "cd apps/pipelines && python -m src.flows.macro_seed_flow",
+    "dev:pipeline": "cd apps/pipelines && python -m src.flows.all_flows",
     "dev:stack": "docker compose up",
     "test": "vitest run"
   },

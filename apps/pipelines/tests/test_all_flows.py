@@ -1,0 +1,37 @@
+from src.flows.all_flows import run_all_flows
+
+
+def test_run_all_flows_executes_macro_seed_then_taylor_rule(monkeypatch):
+    calls: list[str] = []
+
+    monkeypatch.setattr(
+        "src.flows.all_flows.run_macro_seed_flow",
+        lambda: calls.append("macro_seed") or {"rows_loaded": 3},
+    )
+    monkeypatch.setattr(
+        "src.flows.all_flows.run_taylor_rule_flow",
+        lambda: calls.append("taylor_rule") or {"status": "success", "mart_rows": 2},
+    )
+
+    result = run_all_flows()
+
+    assert calls == ["macro_seed", "taylor_rule"]
+    assert result == {
+        "macro_seed": {"rows_loaded": 3},
+        "taylor_rule": {"status": "success", "mart_rows": 2},
+    }
+
+
+def test_run_all_flows_raises_when_a_child_flow_reports_failed_status(monkeypatch):
+    monkeypatch.setattr("src.flows.all_flows.run_macro_seed_flow", lambda: {"rows_loaded": 3})
+    monkeypatch.setattr(
+        "src.flows.all_flows.run_taylor_rule_flow",
+        lambda: {"status": "failed", "errors": ["us_policy_rate: boom"]},
+    )
+
+    try:
+        run_all_flows()
+    except RuntimeError as error:
+        assert str(error) == "taylor_rule flow failed: us_policy_rate: boom"
+    else:
+        raise AssertionError("expected run_all_flows() to raise for failed child flow")

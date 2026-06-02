@@ -9,22 +9,51 @@ export async function registerTaylorRuleRoute(app: FastifyInstance) {
   app.get("/macro/taylor-rule", async (): Promise<TaylorRuleResponse> => {
     const result = await getDbPool().query(`
       select
-        region,
-        as_of_date::text,
-        policy_rate::text,
-        inflation::text,
-        inflation_target::text,
-        neutral_rate::text,
-        slack_proxy::text,
-        implied_rate::text,
-        policy_gap::text,
-        policy_series_key,
-        policy_source_url,
-        inflation_series_key,
-        inflation_source_url,
-        slack_source_note
-      from mart.taylor_rule_inputs
-      order by region asc
+        tr.region,
+        tr.as_of_date::text,
+        tr.policy_rate::text,
+        tr.inflation::text,
+        tr.inflation_target::text,
+        tr.neutral_rate::text,
+        tr.slack_proxy::text,
+        tr.implied_rate::text,
+        tr.policy_gap::text,
+        tr.policy_series_key,
+        tr.policy_source_url,
+        tr.inflation_series_key,
+        tr.inflation_source_url,
+        tr.slack_source_note,
+        mrm.headline_inflation::text,
+        mrm.headline_inflation_as_of_date::text,
+        mrm.core_inflation::text,
+        mrm.core_inflation_as_of_date::text,
+        mrm.policy_real_rate::text,
+        mrm.policy_real_rate_as_of_date::text,
+        mrm.market_real_rate::text,
+        mrm.market_real_rate_as_of_date::text,
+        mrm.gdp_growth_yoy_current::text,
+        mrm.gdp_growth_yoy_historical_average::text,
+        mrm.gdp_growth_yoy_gap::text,
+        mrm.gdp_growth_yoy_as_of_date::text,
+        mrm.gdp_growth_yoy_history_window,
+        mrm.gdp_growth_qoq_annualized_current::text,
+        mrm.gdp_growth_qoq_annualized_historical_average::text,
+        mrm.gdp_growth_qoq_annualized_gap::text,
+        mrm.gdp_growth_qoq_annualized_as_of_date::text,
+        mrm.gdp_growth_qoq_annualized_history_window,
+        mrm.headline_series_key,
+        mrm.headline_source_url,
+        mrm.core_series_key,
+        mrm.core_source_url,
+        mrm.market_real_rate_series_key,
+        mrm.market_real_rate_source_url,
+        mrm.gdp_series_key,
+        mrm.gdp_source_url,
+        mrm.policy_real_rate_note
+      from mart.taylor_rule_inputs tr
+      left join mart.macro_reference_metrics mrm
+        on mrm.region = tr.region
+      order by tr.region asc
     `);
 
     if (result.rows.length === 0) {
@@ -43,24 +72,64 @@ export async function registerTaylorRuleRoute(app: FastifyInstance) {
       };
     }
 
-    const regions = result.rows.map((row) => ({
-      region: row.region,
-      asOf: row.as_of_date,
-      policyRate: row.policy_rate,
-      inflation: row.inflation,
-      target: row.inflation_target,
-      neutralRate: row.neutral_rate,
-      slackProxy: row.slack_proxy,
-      impliedRate: row.implied_rate,
-      policyGap: row.policy_gap,
-      references: {
-        policySeriesKey: row.policy_series_key,
-        policySourceUrl: row.policy_source_url,
-        inflationSeriesKey: row.inflation_series_key,
-        inflationSourceUrl: row.inflation_source_url,
-        slackSourceNote: row.slack_source_note
-      }
-    }));
+    const regions = result.rows.map((row) => {
+      const referenceMetrics =
+        row.headline_inflation === null
+          ? undefined
+          : {
+              headlineInflation: {
+                value: row.headline_inflation,
+                asOf: row.headline_inflation_as_of_date
+              },
+              coreInflation: {
+                value: row.core_inflation,
+                asOf: row.core_inflation_as_of_date
+              },
+              policyRealRate: {
+                value: row.policy_real_rate,
+                asOf: row.policy_real_rate_as_of_date,
+                note: row.policy_real_rate_note
+              },
+              marketRealRate: {
+                value: row.market_real_rate,
+                asOf: row.market_real_rate_as_of_date
+              },
+              gdpGrowthYoy: {
+                current: row.gdp_growth_yoy_current,
+                historicalAverage: row.gdp_growth_yoy_historical_average,
+                gap: row.gdp_growth_yoy_gap,
+                asOf: row.gdp_growth_yoy_as_of_date,
+                historyWindow: row.gdp_growth_yoy_history_window
+              },
+              gdpGrowthQoqAnnualized: {
+                current: row.gdp_growth_qoq_annualized_current,
+                historicalAverage: row.gdp_growth_qoq_annualized_historical_average,
+                gap: row.gdp_growth_qoq_annualized_gap,
+                asOf: row.gdp_growth_qoq_annualized_as_of_date,
+                historyWindow: row.gdp_growth_qoq_annualized_history_window
+              }
+            };
+
+      return {
+        region: row.region,
+        asOf: row.as_of_date,
+        policyRate: row.policy_rate,
+        inflation: row.inflation,
+        target: row.inflation_target,
+        neutralRate: row.neutral_rate,
+        slackProxy: row.slack_proxy,
+        impliedRate: row.implied_rate,
+        policyGap: row.policy_gap,
+        references: {
+          policySeriesKey: row.policy_series_key,
+          policySourceUrl: row.policy_source_url,
+          inflationSeriesKey: row.inflation_series_key,
+          inflationSourceUrl: row.inflation_source_url,
+          slackSourceNote: row.slack_source_note
+        },
+        ...(referenceMetrics ? { referenceMetrics } : {})
+      };
+    });
 
     const uniqueReferences = [
       ...regions.flatMap((region) => [

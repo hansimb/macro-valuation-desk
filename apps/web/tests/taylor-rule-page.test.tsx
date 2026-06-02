@@ -1,6 +1,6 @@
 import React from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { cleanup, render, screen } from "@testing-library/react";
 
 import TaylorRulePage from "../src/app/macro/taylor-rule/page";
 import { ThemeProvider } from "../src/features/theme/provider";
@@ -32,6 +32,26 @@ const payload = {
         inflationSeriesKey: "eu_hicp_headline",
         inflationSourceUrl: "https://data.ecb.europa.eu/data/datasets/HICP/HICP.M.U2.N.000000.4D0.ANR",
         slackSourceNote: "Assumed neutral slack proxy in v1"
+      },
+      referenceMetrics: {
+        headlineInflation: { value: "2.10", asOf: "2026-04-01" },
+        coreInflation: { value: "2.30", asOf: "2026-04-01" },
+        policyRealRate: { value: "0.15", asOf: "2026-04-01", note: "Policy real rate = policy rate minus headline inflation." },
+        marketRealRate: { value: "0.46", asOf: "2026-04-01" },
+        gdpGrowthYoy: {
+          current: "1.20",
+          historicalAverage: "1.60",
+          gap: "-0.40",
+          asOf: "2026-01-01",
+          historyWindow: "2000-01-01 to 2026-01-01"
+        },
+        gdpGrowthQoqAnnualized: {
+          current: "0.80",
+          historicalAverage: "1.40",
+          gap: "-0.60",
+          asOf: "2026-01-01",
+          historyWindow: "2000-01-01 to 2026-01-01"
+        }
       }
     },
     {
@@ -50,6 +70,26 @@ const payload = {
         inflationSeriesKey: "us_cpi_headline",
         inflationSourceUrl: "https://fred.stlouisfed.org/series/CPIAUCSL",
         slackSourceNote: "Assumed neutral slack proxy in v1"
+      },
+      referenceMetrics: {
+        headlineInflation: { value: "2.90", asOf: "2026-04-01" },
+        coreInflation: { value: "3.10", asOf: "2026-04-01" },
+        policyRealRate: { value: "1.60", asOf: "2026-04-01", note: "Policy real rate = policy rate minus headline inflation." },
+        marketRealRate: { value: "2.10", asOf: "2026-04-01" },
+        gdpGrowthYoy: {
+          current: "2.40",
+          historicalAverage: "2.10",
+          gap: "0.30",
+          asOf: "2026-01-01",
+          historyWindow: "2000-01-01 to 2026-01-01"
+        },
+        gdpGrowthQoqAnnualized: {
+          current: "2.80",
+          historicalAverage: "2.20",
+          gap: "0.60",
+          asOf: "2026-01-01",
+          historyWindow: "2000-01-01 to 2026-01-01"
+        }
       }
     }
   ],
@@ -66,6 +106,7 @@ const payload = {
 };
 
 afterEach(() => {
+  cleanup();
   vi.unstubAllGlobals();
 });
 
@@ -89,10 +130,33 @@ describe("Taylor Rule page", () => {
     expect(screen.getByText("Current inflation rate.")).toBeInTheDocument();
     expect(screen.getByText("Inflation target.")).toBeInTheDocument();
     expect(screen.getByText("Slack or output-gap proxy.")).toBeInTheDocument();
-    expect(screen.getByText("US")).toBeInTheDocument();
-    expect(screen.getByText("EU")).toBeInTheDocument();
+    expect(screen.getAllByText("US").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("EU").length).toBeGreaterThan(0);
     expect(screen.getByRole("button", { name: "Base" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "EU" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "USA" })).toBeInTheDocument();
+    expect(screen.getAllByText("CPI").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Core").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("PRR").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("MRR").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("GDP YoY").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("YoY Avg").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("q/q Gap").length).toBeGreaterThan(0);
     expect(screen.getByText("EU policy rate")).toBeInTheDocument();
     expect(screen.getByText("US policy rate")).toBeInTheDocument();
+  });
+
+  it("shows an explicit unavailable-data notice instead of rendering fallback numbers when the API fetch fails", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("offline")));
+
+    const page = await TaylorRulePage();
+
+    render(<ThemeProvider>{page}</ThemeProvider>);
+
+    expect(screen.getByText("Live Taylor Rule data is unavailable right now.")).toBeInTheDocument();
+    expect(screen.getByText("Start the API and run the Taylor Rule pipeline to populate current values.")).toBeInTheDocument();
+    expect(screen.queryByText("EU policy rate")).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "USA" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Base" })).not.toBeInTheDocument();
   });
 });

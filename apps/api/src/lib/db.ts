@@ -5,7 +5,7 @@ let pool: Pool | null = null;
 export function getDbPool() {
   if (!pool) {
     pool = new Pool({
-      connectionString: process.env.DATABASE_URL
+      connectionString: process.env.DATABASE_URL ?? "postgresql://mvd:mvd@localhost:5432/mvd"
     });
   }
 
