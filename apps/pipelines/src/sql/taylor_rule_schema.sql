@@ -74,5 +74,36 @@ create table if not exists mart.taylor_rule_inputs (
     primary key (region, as_of_date)
 );
 
+create table if not exists mart.macro_reference_metrics (
+    region text primary key,
+    headline_inflation numeric not null,
+    headline_inflation_as_of_date date not null,
+    core_inflation numeric not null,
+    core_inflation_as_of_date date not null,
+    policy_real_rate numeric not null,
+    policy_real_rate_as_of_date date not null,
+    market_real_rate numeric not null,
+    market_real_rate_as_of_date date not null,
+    gdp_growth_yoy_current numeric not null,
+    gdp_growth_yoy_historical_average numeric not null,
+    gdp_growth_yoy_gap numeric not null,
+    gdp_growth_yoy_as_of_date date not null,
+    gdp_growth_yoy_history_window text not null,
+    gdp_growth_qoq_annualized_current numeric not null,
+    gdp_growth_qoq_annualized_historical_average numeric not null,
+    gdp_growth_qoq_annualized_gap numeric not null,
+    gdp_growth_qoq_annualized_as_of_date date not null,
+    gdp_growth_qoq_annualized_history_window text not null,
+    headline_series_key text not null,
+    headline_source_url text not null,
+    core_series_key text not null,
+    core_source_url text not null,
+    market_real_rate_series_key text not null,
+    market_real_rate_source_url text not null,
+    gdp_series_key text not null,
+    gdp_source_url text not null,
+    policy_real_rate_note text not null
+);
+
 -- Raw retention policy is intentionally deferred in v1.
 -- Cleanup can be added later as scheduled maintenance work.

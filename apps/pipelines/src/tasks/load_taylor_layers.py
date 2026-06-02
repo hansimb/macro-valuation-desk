@@ -4,6 +4,7 @@ from prefect import task
 
 from src.lib.db import (
     bootstrap_taylor_rule_schema,
+    replace_macro_reference_metrics,
     replace_taylor_rule_inputs,
     upsert_raw_observations,
     upsert_series_metadata,
@@ -40,6 +41,7 @@ def load_taylor_layers(
     fetch_results: list[FetchResult],
     staging_rows: list[dict[str, object]],
     mart_rows: list[dict[str, object]],
+    reference_metric_rows: list[dict[str, object]],
 ) -> dict[str, int]:
     run_at = utc_now_iso()
     record_pipeline_run(
@@ -64,6 +66,7 @@ def load_taylor_layers(
         upsert_raw_observations(connection, _raw_rows_from_results(fetch_results, fetched_at=run_at))
         upsert_staging_observations(connection, staging_rows)
         replace_taylor_rule_inputs(connection, mart_rows)
+        replace_macro_reference_metrics(connection, reference_metric_rows)
 
     for result in fetch_results:
         if not result.ok or result.series is None or not result.series.observations:
@@ -94,4 +97,5 @@ def load_taylor_layers(
         "raw_rows": len(_raw_rows_from_results(fetch_results, fetched_at=run_at)),
         "staging_rows": len(staging_rows),
         "mart_rows": len(mart_rows),
+        "reference_metric_rows": len(reference_metric_rows),
     }

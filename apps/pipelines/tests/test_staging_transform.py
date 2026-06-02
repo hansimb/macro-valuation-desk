@@ -79,3 +79,34 @@ def test_stage_standardized_series_skips_non_numeric_values():
             "is_valid": True,
         }
     ]
+
+
+def test_stage_standardized_series_normalizes_quarterly_dates():
+    series = StandardizedSeries(
+        key="eu_real_gdp",
+        category="growth",
+        provider="ecb",
+        series_id="MNA.Q.Y.I9.W2.S1.S1.B.B1GQ._Z._Z._Z.EUR.LR.N",
+        label="Real GDP",
+        region="EU",
+        frequency="quarterly",
+        unit="level",
+        source_url="https://data.ecb.europa.eu/data/datasets/MNA/MNA.Q.Y.I9.W2.S1.S1.B.B1GQ._Z._Z._Z.EUR.LR.N",
+        observations=[Observation(date="2026-Q1", value="3309009.58")],
+    )
+
+    rows = stage_standardized_series(series)
+
+    assert rows == [
+        {
+            "series_id": "eu_real_gdp",
+            "observation_date": "2026-01-01",
+            "numeric_value": 3309009.58,
+            "category": "growth",
+            "region": "EU",
+            "frequency": "quarterly",
+            "unit": "level",
+            "provider": "ecb",
+            "is_valid": True,
+        }
+    ]

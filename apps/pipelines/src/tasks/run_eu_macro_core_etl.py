@@ -8,7 +8,13 @@ from src.lib.source.registry import get_series_definition
 from src.lib.source.types import FetchResult
 
 
-EU_SERIES_KEYS = ["eu_policy_rate", "eu_hicp_headline"]
+EU_SERIES_KEYS = [
+    "eu_policy_rate",
+    "eu_hicp_headline",
+    "eu_hicp_core",
+    "eu_market_real_rate",
+    "eu_real_gdp",
+]
 
 
 def _run_region_series(series_keys: list[str], connection) -> list[FetchResult]:

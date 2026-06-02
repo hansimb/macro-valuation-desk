@@ -6,6 +6,11 @@ from src.lib.source.types import StandardizedSeries
 
 
 def _normalize_observation_date(raw_date: str) -> str:
+    if len(raw_date) == 7 and raw_date[4] == "-" and raw_date[5] == "Q":
+        quarter = int(raw_date[-1])
+        month = {1: "01", 2: "04", 3: "07", 4: "10"}[quarter]
+        return f"{raw_date[:4]}-{month}-01"
+
     if len(raw_date) == 7:
         return f"{raw_date}-01"
 
