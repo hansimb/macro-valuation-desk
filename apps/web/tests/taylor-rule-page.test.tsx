@@ -70,7 +70,7 @@ afterEach(() => {
 });
 
 describe("Taylor Rule page", () => {
-  it("renders the formula, region comparison, and references from API data", async () => {
+  it("renders the formula, compact symbol guide, region comparison, and references from API data", async () => {
     vi.stubGlobal(
       "fetch",
       vi.fn().mockResolvedValue({
@@ -84,7 +84,11 @@ describe("Taylor Rule page", () => {
     render(<ThemeProvider>{page}</ThemeProvider>);
 
     expect(screen.getByRole("heading", { name: /Taylor Rule/i })).toBeInTheDocument();
-    expect(screen.getByText("i = r* + pi + 0.5(pi - pi*) + 0.5(slack)")).toBeInTheDocument();
+    expect(screen.getByText("Implied nominal policy rate from the rule.")).toBeInTheDocument();
+    expect(screen.getByText("Neutral real rate assumption.")).toBeInTheDocument();
+    expect(screen.getByText("Current inflation rate.")).toBeInTheDocument();
+    expect(screen.getByText("Inflation target.")).toBeInTheDocument();
+    expect(screen.getByText("Slack or output-gap proxy.")).toBeInTheDocument();
     expect(screen.getByText("US")).toBeInTheDocument();
     expect(screen.getByText("EU")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Base" })).toBeInTheDocument();

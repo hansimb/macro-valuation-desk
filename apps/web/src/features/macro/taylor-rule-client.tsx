@@ -16,12 +16,21 @@ import {
 import type { TaylorRulePageData, TaylorRuleRegionComparison } from "./taylor-rule-types";
 
 type ScenarioKey = "base" | "dovish" | "hawkish";
+type SymbolKey = "i_t" | "r_t_star" | "pi_t" | "pi_t_star" | "y_t";
 
 const scenarioPresets: Record<ScenarioKey, { neutralRate: string; slackProxy: string }> = {
   base: { neutralRate: "1.00", slackProxy: "0.00" },
   dovish: { neutralRate: "0.50", slackProxy: "-0.50" },
   hawkish: { neutralRate: "1.50", slackProxy: "0.50" }
 };
+
+const symbolGuide: { symbol: SymbolKey; meaning: string }[] = [
+  { symbol: "i_t", meaning: "Implied nominal policy rate from the rule." },
+  { symbol: "r_t_star", meaning: "Neutral real rate assumption." },
+  { symbol: "pi_t", meaning: "Current inflation rate." },
+  { symbol: "pi_t_star", meaning: "Inflation target." },
+  { symbol: "y_t", meaning: "Slack or output-gap proxy." }
+];
 
 function toNumber(value: string) {
   return Number.parseFloat(value);
@@ -57,6 +66,77 @@ function buildInterpretation(regions: TaylorRuleRegionComparison[], neutralRate:
   return lines.join(" ");
 }
 
+function MathSymbol({ symbol }: { symbol: SymbolKey }) {
+  if (symbol === "i_t") {
+    return (
+      <>
+        <Box as="span" fontStyle="italic">
+          i
+        </Box>
+        <Box as="sub" display="inline-block" fontSize="0.7em" transform="translateY(0.2em)">
+          t
+        </Box>
+      </>
+    );
+  }
+
+  if (symbol === "r_t_star") {
+    return (
+      <>
+        <Box as="span" fontStyle="italic">
+          r
+        </Box>
+        <Box as="sub" display="inline-block" fontSize="0.7em" transform="translateY(0.2em)">
+          t
+        </Box>
+        <Box as="sup" display="inline-block" fontSize="0.7em" transform="translateY(-0.15em)">
+          *
+        </Box>
+      </>
+    );
+  }
+
+  if (symbol === "pi_t") {
+    return (
+      <>
+        <Box as="span" fontStyle="italic">
+          π
+        </Box>
+        <Box as="sub" display="inline-block" fontSize="0.7em" transform="translateY(0.2em)">
+          t
+        </Box>
+      </>
+    );
+  }
+
+  if (symbol === "pi_t_star") {
+    return (
+      <>
+        <Box as="span" fontStyle="italic">
+          π
+        </Box>
+        <Box as="sub" display="inline-block" fontSize="0.7em" transform="translateY(0.2em)">
+          t
+        </Box>
+        <Box as="sup" display="inline-block" fontSize="0.7em" transform="translateY(-0.15em)">
+          *
+        </Box>
+      </>
+    );
+  }
+
+  return (
+    <>
+      <Box as="span" fontStyle="italic">
+        y
+      </Box>
+      <Box as="sub" display="inline-block" fontSize="0.7em" transform="translateY(0.2em)">
+        t
+      </Box>
+    </>
+  );
+}
+
 export function TaylorRuleClient({ data }: { data: TaylorRulePageData }) {
   const [neutralRate, setNeutralRate] = useState(data.assumptions.neutralRate);
   const [slackProxy, setSlackProxy] = useState(data.assumptions.slackProxy);
@@ -69,12 +149,39 @@ export function TaylorRuleClient({ data }: { data: TaylorRulePageData }) {
           <Text color="accent" fontSize="xs" letterSpacing="0.16em" textTransform="uppercase">
             Formula
           </Text>
-          <Heading as="h2" fontFamily="body" fontSize={{ base: "lg", md: "xl" }}>
-            {data.formula}
-          </Heading>
+          <Box
+            bg="canvas"
+            borderColor="edge"
+            borderWidth="1px"
+            overflowX="auto"
+            p={{ base: "5", md: "6" }}
+            rounded="panel"
+          >
+            <Text
+              fontFamily="heading"
+              fontSize={{ base: "2xl", md: "3xl" }}
+              lineHeight="1.3"
+              textAlign={{ base: "left", md: "center" }}
+              whiteSpace="nowrap"
+            >
+              <MathSymbol symbol="i_t" /> = <MathSymbol symbol="pi_t" /> + <MathSymbol symbol="r_t_star" /> + 0.5(
+              <MathSymbol symbol="pi_t" /> - <MathSymbol symbol="pi_t_star" />) + 0.5
+              <MathSymbol symbol="y_t" />
+            </Text>
+          </Box>
+          <Stack gap="2">
+            {symbolGuide.map((item) => (
+              <Text key={item.symbol} color="muted" fontSize="sm">
+                <Box as="span" color="text" fontFamily="heading" mr="2">
+                  <MathSymbol symbol={item.symbol} />
+                </Box>
+                {item.meaning}
+              </Text>
+            ))}
+          </Stack>
           <Text color="muted">
-            Policy rate and inflation come from source data. The scenario controls only move the neutral rate and
-            slack proxy assumptions.
+            Policy rate and inflation come from source data. In this view, the scenario controls only move the neutral
+            rate and slack proxy assumptions.
           </Text>
         </Stack>
       </Box>
