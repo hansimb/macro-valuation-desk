@@ -6,13 +6,18 @@ from src.flows.macro_seed_flow import run_macro_seed_flow
 from src.flows.taylor_rule_flow import run_taylor_rule_flow
 
 
+def _format_flow_errors(name: str, errors: list[object]) -> str:
+    bullet_lines = "\n".join(f"  - {error}" for error in errors)
+    return f"{name} flow failed:\n{bullet_lines}"
+
+
 def _raise_on_failed_flow(name: str, result: dict[str, object]) -> None:
     if result.get("status") != "failed":
         return
 
     errors = result.get("errors")
     if isinstance(errors, list):
-        raise RuntimeError(f"{name} flow failed: {'; '.join(str(error) for error in errors)}")
+        raise RuntimeError(_format_flow_errors(name, errors))
 
     raise RuntimeError(f"{name} flow failed")
 

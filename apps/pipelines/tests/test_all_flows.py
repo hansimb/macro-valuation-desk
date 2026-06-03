@@ -32,6 +32,28 @@ def test_run_all_flows_raises_when_a_child_flow_reports_failed_status(monkeypatc
     try:
         run_all_flows()
     except RuntimeError as error:
-        assert str(error) == "taylor_rule flow failed: us_policy_rate: boom"
+        assert str(error) == "taylor_rule flow failed:\n  - us_policy_rate: boom"
+    else:
+        raise AssertionError("expected run_all_flows() to raise for failed child flow")
+
+
+def test_run_all_flows_formats_multiple_errors_as_bulleted_lines(monkeypatch):
+    monkeypatch.setattr("src.flows.all_flows.run_macro_seed_flow", lambda: {"rows_loaded": 3})
+    monkeypatch.setattr(
+        "src.flows.all_flows.run_taylor_rule_flow",
+        lambda: {
+            "status": "failed",
+            "errors": ["us_policy_rate: boom", "eu_policy_rate: blocked"],
+        },
+    )
+
+    try:
+        run_all_flows()
+    except RuntimeError as error:
+        assert str(error) == (
+            "taylor_rule flow failed:\n"
+            "  - us_policy_rate: boom\n"
+            "  - eu_policy_rate: blocked"
+        )
     else:
         raise AssertionError("expected run_all_flows() to raise for failed child flow")
