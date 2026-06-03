@@ -4,6 +4,7 @@ import os
 from pathlib import Path
 
 import psycopg
+from psycopg.rows import dict_row
 
 from src.lib.runtime_env import load_project_env
 from src.lib.source.types import SeriesDefinition
@@ -19,7 +20,7 @@ def get_connection():
     if not database_url:
         return None
 
-    return psycopg.connect(database_url)
+    return psycopg.connect(database_url, row_factory=dict_row)
 
 
 def _schema_sql() -> str:

@@ -1,13 +1,19 @@
 from __future__ import annotations
 
+from datetime import date
+
+from psycopg.rows import dict_row
+
 from src.lib.db import (
     bootstrap_taylor_rule_schema,
+    get_connection,
     replace_taylor_rule_inputs,
     upsert_raw_observations,
     upsert_series_metadata,
     upsert_staging_observations,
 )
 from src.lib.pipeline.checkpoints import (
+    build_fetch_options_for_series,
     build_fetch_options_from_checkpoint,
     read_latest_checkpoint,
     record_pipeline_run,
@@ -53,6 +59,24 @@ class FakeConnection:
 
     def __exit__(self, exc_type, exc, tb):
         return False
+
+
+def test_get_connection_uses_dict_row_factory(monkeypatch):
+    captured_kwargs = {}
+
+    def fake_connect(connection_string, **kwargs):
+        captured_kwargs["connection_string"] = connection_string
+        captured_kwargs.update(kwargs)
+        return object()
+
+    monkeypatch.setattr("src.lib.db.get_database_url", lambda: "postgresql://example")
+    monkeypatch.setattr("src.lib.db.psycopg.connect", fake_connect)
+
+    connection = get_connection()
+
+    assert connection is not None
+    assert captured_kwargs["connection_string"] == "postgresql://example"
+    assert captured_kwargs["row_factory"] is dict_row
 
 
 def test_bootstrap_taylor_rule_schema_creates_required_schemas_and_tables():
@@ -173,3 +197,29 @@ def test_checkpoint_helpers_read_write_and_build_reprocessing_window():
         for query, _ in write_connection.cursor_instance.commands
     )
     assert write_connection.commit_count == 2
+
+
+def test_build_fetch_options_from_checkpoint_accepts_date_objects():
+    options = build_fetch_options_from_checkpoint(date(2026, 5, 20), reprocess_days=30)
+
+    assert options.start_date == "2026-04-20"
+    assert options.end_date is None
+
+
+def test_build_fetch_options_for_series_uses_analysis_aware_lookbacks():
+    inflation_options = build_fetch_options_for_series(
+        date(2026, 5, 20),
+        get_series_definition("us_cpi_headline"),
+    )
+    policy_options = build_fetch_options_for_series(
+        date(2026, 5, 20),
+        get_series_definition("us_policy_rate"),
+    )
+    gdp_options = build_fetch_options_for_series(
+        date(2026, 5, 20),
+        get_series_definition("us_real_gdp"),
+    )
+
+    assert inflation_options.start_date == "2025-04-15"
+    assert policy_options.start_date == "2026-04-20"
+    assert gdp_options.start_date is None
