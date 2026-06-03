@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import UTC, date, datetime, timedelta
 
+from src.lib.source.types import SeriesDefinition
 from src.lib.source.types import FetchOptions
 
 
@@ -27,7 +28,7 @@ def read_latest_checkpoint(connection, series_id: str) -> str | None:
 
 
 def build_fetch_options_from_checkpoint(
-    checkpoint_date: str | None,
+    checkpoint_date: str | date | None,
     *,
     reprocess_days: int = 30,
     end_date: str | None = None,
@@ -35,8 +36,41 @@ def build_fetch_options_from_checkpoint(
     if checkpoint_date is None:
         return FetchOptions(start_date=None, end_date=end_date)
 
-    start_date = date.fromisoformat(checkpoint_date) - timedelta(days=reprocess_days)
+    normalized_checkpoint_date = (
+        checkpoint_date if isinstance(checkpoint_date, date) else date.fromisoformat(checkpoint_date)
+    )
+    start_date = normalized_checkpoint_date - timedelta(days=reprocess_days)
     return FetchOptions(start_date=start_date.isoformat(), end_date=end_date)
+
+
+def _reprocess_days_for_series(series_definition: SeriesDefinition) -> int | None:
+    if series_definition.category == "growth" or series_definition.frequency == "quarterly":
+        return None
+
+    if series_definition.category == "inflation" and series_definition.unit == "index":
+        return 400
+
+    if series_definition.frequency == "monthly":
+        return 120
+
+    return 30
+
+
+def build_fetch_options_for_series(
+    checkpoint_date: str | date | None,
+    series_definition: SeriesDefinition,
+    *,
+    end_date: str | None = None,
+) -> FetchOptions:
+    reprocess_days = _reprocess_days_for_series(series_definition)
+    if reprocess_days is None:
+        return FetchOptions(start_date=None, end_date=end_date)
+
+    return build_fetch_options_from_checkpoint(
+        checkpoint_date,
+        reprocess_days=reprocess_days,
+        end_date=end_date,
+    )
 
 
 def write_successful_checkpoint(
