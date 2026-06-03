@@ -12,6 +12,7 @@ def test_build_taylor_rule_inputs_creates_us_and_eu_rows():
             "frequency": "daily",
             "unit": "percent",
             "provider": "fred",
+            "source_url": "https://fred.stlouisfed.org/series/DFEDTARU",
             "is_valid": True,
         },
         {
@@ -23,6 +24,7 @@ def test_build_taylor_rule_inputs_creates_us_and_eu_rows():
             "frequency": "monthly",
             "unit": "percentage_change",
             "provider": "fred",
+            "source_url": "https://fred.stlouisfed.org/series/CPIAUCSL",
             "is_valid": True,
         },
         {
@@ -34,6 +36,7 @@ def test_build_taylor_rule_inputs_creates_us_and_eu_rows():
             "frequency": "daily",
             "unit": "percent",
             "provider": "fred",
+            "source_url": "https://data.ecb.europa.eu/data/datasets/FM/FM.D.U2.EUR.4F.KR.DFR.LEV",
             "is_valid": True,
         },
         {
@@ -45,6 +48,7 @@ def test_build_taylor_rule_inputs_creates_us_and_eu_rows():
             "frequency": "monthly",
             "unit": "index",
             "provider": "fred",
+            "source_url": "https://fred.stlouisfed.org/series/CP00MI15EA20M086NEST",
             "is_valid": True,
         },
         {
@@ -56,6 +60,7 @@ def test_build_taylor_rule_inputs_creates_us_and_eu_rows():
             "frequency": "monthly",
             "unit": "index",
             "provider": "fred",
+            "source_url": "https://fred.stlouisfed.org/series/CP00MI15EA20M086NEST",
             "is_valid": True,
         },
     ]
@@ -74,7 +79,7 @@ def test_build_taylor_rule_inputs_creates_us_and_eu_rows():
             "implied_rate": 3.15,
             "policy_gap": -0.9,
             "policy_series_key": "eu_policy_rate",
-            "policy_source_url": "https://fred.stlouisfed.org/series/ECBDFR",
+            "policy_source_url": "https://data.ecb.europa.eu/data/datasets/FM/FM.D.U2.EUR.4F.KR.DFR.LEV",
             "inflation_series_key": "eu_hicp_headline",
             "inflation_source_url": "https://fred.stlouisfed.org/series/CP00MI15EA20M086NEST",
             "slack_source_note": "Assumed neutral slack proxy in v1",

@@ -2,8 +2,6 @@ from __future__ import annotations
 
 from datetime import date
 
-from src.lib.source.registry import get_series_definition
-
 DEFAULT_NEUTRAL_RATE = 1.0
 DEFAULT_INFLATION_TARGET = 2.0
 DEFAULT_SLACK_PROXY = 0.0
@@ -60,9 +58,6 @@ def build_taylor_rule_inputs(staging_rows: list[dict[str, object]]) -> list[dict
         )
         policy_gap = round(policy_rate - implied_rate, 2)
 
-        policy_definition = get_series_definition(policy_series_key)
-        inflation_definition = get_series_definition(inflation_series_key)
-
         mart_rows.append(
             {
                 "region": region,
@@ -75,9 +70,9 @@ def build_taylor_rule_inputs(staging_rows: list[dict[str, object]]) -> list[dict
                 "implied_rate": implied_rate,
                 "policy_gap": policy_gap,
                 "policy_series_key": policy_series_key,
-                "policy_source_url": policy_definition.source_url,
+                "policy_source_url": str(policy_row["source_url"]),
                 "inflation_series_key": inflation_series_key,
-                "inflation_source_url": inflation_definition.source_url,
+                "inflation_source_url": str(_latest_row_by_series(staging_rows, inflation_series_key)["source_url"]),
                 "slack_source_note": DEFAULT_SLACK_SOURCE_NOTE,
             }
         )

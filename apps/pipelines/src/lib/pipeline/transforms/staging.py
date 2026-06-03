@@ -36,6 +36,7 @@ def stage_standardized_series(series: StandardizedSeries) -> list[dict[str, obje
                 "frequency": series.frequency,
                 "unit": series.unit,
                 "provider": series.provider,
+                "source_url": series.source_url,
                 "is_valid": True,
             }
         )

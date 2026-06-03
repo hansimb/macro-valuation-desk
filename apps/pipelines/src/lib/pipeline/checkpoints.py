@@ -47,7 +47,9 @@ def _reprocess_days_for_series(series_definition: SeriesDefinition) -> int | Non
     if series_definition.category == "growth" or series_definition.frequency == "quarterly":
         return None
 
-    if series_definition.category == "inflation" and series_definition.unit == "index":
+    if series_definition.category == "inflation" and (
+        series_definition.unit == "index" or series_definition.fallback_unit == "index"
+    ):
         return 400
 
     if series_definition.frequency == "monthly":

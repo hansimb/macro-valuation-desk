@@ -14,6 +14,12 @@ class SeriesDefinition:
     frequency: str
     unit: str
     source_url: str
+    fallback_provider: str | None = None
+    fallback_external_series_id: str | None = None
+    fallback_frequency: str | None = None
+    fallback_unit: str | None = None
+    fallback_source_url: str | None = None
+    fallback_label: str | None = None
 
 
 @dataclass(frozen=True)

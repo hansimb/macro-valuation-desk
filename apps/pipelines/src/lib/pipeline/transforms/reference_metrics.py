@@ -2,8 +2,6 @@ from __future__ import annotations
 
 from datetime import date
 
-from src.lib.source.registry import get_series_definition
-
 POLICY_REAL_RATE_NOTE = "Policy real rate = policy rate minus headline inflation."
 MARKET_REAL_RATE_HEADLINE_PROXY_SERIES = {"eu_market_real_rate"}
 
@@ -17,6 +15,10 @@ def _sorted_valid_rows(staging_rows: list[dict[str, object]], series_id: str) ->
 
 def _latest_row(staging_rows: list[dict[str, object]], series_id: str) -> dict[str, object]:
     return _sorted_valid_rows(staging_rows, series_id)[-1]
+
+
+def _latest_source_url(staging_rows: list[dict[str, object]], series_id: str) -> str:
+    return str(_latest_row(staging_rows, series_id)["source_url"])
 
 
 def _round_rate(value: float) -> float:
@@ -147,11 +149,6 @@ def build_macro_reference_metrics(staging_rows: list[dict[str, object]]) -> list
             gdp_qoq_window,
         ) = _series_rates_from_level(staging_rows, series_map["gdp"])
 
-        headline_definition = get_series_definition(series_map["headline"])
-        core_definition = get_series_definition(series_map["core"])
-        market_real_definition = get_series_definition(series_map["market_real_rate"])
-        gdp_definition = get_series_definition(series_map["gdp"])
-
         rows.append(
             {
                 "region": region,
@@ -173,14 +170,14 @@ def build_macro_reference_metrics(staging_rows: list[dict[str, object]]) -> list
                 "gdp_growth_qoq_annualized_gap": _round_rate(gdp_qoq_current - gdp_qoq_average),
                 "gdp_growth_qoq_annualized_as_of_date": gdp_qoq_as_of,
                 "gdp_growth_qoq_annualized_history_window": gdp_qoq_window,
-                "headline_series_key": headline_definition.key,
-                "headline_source_url": headline_definition.source_url,
-                "core_series_key": core_definition.key,
-                "core_source_url": core_definition.source_url,
-                "market_real_rate_series_key": market_real_definition.key,
-                "market_real_rate_source_url": market_real_definition.source_url,
-                "gdp_series_key": gdp_definition.key,
-                "gdp_source_url": gdp_definition.source_url,
+                "headline_series_key": series_map["headline"],
+                "headline_source_url": _latest_source_url(staging_rows, series_map["headline"]),
+                "core_series_key": series_map["core"],
+                "core_source_url": _latest_source_url(staging_rows, series_map["core"]),
+                "market_real_rate_series_key": series_map["market_real_rate"],
+                "market_real_rate_source_url": _latest_source_url(staging_rows, series_map["market_real_rate"]),
+                "gdp_series_key": series_map["gdp"],
+                "gdp_source_url": _latest_source_url(staging_rows, series_map["gdp"]),
                 "policy_real_rate_note": POLICY_REAL_RATE_NOTE,
             }
         )

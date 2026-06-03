@@ -12,6 +12,7 @@ def test_build_macro_reference_metrics_creates_us_and_eu_rows_with_dates():
             "frequency": "daily",
             "unit": "percent",
             "provider": "fred",
+            "source_url": "https://fred.stlouisfed.org/series/DFEDTARU",
             "is_valid": True,
         },
         {
@@ -23,6 +24,7 @@ def test_build_macro_reference_metrics_creates_us_and_eu_rows_with_dates():
             "frequency": "monthly",
             "unit": "index",
             "provider": "fred",
+            "source_url": "https://fred.stlouisfed.org/series/CPIAUCSL",
             "is_valid": True,
         },
         {
@@ -34,6 +36,7 @@ def test_build_macro_reference_metrics_creates_us_and_eu_rows_with_dates():
             "frequency": "monthly",
             "unit": "index",
             "provider": "fred",
+            "source_url": "https://fred.stlouisfed.org/series/CPIAUCSL",
             "is_valid": True,
         },
         {
@@ -45,6 +48,7 @@ def test_build_macro_reference_metrics_creates_us_and_eu_rows_with_dates():
             "frequency": "monthly",
             "unit": "index",
             "provider": "fred",
+            "source_url": "https://fred.stlouisfed.org/series/CPILFESL",
             "is_valid": True,
         },
         {
@@ -56,6 +60,7 @@ def test_build_macro_reference_metrics_creates_us_and_eu_rows_with_dates():
             "frequency": "monthly",
             "unit": "index",
             "provider": "fred",
+            "source_url": "https://fred.stlouisfed.org/series/CPILFESL",
             "is_valid": True,
         },
         {
@@ -67,6 +72,7 @@ def test_build_macro_reference_metrics_creates_us_and_eu_rows_with_dates():
             "frequency": "daily",
             "unit": "percent",
             "provider": "fred",
+            "source_url": "https://fred.stlouisfed.org/series/DFII10",
             "is_valid": True,
         },
         {
@@ -78,6 +84,7 @@ def test_build_macro_reference_metrics_creates_us_and_eu_rows_with_dates():
             "frequency": "quarterly",
             "unit": "level",
             "provider": "fred",
+            "source_url": "https://fred.stlouisfed.org/series/GDPC1",
             "is_valid": True,
         },
         {
@@ -89,6 +96,7 @@ def test_build_macro_reference_metrics_creates_us_and_eu_rows_with_dates():
             "frequency": "quarterly",
             "unit": "level",
             "provider": "fred",
+            "source_url": "https://fred.stlouisfed.org/series/GDPC1",
             "is_valid": True,
         },
         {
@@ -100,6 +108,7 @@ def test_build_macro_reference_metrics_creates_us_and_eu_rows_with_dates():
             "frequency": "quarterly",
             "unit": "level",
             "provider": "fred",
+            "source_url": "https://fred.stlouisfed.org/series/GDPC1",
             "is_valid": True,
         },
         {
@@ -111,6 +120,7 @@ def test_build_macro_reference_metrics_creates_us_and_eu_rows_with_dates():
             "frequency": "quarterly",
             "unit": "level",
             "provider": "fred",
+            "source_url": "https://fred.stlouisfed.org/series/GDPC1",
             "is_valid": True,
         },
         {
@@ -122,6 +132,7 @@ def test_build_macro_reference_metrics_creates_us_and_eu_rows_with_dates():
             "frequency": "quarterly",
             "unit": "level",
             "provider": "fred",
+            "source_url": "https://fred.stlouisfed.org/series/GDPC1",
             "is_valid": True,
         },
         {
@@ -133,6 +144,7 @@ def test_build_macro_reference_metrics_creates_us_and_eu_rows_with_dates():
             "frequency": "daily",
             "unit": "percent",
             "provider": "fred",
+            "source_url": "https://data.ecb.europa.eu/data/datasets/FM/FM.D.U2.EUR.4F.KR.DFR.LEV",
             "is_valid": True,
         },
         {
@@ -144,6 +156,7 @@ def test_build_macro_reference_metrics_creates_us_and_eu_rows_with_dates():
             "frequency": "monthly",
             "unit": "index",
             "provider": "fred",
+            "source_url": "https://fred.stlouisfed.org/series/CP00MI15EA20M086NEST",
             "is_valid": True,
         },
         {
@@ -155,6 +168,7 @@ def test_build_macro_reference_metrics_creates_us_and_eu_rows_with_dates():
             "frequency": "monthly",
             "unit": "index",
             "provider": "fred",
+            "source_url": "https://fred.stlouisfed.org/series/CP00MI15EA20M086NEST",
             "is_valid": True,
         },
         {
@@ -166,6 +180,7 @@ def test_build_macro_reference_metrics_creates_us_and_eu_rows_with_dates():
             "frequency": "monthly",
             "unit": "index",
             "provider": "fred",
+            "source_url": "https://fred.stlouisfed.org/series/00XEFDEZCCM086NEST",
             "is_valid": True,
         },
         {
@@ -177,6 +192,7 @@ def test_build_macro_reference_metrics_creates_us_and_eu_rows_with_dates():
             "frequency": "monthly",
             "unit": "index",
             "provider": "fred",
+            "source_url": "https://fred.stlouisfed.org/series/00XEFDEZCCM086NEST",
             "is_valid": True,
         },
         {
@@ -188,6 +204,7 @@ def test_build_macro_reference_metrics_creates_us_and_eu_rows_with_dates():
             "frequency": "monthly",
             "unit": "percent",
             "provider": "fred",
+            "source_url": "https://fred.stlouisfed.org/series/IRLTLT01EZM156N",
             "is_valid": True,
         },
         {
@@ -199,6 +216,7 @@ def test_build_macro_reference_metrics_creates_us_and_eu_rows_with_dates():
             "frequency": "quarterly",
             "unit": "level",
             "provider": "fred",
+            "source_url": "https://fred.stlouisfed.org/series/CLV10MNACB1GQSCAEA20Q",
             "is_valid": True,
         },
         {
@@ -210,6 +228,7 @@ def test_build_macro_reference_metrics_creates_us_and_eu_rows_with_dates():
             "frequency": "quarterly",
             "unit": "level",
             "provider": "fred",
+            "source_url": "https://fred.stlouisfed.org/series/CLV10MNACB1GQSCAEA20Q",
             "is_valid": True,
         },
         {
@@ -221,6 +240,7 @@ def test_build_macro_reference_metrics_creates_us_and_eu_rows_with_dates():
             "frequency": "quarterly",
             "unit": "level",
             "provider": "fred",
+            "source_url": "https://fred.stlouisfed.org/series/CLV10MNACB1GQSCAEA20Q",
             "is_valid": True,
         },
         {
@@ -232,6 +252,7 @@ def test_build_macro_reference_metrics_creates_us_and_eu_rows_with_dates():
             "frequency": "quarterly",
             "unit": "level",
             "provider": "fred",
+            "source_url": "https://fred.stlouisfed.org/series/CLV10MNACB1GQSCAEA20Q",
             "is_valid": True,
         },
         {
@@ -243,6 +264,7 @@ def test_build_macro_reference_metrics_creates_us_and_eu_rows_with_dates():
             "frequency": "quarterly",
             "unit": "level",
             "provider": "ecb",
+            "source_url": "https://data.ecb.europa.eu/data/datasets/MNA/MNA.Q.Y.I9.W2.S1.S1.B.B1GQ._Z._Z._Z.EUR.LR.N",
             "is_valid": True,
         },
     ]
@@ -273,11 +295,11 @@ def test_build_macro_reference_metrics_creates_us_and_eu_rows_with_dates():
             "headline_series_key": "eu_hicp_headline",
             "headline_source_url": "https://fred.stlouisfed.org/series/CP00MI15EA20M086NEST",
             "core_series_key": "eu_hicp_core",
-            "core_source_url": "https://fred.stlouisfed.org/series/CPHPLA01EZM661N",
+            "core_source_url": "https://fred.stlouisfed.org/series/00XEFDEZCCM086NEST",
             "market_real_rate_series_key": "eu_market_real_rate",
             "market_real_rate_source_url": "https://fred.stlouisfed.org/series/IRLTLT01EZM156N",
             "gdp_series_key": "eu_real_gdp",
-            "gdp_source_url": "https://fred.stlouisfed.org/series/CLV10MNACB1GQSCAEA20Q",
+            "gdp_source_url": "https://data.ecb.europa.eu/data/datasets/MNA/MNA.Q.Y.I9.W2.S1.S1.B.B1GQ._Z._Z._Z.EUR.LR.N",
             "policy_real_rate_note": "Policy real rate = policy rate minus headline inflation.",
         },
         {

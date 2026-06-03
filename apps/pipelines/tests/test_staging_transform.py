@@ -31,6 +31,7 @@ def test_stage_standardized_series_normalizes_dates_and_numeric_values():
             "frequency": "daily",
             "unit": "percent",
             "provider": "fred",
+            "source_url": "https://fred.stlouisfed.org/series/DFEDTARU",
             "is_valid": True,
         },
         {
@@ -42,6 +43,7 @@ def test_stage_standardized_series_normalizes_dates_and_numeric_values():
             "frequency": "daily",
             "unit": "percent",
             "provider": "fred",
+            "source_url": "https://fred.stlouisfed.org/series/DFEDTARU",
             "is_valid": True,
         },
     ]
@@ -76,6 +78,7 @@ def test_stage_standardized_series_skips_non_numeric_values():
             "frequency": "monthly",
             "unit": "percentage_change",
             "provider": "ecb",
+            "source_url": "https://data.ecb.europa.eu/data/datasets/HICP/HICP.M.U2.N.000000.4D0.ANR",
             "is_valid": True,
         }
     ]
@@ -107,6 +110,7 @@ def test_stage_standardized_series_normalizes_quarterly_dates():
             "frequency": "quarterly",
             "unit": "level",
             "provider": "ecb",
+            "source_url": "https://data.ecb.europa.eu/data/datasets/MNA/MNA.Q.Y.I9.W2.S1.S1.B.B1GQ._Z._Z._Z.EUR.LR.N",
             "is_valid": True,
         }
     ]
