@@ -1,5 +1,7 @@
 import json
 import os
+from io import BytesIO
+from urllib.error import HTTPError
 
 from src.lib.source.adapters.fred import FredAdapter
 from src.lib.source.fetch import fetch_registered_series
@@ -91,3 +93,28 @@ def test_fred_adapter_returns_config_failure_when_api_key_is_missing(monkeypatch
     assert result.error is not None
     assert result.error.error_type == "config_error"
     assert "FRED_API_KEY" in result.error.message
+
+
+def test_fred_adapter_includes_request_url_and_response_body_in_http_errors(monkeypatch):
+    monkeypatch.setenv("FRED_API_KEY", "test-key")
+
+    def fake_urlopen(request):
+        raise HTTPError(
+            url=request.full_url,
+            code=400,
+            msg="Bad Request",
+            hdrs=None,
+            fp=BytesIO(b'{"error_message":"bad fred request"}'),
+        )
+
+    monkeypatch.setattr("src.lib.source.adapters.fred.urlopen", fake_urlopen)
+
+    result = FredAdapter().fetch_series(
+        get_series_definition("us_policy_rate"),
+        FetchOptions(),
+    )
+
+    assert result.ok is False
+    assert result.error is not None
+    assert "api_key=test-key" in result.error.message
+    assert "bad fred request" in result.error.message

@@ -5,10 +5,12 @@ from pathlib import Path
 
 import psycopg
 
+from src.lib.runtime_env import load_project_env
 from src.lib.source.types import SeriesDefinition
 
 
 def get_database_url() -> str | None:
+    load_project_env()
     return os.getenv("DATABASE_URL", "postgresql://mvd:mvd@localhost:5432/mvd")
 
 
