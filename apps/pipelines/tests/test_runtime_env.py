@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from src.lib.runtime_env import load_env_file
+from src.lib.runtime_env import load_env_file, load_project_env
 
 
 def test_load_env_file_sets_missing_values_and_preserves_existing(monkeypatch, tmp_path):
@@ -30,3 +30,18 @@ def test_load_env_file_is_noop_for_missing_file(tmp_path):
     load_env_file(missing_file)
 
     assert not Path(missing_file).exists()
+
+
+def test_load_project_env_looks_in_repo_root(monkeypatch):
+    loaded_paths: list[Path] = []
+
+    monkeypatch.setattr(
+        "src.lib.runtime_env.load_env_file",
+        lambda path: loaded_paths.append(path),
+    )
+
+    load_project_env()
+
+    assert loaded_paths[0].name == ".env"
+    assert loaded_paths[0].parent.name == "macro-valuation-desk"
+    assert loaded_paths[1].as_posix().endswith("macro-valuation-desk/infra/compose/.env")

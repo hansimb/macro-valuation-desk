@@ -20,6 +20,6 @@ def load_env_file(path: Path) -> None:
 
 
 def load_project_env() -> None:
-    root = Path(__file__).resolve().parents[3]
+    root = Path(__file__).resolve().parents[4]
     load_env_file(root / ".env")
     load_env_file(root / "infra" / "compose" / ".env")
