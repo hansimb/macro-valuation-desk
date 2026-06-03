@@ -1,6 +1,6 @@
 import React from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 
 import TaylorRulePage from "../src/app/macro/taylor-rule/page";
 import { ThemeProvider } from "../src/features/theme/provider";
@@ -113,7 +113,7 @@ afterEach(() => {
 });
 
 describe("Taylor Rule page", () => {
-  it("renders the formula, compact symbol guide, region comparison, and references from API data", async () => {
+  it("renders per-region assumptions, results, and academic-style references from API data", async () => {
     vi.stubGlobal(
       "fetch",
       vi.fn().mockResolvedValue({
@@ -134,20 +134,53 @@ describe("Taylor Rule page", () => {
     expect(screen.getByText("Slack or output-gap proxy.")).toBeInTheDocument();
     expect(screen.getAllByText("US").length).toBeGreaterThan(0);
     expect(screen.getAllByText("EU").length).toBeGreaterThan(0);
-    expect(screen.getByRole("button", { name: "Base" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "EU" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "USA" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "EU assumptions" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "USA assumptions" })).toBeInTheDocument();
     expect(screen.getAllByText("CPI").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("Core").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Core CPI").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Policy real rate").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Market real rate").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("GDP YoY").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("YoY Avg").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("q/q Gap").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("GDP YoY growth").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("GDP YoY Avg").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("GDP q/q ann. growth gap").length).toBeGreaterThan(0);
     expect(screen.getByText("Source: ECB, FRED")).toBeInTheDocument();
     expect(screen.getByText("Source: FRED")).toBeInTheDocument();
-    expect(screen.getByText("EU policy rate")).toBeInTheDocument();
-    expect(screen.getByText("US policy rate")).toBeInTheDocument();
+    expect(screen.getByText(/Interpretation: EU screens easier than the rule benchmark by 0.90 percentage points\./)).toBeInTheDocument();
+    expect(screen.getByText(/Interpretation: US screens tighter than the rule benchmark by 0.15 percentage points\./)).toBeInTheDocument();
+    expect(screen.getByText(/Federal Reserve Bank of St\. Louis, FRED, "EU policy rate"/)).toBeInTheDocument();
+    expect(screen.getByText(/Federal Reserve Bank of St\. Louis, FRED, "US policy rate"/)).toBeInTheDocument();
+  });
+
+  it("adjusts region assumptions in 0.25 point steps", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => payload
+      })
+    );
+
+    const page = await TaylorRulePage();
+
+    render(<ThemeProvider>{page}</ThemeProvider>);
+
+    const euNeutralIncrease = screen.getByRole("button", { name: "Increase EU neutral rate" });
+    fireEvent.click(euNeutralIncrease);
+
+    expect(screen.getAllByText("1.25").length).toBeGreaterThan(0);
+    expect(
+      screen.getByText(/Interpretation: EU screens easier than the rule benchmark by 1.15 percentage points\./)
+    ).toBeInTheDocument();
+
+    const euSlackDecrease = screen.getByRole("button", { name: "Decrease EU slack proxy" });
+    fireEvent.click(euSlackDecrease);
+
+    expect(screen.getAllByText("-0.25").length).toBeGreaterThan(0);
+    expect(
+      screen.getByText(/Interpretation: EU screens easier than the rule benchmark by 1.03 percentage points\./)
+    ).toBeInTheDocument();
   });
 
   it("shows an explicit unavailable-data notice instead of rendering fallback numbers when the API fetch fails", async () => {
@@ -159,8 +192,8 @@ describe("Taylor Rule page", () => {
 
     expect(screen.getByText("Live Taylor Rule data is unavailable right now.")).toBeInTheDocument();
     expect(screen.getByText("Start the API and run the Taylor Rule pipeline to populate current values.")).toBeInTheDocument();
-    expect(screen.queryByText("EU policy rate")).not.toBeInTheDocument();
+    expect(screen.queryByText("Federal Reserve Bank of St. Louis, FRED, \"EU policy rate\"")).not.toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "USA" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Base" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "EU assumptions" })).not.toBeInTheDocument();
   });
 });

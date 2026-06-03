@@ -1,17 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import {
-  Box,
-  Button,
-  Heading,
-  HStack,
-  Input,
-  Link,
-  SimpleGrid,
-  Stack,
-  Text
-} from "@chakra-ui/react";
+import { Box, Button, Heading, HStack, Link, SimpleGrid, Stack, Text } from "@chakra-ui/react";
 
 import type {
   TaylorRuleGrowthMetric,
@@ -20,14 +10,13 @@ import type {
   TaylorRuleRegionComparison
 } from "./taylor-rule-types";
 
-type ScenarioKey = "base" | "dovish" | "hawkish";
 type SymbolKey = "i_t" | "r_t_star" | "pi_t" | "pi_t_star" | "y_t";
-
-const scenarioPresets: Record<ScenarioKey, { neutralRate: string; slackProxy: string }> = {
-  base: { neutralRate: "1.00", slackProxy: "0.00" },
-  dovish: { neutralRate: "0.50", slackProxy: "-0.50" },
-  hawkish: { neutralRate: "1.50", slackProxy: "0.50" }
+type RegionAssumptions = {
+  neutralRate: string;
+  slackProxy: string;
 };
+
+const ADJUSTMENT_STEP = 0.25;
 
 const symbolGuide: { symbol: SymbolKey; meaning: string }[] = [
   { symbol: "i_t", meaning: "Implied nominal policy rate from the rule." },
@@ -39,6 +28,10 @@ const symbolGuide: { symbol: SymbolKey; meaning: string }[] = [
 
 function toNumber(value: string) {
   return Number.parseFloat(value);
+}
+
+function formatAdjustmentValue(value: number) {
+  return value.toFixed(2);
 }
 
 function calculateScenario(region: TaylorRuleRegionComparison, neutralRate: string, slackProxy: string) {
@@ -56,19 +49,15 @@ function calculateScenario(region: TaylorRuleRegionComparison, neutralRate: stri
   };
 }
 
-function buildInterpretation(regions: TaylorRuleRegionComparison[], neutralRate: string, slackProxy: string) {
-  const lines = regions.map((region) => {
-    const scenario = calculateScenario(region, neutralRate, slackProxy);
-    const gap = toNumber(scenario.policyGap);
+function buildInterpretation(region: TaylorRuleRegionComparison, neutralRate: string, slackProxy: string) {
+  const scenario = calculateScenario(region, neutralRate, slackProxy);
+  const gap = toNumber(scenario.policyGap);
 
-    if (gap >= 0) {
-      return `${region.region} screens tighter than the rule benchmark by ${scenario.policyGap} percentage points.`;
-    }
+  if (gap >= 0) {
+    return `${region.region} screens tighter than the rule benchmark by ${scenario.policyGap} percentage points.`;
+  }
 
-    return `${region.region} screens easier than the rule benchmark by ${Math.abs(gap).toFixed(2)} percentage points.`;
-  });
-
-  return lines.join(" ");
+  return `${region.region} screens easier than the rule benchmark by ${Math.abs(gap).toFixed(2)} percentage points.`;
 }
 
 function MathSymbol({ symbol }: { symbol: SymbolKey }) {
@@ -105,7 +94,7 @@ function MathSymbol({ symbol }: { symbol: SymbolKey }) {
     return (
       <>
         <Box as="span" fontStyle="italic">
-          π
+          pi
         </Box>
         <Box as="sub" display="inline-block" fontSize="0.7em" transform="translateY(0.2em)">
           t
@@ -118,7 +107,7 @@ function MathSymbol({ symbol }: { symbol: SymbolKey }) {
     return (
       <>
         <Box as="span" fontStyle="italic">
-          π
+          pi
         </Box>
         <Box as="sub" display="inline-block" fontSize="0.7em" transform="translateY(0.2em)">
           t
@@ -182,13 +171,41 @@ function regionSourceSummary(region: TaylorRuleRegionComparison) {
   return region.sourceNames.join(", ");
 }
 
+function buildInitialAssumptions(regions: TaylorRuleRegionComparison[]) {
+  return regions.reduce<Record<string, RegionAssumptions>>((accumulator, region) => {
+    accumulator[region.region] = {
+      neutralRate: region.neutralRate,
+      slackProxy: region.slackProxy
+    };
+    return accumulator;
+  }, {});
+}
+
+function adjustValue(currentValue: string, delta: number) {
+  return formatAdjustmentValue(toNumber(currentValue) + delta);
+}
+
+function academicReferenceText(label: string) {
+  return `Federal Reserve Bank of St. Louis, FRED, "${label}"`;
+}
+
 export function TaylorRuleClient({ data }: { data: TaylorRulePageData }) {
-  const [neutralRate, setNeutralRate] = useState(data.assumptions.neutralRate);
-  const [slackProxy, setSlackProxy] = useState(data.assumptions.slackProxy);
-  const interpretation = buildInterpretation(data.regions, neutralRate, slackProxy);
+  const [assumptionsByRegion, setAssumptionsByRegion] = useState<Record<string, RegionAssumptions>>(
+    buildInitialAssumptions(data.regions)
+  );
   const referenceRegions = data.regions.filter((region) => region.referenceMetrics);
   const hasRegionData = data.regions.length > 0;
   const hasReferences = data.references.length > 0;
+
+  function updateRegionAssumption(regionKey: string, field: keyof RegionAssumptions, delta: number) {
+    setAssumptionsByRegion((current) => ({
+      ...current,
+      [regionKey]: {
+        ...current[regionKey],
+        [field]: adjustValue(current[regionKey][field], delta)
+      }
+    }));
+  }
 
   return (
     <Stack gap={{ base: "8", md: "10" }}>
@@ -228,8 +245,8 @@ export function TaylorRuleClient({ data }: { data: TaylorRulePageData }) {
             ))}
           </Stack>
           <Text color="muted">
-            Policy rate and inflation come from source data. In this view, the scenario controls only move the neutral
-            rate and slack proxy assumptions.
+            Policy rate and inflation come from source data. In this view, the assumptions are adjusted separately for
+            the euro area and the United States.
           </Text>
         </Stack>
       </Box>
@@ -263,7 +280,7 @@ export function TaylorRuleClient({ data }: { data: TaylorRulePageData }) {
                       value={formatPointValue(metrics.headlineInflation)}
                     />
                     <ReferenceMetric
-                      label="Core"
+                      label="Core CPI"
                       meta={metrics.coreInflation.asOf}
                       value={formatPointValue(metrics.coreInflation)}
                     />
@@ -278,32 +295,32 @@ export function TaylorRuleClient({ data }: { data: TaylorRulePageData }) {
                       value={formatPointValue(metrics.marketRealRate)}
                     />
                     <ReferenceMetric
-                      label="GDP YoY"
+                      label="GDP YoY growth"
                       meta={metrics.gdpGrowthYoy.asOf}
                       value={formatGrowthValue(metrics.gdpGrowthYoy, "current")}
                     />
                     <ReferenceMetric
-                      label="YoY Avg"
+                      label="GDP YoY Avg"
                       meta={metrics.gdpGrowthYoy.historyWindow}
                       value={formatGrowthValue(metrics.gdpGrowthYoy, "historicalAverage")}
                     />
                     <ReferenceMetric
-                      label="YoY Gap"
+                      label="GDP YoY growth gap"
                       meta={`${metrics.gdpGrowthYoy.asOf} vs avg`}
                       value={formatGrowthValue(metrics.gdpGrowthYoy, "gap")}
                     />
                     <ReferenceMetric
-                      label="GDP q/q ann."
+                      label="GDP q/q ann. growth"
                       meta={metrics.gdpGrowthQoqAnnualized.asOf}
                       value={formatGrowthValue(metrics.gdpGrowthQoqAnnualized, "current")}
                     />
                     <ReferenceMetric
-                      label="q/q Avg"
+                      label="GDP q/q ann. Avg"
                       meta={metrics.gdpGrowthQoqAnnualized.historyWindow}
                       value={formatGrowthValue(metrics.gdpGrowthQoqAnnualized, "historicalAverage")}
                     />
                     <ReferenceMetric
-                      label="q/q Gap"
+                      label="GDP q/q ann. growth gap"
                       meta={`${metrics.gdpGrowthQoqAnnualized.asOf} vs avg`}
                       value={formatGrowthValue(metrics.gdpGrowthQoqAnnualized, "gap")}
                     />
@@ -321,57 +338,91 @@ export function TaylorRuleClient({ data }: { data: TaylorRulePageData }) {
       {hasRegionData ? (
         <>
           <SimpleGrid columns={{ base: 1, md: 2 }} gap="6">
-            <Box bg="surface" borderColor="edge" borderWidth="1px" p={{ base: "6", md: "7" }} rounded="panel">
-              <Stack gap="4">
-                <Text color="accent" fontSize="xs" letterSpacing="0.16em" textTransform="uppercase">
-                  Assumptions
-                </Text>
-                <HStack align="end" gap="4">
-                  <Stack flex="1" gap="2">
-                    <Text color="muted" fontSize="sm">
-                      Neutral rate r*
-                    </Text>
-                    <Input value={neutralRate} onChange={(event) => setNeutralRate(event.target.value)} type="number" />
-                  </Stack>
-                  <Stack flex="1" gap="2">
-                    <Text color="muted" fontSize="sm">
-                      Slack proxy
-                    </Text>
-                    <Input value={slackProxy} onChange={(event) => setSlackProxy(event.target.value)} type="number" />
-                  </Stack>
-                </HStack>
-                <HStack gap="3" wrap="wrap">
-                  {(["base", "dovish", "hawkish"] as ScenarioKey[]).map((scenarioKey) => (
-                    <Button
-                      key={scenarioKey}
-                      bg="transparent"
-                      borderColor="edge"
-                      borderWidth="1px"
-                      onClick={() => {
-                        setNeutralRate(scenarioPresets[scenarioKey].neutralRate);
-                        setSlackProxy(scenarioPresets[scenarioKey].slackProxy);
-                      }}
-                    >
-                      {scenarioKey.charAt(0).toUpperCase() + scenarioKey.slice(1)}
-                    </Button>
-                  ))}
-                </HStack>
-              </Stack>
-            </Box>
+            {data.regions.map((region) => {
+              const assumptions = assumptionsByRegion[region.region];
 
-            <Box bg="surface" borderColor="edge" borderWidth="1px" p={{ base: "6", md: "7" }} rounded="panel">
-              <Stack gap="4">
-                <Text color="accent" fontSize="xs" letterSpacing="0.16em" textTransform="uppercase">
-                  Interpretation
-                </Text>
-                <Text color="muted">{interpretation}</Text>
-              </Stack>
-            </Box>
+              return (
+                <Box
+                  key={`${region.region}-assumptions`}
+                  bg="surface"
+                  borderColor="edge"
+                  borderWidth="1px"
+                  p={{ base: "6", md: "7" }}
+                  rounded="panel"
+                >
+                  <Stack gap="4">
+                    <Heading as="h3" fontSize={{ base: "xl", md: "2xl" }}>
+                      {regionReferenceHeading(region.region)} assumptions
+                    </Heading>
+                    <Stack gap="4">
+                      <Stack gap="2">
+                        <Text color="muted" fontSize="sm">
+                          Neutral rate
+                        </Text>
+                        <HStack justify="space-between">
+                          <Button
+                            aria-label={`Decrease ${regionReferenceHeading(region.region)} neutral rate`}
+                            bg="transparent"
+                            borderColor="edge"
+                            borderWidth="1px"
+                            onClick={() => updateRegionAssumption(region.region, "neutralRate", -ADJUSTMENT_STEP)}
+                          >
+                            Decrease
+                          </Button>
+                          <Text fontSize="lg" fontWeight="semibold" minW="4.5rem" textAlign="center">
+                            {assumptions.neutralRate}
+                          </Text>
+                          <Button
+                            aria-label={`Increase ${regionReferenceHeading(region.region)} neutral rate`}
+                            bg="transparent"
+                            borderColor="edge"
+                            borderWidth="1px"
+                            onClick={() => updateRegionAssumption(region.region, "neutralRate", ADJUSTMENT_STEP)}
+                          >
+                            Increase
+                          </Button>
+                        </HStack>
+                      </Stack>
+                      <Stack gap="2">
+                        <Text color="muted" fontSize="sm">
+                          Slack proxy
+                        </Text>
+                        <HStack justify="space-between">
+                          <Button
+                            aria-label={`Decrease ${regionReferenceHeading(region.region)} slack proxy`}
+                            bg="transparent"
+                            borderColor="edge"
+                            borderWidth="1px"
+                            onClick={() => updateRegionAssumption(region.region, "slackProxy", -ADJUSTMENT_STEP)}
+                          >
+                            Decrease
+                          </Button>
+                          <Text fontSize="lg" fontWeight="semibold" minW="4.5rem" textAlign="center">
+                            {assumptions.slackProxy}
+                          </Text>
+                          <Button
+                            aria-label={`Increase ${regionReferenceHeading(region.region)} slack proxy`}
+                            bg="transparent"
+                            borderColor="edge"
+                            borderWidth="1px"
+                            onClick={() => updateRegionAssumption(region.region, "slackProxy", ADJUSTMENT_STEP)}
+                          >
+                            Increase
+                          </Button>
+                        </HStack>
+                      </Stack>
+                    </Stack>
+                  </Stack>
+                </Box>
+              );
+            })}
           </SimpleGrid>
 
           <SimpleGrid columns={{ base: 1, md: 2 }} gap="6">
             {data.regions.map((region) => {
-              const scenario = calculateScenario(region, neutralRate, slackProxy);
+              const assumptions = assumptionsByRegion[region.region];
+              const scenario = calculateScenario(region, assumptions.neutralRate, assumptions.slackProxy);
+              const interpretation = buildInterpretation(region, assumptions.neutralRate, assumptions.slackProxy);
 
               return (
                 <Box
@@ -401,6 +452,9 @@ export function TaylorRuleClient({ data }: { data: TaylorRulePageData }) {
                       <Text color="muted">Scenario gap</Text>
                       <Text>{scenario.policyGap}%</Text>
                     </SimpleGrid>
+                    <Text color="muted" fontSize="sm">
+                      Interpretation: {interpretation}
+                    </Text>
                   </Stack>
                 </Box>
               );
@@ -419,7 +473,7 @@ export function TaylorRuleClient({ data }: { data: TaylorRulePageData }) {
               <Box key={reference.label}>
                 {reference.url ? (
                   <Link color="text" href={reference.url} target="_blank">
-                    {reference.label}
+                    {academicReferenceText(reference.label)}
                   </Link>
                 ) : (
                   <Text>{reference.label}</Text>
