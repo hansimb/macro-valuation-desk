@@ -178,6 +178,10 @@ function regionReferenceHeading(region: string) {
   return region === "US" ? "USA" : region;
 }
 
+function regionSourceSummary(region: TaylorRuleRegionComparison) {
+  return region.sourceNames.join(", ");
+}
+
 export function TaylorRuleClient({ data }: { data: TaylorRulePageData }) {
   const [neutralRate, setNeutralRate] = useState(data.assumptions.neutralRate);
   const [slackProxy, setSlackProxy] = useState(data.assumptions.slackProxy);
@@ -264,12 +268,12 @@ export function TaylorRuleClient({ data }: { data: TaylorRulePageData }) {
                       value={formatPointValue(metrics.coreInflation)}
                     />
                     <ReferenceMetric
-                      label="PRR"
+                      label="Policy real rate"
                       meta={metrics.policyRealRate.asOf}
                       value={formatPointValue(metrics.policyRealRate)}
                     />
                     <ReferenceMetric
-                      label="MRR"
+                      label="Market real rate"
                       meta={metrics.marketRealRate.asOf}
                       value={formatPointValue(metrics.marketRealRate)}
                     />
@@ -304,6 +308,9 @@ export function TaylorRuleClient({ data }: { data: TaylorRulePageData }) {
                       value={formatGrowthValue(metrics.gdpGrowthQoqAnnualized, "gap")}
                     />
                   </SimpleGrid>
+                  <Text color="muted" fontSize="xs">
+                    Source: {regionSourceSummary(region)}
+                  </Text>
                 </Stack>
               </Box>
             );

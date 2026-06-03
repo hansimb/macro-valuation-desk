@@ -141,6 +141,7 @@ describe("taylor rule route", () => {
           slackProxy: "0.00",
           impliedRate: "3.15",
           policyGap: "-0.90",
+          sourceNames: ["ECB"],
           references: {
             policySeriesKey: "eu_policy_rate",
             policySourceUrl: "https://data.ecb.europa.eu/data/datasets/FM/FM.D.U2.EUR.4F.KR.DFR.LEV",
@@ -183,6 +184,7 @@ describe("taylor rule route", () => {
           slackProxy: "0.00",
           impliedRate: "4.35",
           policyGap: "0.15",
+          sourceNames: ["FRED", "ECB"],
           references: {
             policySeriesKey: "us_policy_rate",
             policySourceUrl: "https://fred.stlouisfed.org/series/DFEDTARU",
@@ -308,6 +310,7 @@ describe("taylor rule route", () => {
 
     expect(response.statusCode).toBe(200);
     expect(body.regions).toHaveLength(1);
+    expect(body.regions[0].sourceNames).toEqual(["ECB"]);
     expect(body.regions[0]).not.toHaveProperty("referenceMetrics");
   });
 });

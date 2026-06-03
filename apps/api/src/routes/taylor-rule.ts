@@ -5,6 +5,26 @@ import { getDbPool } from "../lib/db";
 
 const FORMULA = "i = r* + pi + 0.5(pi - pi*) + 0.5(slack)";
 
+function sourceNameFromUrl(url: string | null | undefined) {
+  if (!url) {
+    return null;
+  }
+
+  if (url.includes("data.ecb.europa.eu")) {
+    return "ECB";
+  }
+
+  if (url.includes("fred.stlouisfed.org")) {
+    return "FRED";
+  }
+
+  try {
+    return new URL(url).hostname;
+  } catch {
+    return url;
+  }
+}
+
 export async function registerTaylorRuleRoute(app: FastifyInstance) {
   app.get("/macro/taylor-rule", async (): Promise<TaylorRuleResponse> => {
     const result = await getDbPool().query(`
@@ -110,6 +130,17 @@ export async function registerTaylorRuleRoute(app: FastifyInstance) {
               }
             };
 
+      const sourceNames = [
+        row.policy_source_url,
+        row.inflation_source_url,
+        row.headline_source_url,
+        row.core_source_url,
+        row.market_real_rate_source_url,
+        row.gdp_source_url
+      ]
+        .map(sourceNameFromUrl)
+        .filter((value, index, array): value is string => value !== null && array.indexOf(value) === index);
+
       return {
         region: row.region,
         asOf: row.as_of_date,
@@ -120,6 +151,7 @@ export async function registerTaylorRuleRoute(app: FastifyInstance) {
         slackProxy: row.slack_proxy,
         impliedRate: row.implied_rate,
         policyGap: row.policy_gap,
+        sourceNames,
         references: {
           policySeriesKey: row.policy_series_key,
           policySourceUrl: row.policy_source_url,

@@ -50,6 +50,7 @@ export type TaylorRuleRegionComparison = {
   slackProxy: string;
   impliedRate: string;
   policyGap: string;
+  sourceNames: string[];
   references: TaylorRuleRegionReferences;
   referenceMetrics?: TaylorRuleReferenceMetrics;
 };

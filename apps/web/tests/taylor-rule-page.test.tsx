@@ -26,6 +26,7 @@ const payload = {
       slackProxy: "0.00",
       impliedRate: "3.15",
       policyGap: "-0.90",
+      sourceNames: ["ECB", "FRED"],
       references: {
         policySeriesKey: "eu_policy_rate",
         policySourceUrl: "https://data.ecb.europa.eu/data/datasets/FM/FM.D.U2.EUR.4F.KR.DFR.LEV",
@@ -64,6 +65,7 @@ const payload = {
       slackProxy: "0.00",
       impliedRate: "4.35",
       policyGap: "0.15",
+      sourceNames: ["FRED"],
       references: {
         policySeriesKey: "us_policy_rate",
         policySourceUrl: "https://fred.stlouisfed.org/series/DFEDTARU",
@@ -137,11 +139,13 @@ describe("Taylor Rule page", () => {
     expect(screen.getByRole("heading", { name: "USA" })).toBeInTheDocument();
     expect(screen.getAllByText("CPI").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Core").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("PRR").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("MRR").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Policy real rate").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Market real rate").length).toBeGreaterThan(0);
     expect(screen.getAllByText("GDP YoY").length).toBeGreaterThan(0);
     expect(screen.getAllByText("YoY Avg").length).toBeGreaterThan(0);
     expect(screen.getAllByText("q/q Gap").length).toBeGreaterThan(0);
+    expect(screen.getByText("Source: ECB, FRED")).toBeInTheDocument();
+    expect(screen.getByText("Source: FRED")).toBeInTheDocument();
     expect(screen.getByText("EU policy rate")).toBeInTheDocument();
     expect(screen.getByText("US policy rate")).toBeInTheDocument();
   });
