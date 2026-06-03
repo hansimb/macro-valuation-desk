@@ -82,6 +82,7 @@ def test_fetch_registered_series_returns_structured_adapter_failure(monkeypatch)
 
 def test_fred_adapter_returns_config_failure_when_api_key_is_missing(monkeypatch):
     monkeypatch.delenv("FRED_API_KEY", raising=False)
+    monkeypatch.setattr("src.lib.source.adapters.fred.load_project_env", lambda: None)
 
     result = FredAdapter().fetch_series(
         get_series_definition("us_policy_rate"),

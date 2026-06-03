@@ -23,6 +23,8 @@ def test_series_registry_entries_include_required_metadata():
     eu_hicp_headline = get_series_definition("eu_hicp_headline")
     us_core_cpi = get_series_definition("us_cpi_core")
     eu_market_real_rate = get_series_definition("eu_market_real_rate")
+    eu_policy_rate = get_series_definition("eu_policy_rate")
+    us_market_real_rate = get_series_definition("us_market_real_rate")
 
     assert us_policy_rate.provider == "fred"
     assert us_policy_rate.external_series_id == "DFEDTARU"
@@ -30,21 +32,25 @@ def test_series_registry_entries_include_required_metadata():
     assert us_policy_rate.frequency == "daily"
     assert us_policy_rate.source_url == "https://fred.stlouisfed.org/series/DFEDTARU"
 
-    assert eu_hicp_headline.provider == "ecb"
-    assert eu_hicp_headline.external_series_id == "HICP.M.U2.N.000000.4D0.ANR"
+    assert eu_hicp_headline.provider == "fred"
+    assert eu_hicp_headline.external_series_id == "CP00MI15EA20M086NEST"
     assert eu_hicp_headline.region == "EU"
     assert eu_hicp_headline.frequency == "monthly"
-    assert eu_hicp_headline.source_url == (
-        "https://data.ecb.europa.eu/data/datasets/HICP/HICP.M.U2.N.000000.4D0.ANR"
-    )
+    assert eu_hicp_headline.source_url == "https://fred.stlouisfed.org/series/CP00MI15EA20M086NEST"
 
     assert us_core_cpi.external_series_id == "CPILFESL"
     assert us_core_cpi.unit == "index"
     assert us_core_cpi.source_url == "https://fred.stlouisfed.org/series/CPILFESL"
 
-    assert eu_market_real_rate.provider == "ecb"
-    assert eu_market_real_rate.external_series_id == "FM.M.U2.EUR.4F.BB.R_U2_10Y.YLDA"
+    assert eu_policy_rate.provider == "fred"
+    assert eu_policy_rate.external_series_id == "ECBDFR"
+    assert eu_policy_rate.source_url == "https://fred.stlouisfed.org/series/ECBDFR"
+
+    assert us_market_real_rate.provider == "fred"
+    assert us_market_real_rate.external_series_id == "DFII10"
+    assert us_market_real_rate.source_url == "https://fred.stlouisfed.org/series/DFII10"
+
+    assert eu_market_real_rate.provider == "fred"
+    assert eu_market_real_rate.external_series_id == "IRLTLT01EZM156N"
     assert eu_market_real_rate.frequency == "monthly"
-    assert eu_market_real_rate.source_url == (
-        "https://data.ecb.europa.eu/data/datasets/FM/FM.M.U2.EUR.4F.BB.R_U2_10Y.YLDA"
-    )
+    assert eu_market_real_rate.source_url == "https://fred.stlouisfed.org/series/IRLTLT01EZM156N"

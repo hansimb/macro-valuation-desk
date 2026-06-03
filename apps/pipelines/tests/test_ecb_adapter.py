@@ -3,8 +3,7 @@ import io
 from urllib.error import HTTPError
 
 from src.lib.source.adapters.ecb import EcbAdapter
-from src.lib.source.registry import get_series_definition
-from src.lib.source.types import FetchOptions
+from src.lib.source.types import FetchOptions, SeriesDefinition
 
 
 class _FakeResponse:
@@ -19,6 +18,20 @@ class _FakeResponse:
 
     def __exit__(self, exc_type, exc, tb):
         return False
+
+
+def _series_definition(key: str, external_series_id: str, frequency: str) -> SeriesDefinition:
+    return SeriesDefinition(
+        key=key,
+        category="test",
+        provider="ecb",
+        external_series_id=external_series_id,
+        label=key,
+        region="EU",
+        frequency=frequency,
+        unit="percent",
+        source_url=f"https://data.ecb.europa.eu/data/datasets/{external_series_id}",
+    )
 
 
 def test_ecb_adapter_returns_standardized_success(monkeypatch):
@@ -38,7 +51,7 @@ def test_ecb_adapter_returns_standardized_success(monkeypatch):
     monkeypatch.setattr("src.lib.source.adapters.ecb.urlopen", fake_urlopen)
 
     result = EcbAdapter().fetch_series(
-        get_series_definition("eu_policy_rate"),
+        _series_definition("eu_policy_rate", "FM.D.U2.EUR.4F.KR.DFR.LEV", "daily"),
         FetchOptions(start_date="2026-01-01"),
     )
 
@@ -66,7 +79,7 @@ def test_ecb_adapter_normalizes_monthly_start_period(monkeypatch):
     monkeypatch.setattr("src.lib.source.adapters.ecb.urlopen", fake_urlopen)
 
     result = EcbAdapter().fetch_series(
-        get_series_definition("eu_hicp_headline"),
+        _series_definition("eu_hicp_headline", "HICP.M.U2.N.000000.4D0.ANR", "monthly"),
         FetchOptions(start_date="2026-01-01"),
     )
 
@@ -87,7 +100,7 @@ def test_ecb_adapter_normalizes_quarterly_start_period(monkeypatch):
     monkeypatch.setattr("src.lib.source.adapters.ecb.urlopen", fake_urlopen)
 
     result = EcbAdapter().fetch_series(
-        get_series_definition("eu_real_gdp"),
+        _series_definition("eu_real_gdp", "MNA.Q.Y.I9.W2.S1.S1.B.B1GQ._Z._Z._Z.EUR.LR.N", "quarterly"),
         FetchOptions(start_date="2026-01-01"),
     )
 
@@ -107,7 +120,7 @@ def test_ecb_adapter_includes_request_url_and_response_body_in_http_errors(monke
     monkeypatch.setattr("src.lib.source.adapters.ecb.urlopen", fake_urlopen)
 
     result = EcbAdapter().fetch_series(
-        get_series_definition("eu_policy_rate"),
+        _series_definition("eu_policy_rate", "FM.D.U2.EUR.4F.KR.DFR.LEV", "daily"),
         FetchOptions(),
     )
 
@@ -138,7 +151,7 @@ def test_ecb_adapter_summarizes_html_block_pages(monkeypatch):
     monkeypatch.setattr("src.lib.source.adapters.ecb.urlopen", fake_urlopen)
 
     result = EcbAdapter().fetch_series(
-        get_series_definition("eu_policy_rate"),
+        _series_definition("eu_policy_rate", "FM.D.U2.EUR.4F.KR.DFR.LEV", "daily"),
         FetchOptions(),
     )
 

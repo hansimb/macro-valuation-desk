@@ -5,6 +5,7 @@ from datetime import date
 from src.lib.source.registry import get_series_definition
 
 POLICY_REAL_RATE_NOTE = "Policy real rate = policy rate minus headline inflation."
+MARKET_REAL_RATE_HEADLINE_PROXY_SERIES = {"eu_market_real_rate"}
 
 
 def _sorted_valid_rows(staging_rows: list[dict[str, object]], series_id: str) -> list[dict[str, object]]:
@@ -47,6 +48,21 @@ def _latest_inflation_rate(staging_rows: list[dict[str, object]], series_id: str
     previous_value = values_by_date[_minus_one_year(latest_date)]
 
     return _round_rate(((latest_value / previous_value) - 1) * 100), latest_date
+
+
+def _latest_market_real_rate(
+    staging_rows: list[dict[str, object]],
+    series_id: str,
+    headline_inflation: float,
+) -> tuple[float, str]:
+    latest_row = _latest_row(staging_rows, series_id)
+    latest_value = float(latest_row["numeric_value"])
+    latest_date = str(latest_row["observation_date"])
+
+    if series_id in MARKET_REAL_RATE_HEADLINE_PROXY_SERIES:
+        return _round_rate(latest_value - headline_inflation), latest_date
+
+    return _round_rate(latest_value), latest_date
 
 
 def _series_rates_from_level(
@@ -119,9 +135,11 @@ def build_macro_reference_metrics(staging_rows: list[dict[str, object]]) -> list
         policy_rate = float(_latest_row(staging_rows, series_map["policy"])["numeric_value"])
         headline_inflation, headline_as_of = _latest_inflation_rate(staging_rows, series_map["headline"])
         core_inflation, core_as_of = _latest_inflation_rate(staging_rows, series_map["core"])
-        market_real_rate_row = _latest_row(staging_rows, series_map["market_real_rate"])
-        market_real_rate = _round_rate(float(market_real_rate_row["numeric_value"]))
-        market_real_rate_as_of = str(market_real_rate_row["observation_date"])
+        market_real_rate, market_real_rate_as_of = _latest_market_real_rate(
+            staging_rows,
+            series_map["market_real_rate"],
+            headline_inflation,
+        )
         (gdp_yoy_current, gdp_yoy_average, gdp_yoy_as_of, gdp_yoy_window), (
             gdp_qoq_current,
             gdp_qoq_average,
