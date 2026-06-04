@@ -221,6 +221,67 @@ function academicReferenceText(label: string, url?: string) {
   return `Federal Reserve Bank of St. Louis, FRED, "${label}"`;
 }
 
+function InflationMeasureSwitch({
+  regionLabel,
+  value,
+  onChange,
+}: {
+  regionLabel: string;
+  value: "headline" | "core";
+  onChange: (nextValue: "headline" | "core") => void;
+}) {
+  const isCore = value === "core";
+
+  return (
+    <Button
+      aria-checked={isCore}
+      aria-label={`${regionLabel} inflation input`}
+      bg="canvas"
+      borderColor="edge"
+      borderRadius="full"
+      borderWidth="1px"
+      h="3rem"
+      onClick={() => onChange(isCore ? "headline" : "core")}
+      p="1"
+      position="relative"
+      role="switch"
+      w="100%"
+    >
+      <Box
+        bg="surfaceElevated"
+        borderRadius="full"
+        bottom="1"
+        boxShadow="sm"
+        left={isCore ? "calc(50% + 0.125rem)" : "0.25rem"}
+        position="absolute"
+        top="1"
+        transition="left 0.18s ease"
+        width="calc(50% - 0.25rem)"
+      />
+      <HStack justify="space-between" position="relative" px="2" w="100%">
+        <Text
+          color={isCore ? "muted" : "text"}
+          flex="1"
+          fontSize="sm"
+          fontWeight={isCore ? "medium" : "semibold"}
+          textAlign="center"
+        >
+          Headline CPI
+        </Text>
+        <Text
+          color={isCore ? "text" : "muted"}
+          flex="1"
+          fontSize="sm"
+          fontWeight={isCore ? "semibold" : "medium"}
+          textAlign="center"
+        >
+          Core CPI
+        </Text>
+      </HStack>
+    </Button>
+  );
+}
+
 export function TaylorRuleClient({ data }: { data: TaylorRulePageData }) {
   const [assumptionsByRegion, setAssumptionsByRegion] = useState<Record<string, RegionAssumptions>>(
     buildInitialAssumptions(data.regions)
@@ -379,6 +440,24 @@ export function TaylorRuleClient({ data }: { data: TaylorRulePageData }) {
                     <Stack gap="4">
                       <Stack gap="2">
                         <Text color="muted" fontSize="sm">
+                          Inflation input
+                        </Text>
+                        <InflationMeasureSwitch
+                          onChange={(inflationMeasure) =>
+                            setAssumptionsByRegion((current) => ({
+                              ...current,
+                              [region.region]: {
+                                ...current[region.region],
+                                inflationMeasure
+                              }
+                            }))
+                          }
+                          regionLabel={regionReferenceHeading(region.region)}
+                          value={assumptions.inflationMeasure}
+                        />
+                      </Stack>
+                      <Stack gap="2">
+                        <Text color="muted" fontSize="sm">
                           Neutral rate
                         </Text>
                         <HStack justify="space-between">
@@ -402,45 +481,6 @@ export function TaylorRuleClient({ data }: { data: TaylorRulePageData }) {
                             onClick={() => updateRegionAssumption(region.region, "neutralRate", ADJUSTMENT_STEP)}
                           >
                             Increase
-                          </Button>
-                        </HStack>
-                      </Stack>
-                      <Stack gap="2">
-                        <Text color="muted" fontSize="sm">
-                          Inflation input
-                        </Text>
-                        <HStack justify="space-between">
-                          <Button
-                            bg={assumptions.inflationMeasure === "headline" ? "surfaceElevated" : "transparent"}
-                            borderColor="edge"
-                            borderWidth="1px"
-                            onClick={() =>
-                              setAssumptionsByRegion((current) => ({
-                                ...current,
-                                [region.region]: {
-                                  ...current[region.region],
-                                  inflationMeasure: "headline"
-                                }
-                              }))
-                            }
-                          >
-                            Headline CPI
-                          </Button>
-                          <Button
-                            bg={assumptions.inflationMeasure === "core" ? "surfaceElevated" : "transparent"}
-                            borderColor="edge"
-                            borderWidth="1px"
-                            onClick={() =>
-                              setAssumptionsByRegion((current) => ({
-                                ...current,
-                                [region.region]: {
-                                  ...current[region.region],
-                                  inflationMeasure: "core"
-                                }
-                              }))
-                            }
-                          >
-                            Core CPI
                           </Button>
                         </HStack>
                       </Stack>

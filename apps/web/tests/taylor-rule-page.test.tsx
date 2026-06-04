@@ -200,7 +200,7 @@ describe("Taylor Rule page", () => {
 
     render(<ThemeProvider>{page}</ThemeProvider>);
 
-    fireEvent.click(screen.getAllByRole("button", { name: "Core CPI" })[0]);
+    fireEvent.click(screen.getByRole("switch", { name: "EU inflation input" }));
 
     expect(screen.getAllByText(/Core CPI/).length).toBeGreaterThan(0);
     expect(screen.getByText(/Interpretation: EU screens easier than the rule benchmark by 1.20 percentage points\./)).toBeInTheDocument();
