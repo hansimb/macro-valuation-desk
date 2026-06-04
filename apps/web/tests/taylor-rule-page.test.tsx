@@ -154,6 +154,7 @@ describe("Taylor Rule page", () => {
     expect(screen.getByText(/Interpretation: US screens tighter than the rule benchmark by 0.15 percentage points\./)).toBeInTheDocument();
     expect(screen.getByText(/European Central Bank, Data Portal, "EU policy rate"/)).toBeInTheDocument();
     expect(screen.getByText(/Federal Reserve Bank of St\. Louis, FRED, "US policy rate"/)).toBeInTheDocument();
+    expect(screen.queryByText("Assumed neutral slack proxy in v1")).not.toBeInTheDocument();
   });
 
   it("adjusts region assumptions in 0.25 point steps", async () => {

@@ -176,8 +176,7 @@ export async function registerTaylorRuleRoute(app: FastifyInstance) {
       };
     });
 
-    const uniqueReferences = [
-      ...regions.flatMap((region) => {
+    const uniqueReferences = regions.flatMap((region) => {
         const items = [
           {
             label: `${region.region} policy rate`,
@@ -211,12 +210,7 @@ export async function registerTaylorRuleRoute(app: FastifyInstance) {
         }
 
         return items;
-      }),
-      {
-        label: "Slack proxy",
-        note: regions[0]?.references.slackSourceNote ?? "Assumed neutral slack proxy in v1"
-      }
-    ];
+      });
 
     return {
       asOf: regions[0]?.asOf ?? null,

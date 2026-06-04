@@ -277,10 +277,6 @@ describe("taylor rule route", () => {
           label: "US GDP growth proxy",
           url: "https://fred.stlouisfed.org/series/GDPC1"
         },
-        {
-          label: "Slack proxy",
-          note: "Assumed neutral slack proxy in v1"
-        }
       ]
     });
   });
