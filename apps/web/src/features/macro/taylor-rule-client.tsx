@@ -117,7 +117,7 @@ function MathSymbol({ symbol }: { symbol: SymbolKey }) {
     return (
       <>
         <Box as="span" fontStyle="italic">
-          pi
+          π
         </Box>
         <Box as="sub" display="inline-block" fontSize="0.7em" transform="translateY(0.2em)">
           t
@@ -130,7 +130,7 @@ function MathSymbol({ symbol }: { symbol: SymbolKey }) {
     return (
       <>
         <Box as="span" fontStyle="italic">
-          pi
+          π
         </Box>
         <Box as="sub" display="inline-block" fontSize="0.7em" transform="translateY(0.2em)">
           t
