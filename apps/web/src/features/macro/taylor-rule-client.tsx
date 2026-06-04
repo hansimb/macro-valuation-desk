@@ -6,6 +6,7 @@ import { Box, Button, Heading, HStack, Link, SimpleGrid, Stack, Text } from "@ch
 import type {
   TaylorRuleGrowthMetric,
   TaylorRuleMetricPoint,
+  TaylorRuleReferenceItem,
   TaylorRulePageData,
   TaylorRuleRegionComparison
 } from "./taylor-rule-types";
@@ -159,7 +160,7 @@ function ReferenceMetric({
   value,
   meta
 }: {
-  label: string;
+  label: React.ReactNode;
   value: string;
   meta: string;
 }) {
@@ -190,10 +191,6 @@ function regionReferenceHeading(region: string) {
   return region === "US" ? "USA" : region;
 }
 
-function regionSourceSummary(region: TaylorRuleRegionComparison) {
-  return region.sourceNames.join(", ");
-}
-
 function buildInitialAssumptions(regions: TaylorRuleRegionComparison[]) {
   return regions.reduce<Record<string, RegionAssumptions>>((accumulator, region) => {
     accumulator[region.region] = {
@@ -219,6 +216,71 @@ function academicReferenceText(label: string, url?: string) {
   }
 
   return `Federal Reserve Bank of St. Louis, FRED, "${label}"`;
+}
+
+function ieeeReferenceText(index: number, reference: TaylorRuleReferenceItem) {
+  const sourceText = academicReferenceText(reference.label, reference.url);
+
+  if (!reference.url) {
+    return `[${index}] ${sourceText}.`;
+  }
+
+  return `[${index}] ${sourceText}. [Online]. Available: ${reference.url}.`;
+}
+
+function labelReference(
+  region: TaylorRuleRegionComparison,
+  kind: "policy" | "inflation" | "core" | "market" | "output" | "gdp"
+) {
+  if (kind === "policy") {
+    return `${region.region} policy rate`;
+  }
+
+  if (kind === "inflation") {
+    return `${region.region} inflation`;
+  }
+
+  if (kind === "core") {
+    return `${region.region} core inflation`;
+  }
+
+  if (kind === "market") {
+    return `${region.region} market real rate`;
+  }
+
+  if (kind === "output") {
+    return `${region.region} output gap`;
+  }
+
+  return `${region.region} GDP growth proxy`;
+}
+
+function outputGapIsForecast(referenceUrl: string | undefined) {
+  return referenceUrl?.includes("db.nomics.world") ?? false;
+}
+
+function Citation({
+  numbers,
+  href,
+}: {
+  numbers: number[];
+  href?: string;
+}) {
+  const content = numbers.map((number) => `[${number}]`).join("");
+
+  if (href) {
+    return (
+      <Link color="accent" display="inline" fontSize="0.8em" href={href} ml="1" target="_blank">
+        {content}
+      </Link>
+    );
+  }
+
+  return (
+    <Box as="span" color="accent" fontSize="0.8em" ml="1">
+      {content}
+    </Box>
+  );
 }
 
 function InflationMeasureSwitch({
@@ -289,6 +351,7 @@ export function TaylorRuleClient({ data }: { data: TaylorRulePageData }) {
   const referenceRegions = data.regions.filter((region) => region.referenceMetrics);
   const hasRegionData = data.regions.length > 0;
   const hasReferences = data.references.length > 0;
+  const referenceNumberByLabel = new Map(data.references.map((reference, index) => [reference.label, index + 1]));
 
   function updateRegionAssumption(regionKey: string, field: keyof RegionAssumptions, delta: number) {
     setAssumptionsByRegion((current) => ({
@@ -348,6 +411,18 @@ export function TaylorRuleClient({ data }: { data: TaylorRulePageData }) {
         <SimpleGrid columns={{ base: 1, md: 2 }} gap="6">
           {referenceRegions.map((region) => {
             const metrics = region.referenceMetrics;
+            const headlineReference = referenceNumberByLabel.get(labelReference(region, "inflation"));
+            const coreReference = referenceNumberByLabel.get(labelReference(region, "core"));
+            const policyReference = referenceNumberByLabel.get(labelReference(region, "policy"));
+            const marketReference = referenceNumberByLabel.get(labelReference(region, "market"));
+            const outputReference = referenceNumberByLabel.get(labelReference(region, "output"));
+            const gdpReference = referenceNumberByLabel.get(labelReference(region, "gdp"));
+            const headlineReferenceItem = data.references.find((reference) => reference.label === labelReference(region, "inflation"));
+            const coreReferenceItem = data.references.find((reference) => reference.label === labelReference(region, "core"));
+            const policyReferenceItem = data.references.find((reference) => reference.label === labelReference(region, "policy"));
+            const marketReferenceItem = data.references.find((reference) => reference.label === labelReference(region, "market"));
+            const outputReferenceItem = data.references.find((reference) => reference.label === labelReference(region, "output"));
+            const gdpReferenceItem = data.references.find((reference) => reference.label === labelReference(region, "gdp"));
 
             if (!metrics) {
               return null;
@@ -368,49 +443,98 @@ export function TaylorRuleClient({ data }: { data: TaylorRulePageData }) {
                   </Heading>
                   <SimpleGrid columns={2} gap={{ base: "4", md: "5" }}>
                     <ReferenceMetric
-                      label="CPI"
+                      label={
+                        <>
+                          CPI
+                          {headlineReference ? (
+                            <Citation href={headlineReferenceItem?.url} numbers={[headlineReference]} />
+                          ) : null}
+                        </>
+                      }
                       meta={metrics.headlineInflation.asOf}
                       value={formatPointValue(metrics.headlineInflation)}
                     />
                     <ReferenceMetric
-                      label="Core CPI"
+                      label={
+                        <>
+                          Core CPI
+                          {coreReference ? <Citation href={coreReferenceItem?.url} numbers={[coreReference]} /> : null}
+                        </>
+                      }
                       meta={metrics.coreInflation.asOf}
                       value={formatPointValue(metrics.coreInflation)}
                     />
                     <ReferenceMetric
-                      label="Policy real rate"
+                      label={
+                        <>
+                          Policy real rate
+                          {policyReference && headlineReference ? (
+                            <Citation href={policyReferenceItem?.url} numbers={[policyReference, headlineReference]} />
+                          ) : null}
+                        </>
+                      }
                       meta={metrics.policyRealRate.asOf}
                       value={formatPointValue(metrics.policyRealRate)}
                     />
                     <ReferenceMetric
-                      label="Market real rate"
+                      label={
+                        <>
+                          Market real rate
+                          {marketReference ? (
+                            <Citation href={marketReferenceItem?.url} numbers={[marketReference]} />
+                          ) : null}
+                        </>
+                      }
                       meta={metrics.marketRealRate.asOf}
                       value={formatPointValue(metrics.marketRealRate)}
                     />
                     <ReferenceMetric
-                      label="GDP YoY growth"
+                      label={
+                        <>
+                          GDP YoY growth
+                          {gdpReference ? <Citation href={gdpReferenceItem?.url} numbers={[gdpReference]} /> : null}
+                        </>
+                      }
                       meta={metrics.gdpGrowthYoy.asOf}
                       value={formatGrowthValue(metrics.gdpGrowthYoy, "current")}
                     />
                     <ReferenceMetric
-                      label="GDP YoY Avg"
+                      label={
+                        <>
+                          GDP YoY Avg
+                          {gdpReference ? <Citation href={gdpReferenceItem?.url} numbers={[gdpReference]} /> : null}
+                        </>
+                      }
                       meta={metrics.gdpGrowthYoy.historyWindow}
                       value={formatGrowthValue(metrics.gdpGrowthYoy, "historicalAverage")}
                     />
                     <ReferenceMetric
-                      label="GDP YoY growth gap"
+                      label={
+                        <>
+                          GDP YoY growth gap
+                          {gdpReference ? <Citation href={gdpReferenceItem?.url} numbers={[gdpReference]} /> : null}
+                        </>
+                      }
                       meta={`${metrics.gdpGrowthYoy.asOf} vs avg`}
                       value={formatGrowthValue(metrics.gdpGrowthYoy, "gap")}
                     />
                     <ReferenceMetric
-                      label="Output gap"
-                      meta={metrics.outputGap.asOf}
+                      label={
+                        <>
+                          Output gap
+                          {outputReference ? (
+                            <Citation href={outputReferenceItem?.url} numbers={[outputReference]} />
+                          ) : null}
+                        </>
+                      }
+                      meta={
+                        outputGapIsForecast(outputReferenceItem?.url)
+                          ? `${metrics.outputGap.asOf} forecast`
+                          : metrics.outputGap.asOf
+                      }
                       value={formatPointValue(metrics.outputGap)}
                     />
                   </SimpleGrid>
-                  <Text color="muted" fontSize="xs">
-                    Source: {regionSourceSummary(region)}
-                  </Text>
                 </Stack>
               </Box>
             );
@@ -522,6 +646,12 @@ export function TaylorRuleClient({ data }: { data: TaylorRulePageData }) {
           <SimpleGrid columns={{ base: 1, md: 2 }} gap="6">
             {data.regions.map((region) => {
               const assumptions = assumptionsByRegion[region.region];
+              const policyReference = referenceNumberByLabel.get(labelReference(region, "policy"));
+              const headlineReference = referenceNumberByLabel.get(labelReference(region, "inflation"));
+              const coreReference = referenceNumberByLabel.get(labelReference(region, "core"));
+              const policyReferenceItem = data.references.find((reference) => reference.label === labelReference(region, "policy"));
+              const headlineReferenceItem = data.references.find((reference) => reference.label === labelReference(region, "inflation"));
+              const coreReferenceItem = data.references.find((reference) => reference.label === labelReference(region, "core"));
               const scenario = calculateScenario(
                 region,
                 assumptions.neutralRate,
@@ -552,10 +682,19 @@ export function TaylorRuleClient({ data }: { data: TaylorRulePageData }) {
                       {region.region === "US" ? "United States" : "Euro Area"}
                     </Heading>
                     <SimpleGrid columns={2} gap="3">
-                      <Text color="muted">Policy rate</Text>
+                      <Text color="muted">
+                        Policy rate
+                        {policyReference ? <Citation href={policyReferenceItem?.url} numbers={[policyReference]} /> : null}
+                      </Text>
                       <Text>{region.policyRate}%</Text>
                       <Text color="muted">
                         {assumptions.inflationMeasure === "core" ? "Core CPI" : "Headline CPI"}
+                        {assumptions.inflationMeasure === "core" && coreReference ? (
+                          <Citation href={coreReferenceItem?.url} numbers={[coreReference]} />
+                        ) : null}
+                        {assumptions.inflationMeasure === "headline" && headlineReference ? (
+                          <Citation href={headlineReferenceItem?.url} numbers={[headlineReference]} />
+                        ) : null}
                       </Text>
                       <Text>{selectedInflationValue(region, assumptions.inflationMeasure)}%</Text>
                       <Text color="muted">Target</Text>
@@ -586,10 +725,10 @@ export function TaylorRuleClient({ data }: { data: TaylorRulePageData }) {
               <Box key={reference.label}>
                 {reference.url ? (
                   <Link color="text" href={reference.url} target="_blank">
-                    {academicReferenceText(reference.label, reference.url)}
+                    {ieeeReferenceText(referenceNumberByLabel.get(reference.label) ?? 0, reference)}
                   </Link>
                 ) : (
-                  <Text>{reference.label}</Text>
+                  <Text>{ieeeReferenceText(referenceNumberByLabel.get(reference.label) ?? 0, reference)}</Text>
                 )}
                 {reference.note ? (
                   <Text color="muted" fontSize="sm">

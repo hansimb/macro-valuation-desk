@@ -105,6 +105,14 @@ const payload = {
     {
       label: "US policy rate",
       url: "https://fred.stlouisfed.org/series/DFEDTARU"
+    },
+    {
+      label: "EU output gap",
+      url: "https://db.nomics.world/AMECO/AVGDGP/EA20.1.0.0.0.AVGDGP"
+    },
+    {
+      label: "US output gap",
+      url: "https://db.nomics.world/AMECO/AVGDGP/USA.1.0.0.0.AVGDGP"
     }
   ]
 };
@@ -148,12 +156,13 @@ describe("Taylor Rule page", () => {
     expect(screen.getAllByText("GDP YoY growth").length).toBeGreaterThan(0);
     expect(screen.getAllByText("GDP YoY Avg").length).toBeGreaterThan(0);
     expect(screen.queryByText("GDP q/q ann. growth")).not.toBeInTheDocument();
-    expect(screen.getByText("Source: ECB, FRED")).toBeInTheDocument();
-    expect(screen.getByText("Source: FRED")).toBeInTheDocument();
+    expect(screen.queryByText("Source: ECB, FRED")).not.toBeInTheDocument();
+    expect(screen.queryByText("Source: FRED")).not.toBeInTheDocument();
+    expect(screen.getAllByText(/forecast/).length).toBeGreaterThan(0);
     expect(screen.getByText(/Interpretation: EU screens easier than the rule benchmark by 0.90 percentage points\./)).toBeInTheDocument();
     expect(screen.getByText(/Interpretation: US screens tighter than the rule benchmark by 0.15 percentage points\./)).toBeInTheDocument();
-    expect(screen.getByText(/European Central Bank, Data Portal, "EU policy rate"/)).toBeInTheDocument();
-    expect(screen.getByText(/Federal Reserve Bank of St\. Louis, FRED, "US policy rate"/)).toBeInTheDocument();
+    expect(screen.getByText(/\[1\] European Central Bank, Data Portal, "EU policy rate"\. \[Online\]\. Available:/)).toBeInTheDocument();
+    expect(screen.getByText(/\[2\] Federal Reserve Bank of St\. Louis, FRED, "US policy rate"\. \[Online\]\. Available:/)).toBeInTheDocument();
     expect(screen.queryByText("Assumed neutral slack proxy in v1")).not.toBeInTheDocument();
   });
 
