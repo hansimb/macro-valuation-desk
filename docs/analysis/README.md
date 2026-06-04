@@ -39,11 +39,19 @@ Example:
 
 - `taylor-rule-master-plan.md`
 
+Naming should follow the same pattern consistently.
+
+If the product-facing analysis is still intended to stay broad or expandable, prefer the broad analysis name rather than hardcoding the first covered geography, region, or pair into every artifact name.
+
+Do not ask for naming variations again unless the user explicitly wants to revisit the convention.
+
 If an analysis later becomes large enough to justify extra documentation, that should happen only after the master plan has exposed a clear need for it.
 
 ## Macro Analysis Guidelines
 
 These are the default rules for macro analysis work in MVD.
+
+Agents should follow these defaults without re-asking for them and should not deviate without explicit user or developer approval.
 
 ### 1. Data First
 
@@ -83,6 +91,14 @@ Where scenario analysis is useful, prefer a small preset set such as:
 
 Do not create overly complex dashboards for v1 analysis pages.
 
+### 4.5. No Fake Fallbacks
+
+Do not use placeholder outputs, hardcoded fallback values, fake example data, or silent substitute series in product analysis flows.
+
+If real required data is unavailable, the affected analysis output should simply not appear rather than pretending the system has an answer.
+
+Missing data should be handled honestly in architecture and implementation, not hidden through UI filler.
+
 ### 5. References Required
 
 Every analysis page must end with references.
@@ -104,6 +120,44 @@ Do not hide substitutions.
 Each analysis page should answer one clear question.
 
 If the page starts trying to answer several different macro questions at once, split it into separate analyses.
+
+### 8. Full-Stack Means Full-Stack
+
+Analysis planning in this directory is full-stack planning.
+
+That means the master plan should consider:
+
+- source and ingestion implications
+- pipeline preparation and reuse
+- database/load shape
+- API serving shape
+- final web analysis behavior
+
+This does not mean pipeline or data architecture should collapse into one monolithic analysis-specific blob.
+
+The UI may present as one coherent analysis page while pipeline, database, and API responsibilities remain modular and reusable.
+
+### 9. Follow Architecture Docs
+
+When creating or expanding an analysis, refer to the documents under `docs/architecture/` and follow their rules.
+
+Especially important:
+
+- `source -> pipeline -> postgres -> api -> web`
+- pipeline responsibilities stay in the pipeline layer
+- API serves prepared data rather than raw provider payloads
+- reusable prepared data is preferred over one-off analysis shortcuts
+- domain-first pipeline design is preferred over analysis-first ETL coupling
+
+Do not invent analysis plans that conflict with architecture rules unless the user or developer explicitly approves the exception.
+
+### 10. Reuse First, Hardcoding Last
+
+Analysis plans should prefer reusable building blocks and avoid hardcoding the first supported geography, country set, currency pair, or region deep into the architecture unless that scope is explicitly meant to be permanent.
+
+It is acceptable for v1 scope to start narrow.
+
+It is not acceptable to spread that narrowness as avoidable hardcoding across pipelines, schemas, API contracts, and product structure.
 
 ## What A Master Plan Must Cover
 
@@ -135,6 +189,10 @@ Example style:
 - Phase F: analysis input mart
 - Phase G: API endpoint
 - Phase H: analysis page
+
+Within that phased work, implement one methodology at a time when an analysis contains multiple methodological sections.
+
+The point is to keep delivery incremental while still building reusable shared architecture underneath.
 
 These phases are not all solved at once.
 
