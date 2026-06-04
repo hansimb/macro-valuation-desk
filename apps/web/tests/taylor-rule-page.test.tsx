@@ -183,6 +183,25 @@ describe("Taylor Rule page", () => {
     ).toBeInTheDocument();
   });
 
+  it("switches a region calculation between headline and core CPI", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => payload
+      })
+    );
+
+    const page = await TaylorRulePage();
+
+    render(<ThemeProvider>{page}</ThemeProvider>);
+
+    fireEvent.click(screen.getAllByRole("button", { name: "Core CPI" })[0]);
+
+    expect(screen.getAllByText(/Core CPI/).length).toBeGreaterThan(0);
+    expect(screen.getByText(/Interpretation: EU screens easier than the rule benchmark by 1.20 percentage points\./)).toBeInTheDocument();
+  });
+
   it("shows an explicit unavailable-data notice instead of rendering fallback numbers when the API fetch fails", async () => {
     vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("offline")));
 

@@ -14,6 +14,7 @@ type SymbolKey = "i_t" | "r_t_star" | "pi_t" | "pi_t_star" | "y_t";
 type RegionAssumptions = {
   neutralRate: string;
   slackProxy: string;
+  inflationMeasure: "headline" | "core";
 };
 
 const ADJUSTMENT_STEP = 0.25;
@@ -34,8 +35,25 @@ function formatAdjustmentValue(value: number) {
   return value.toFixed(2);
 }
 
-function calculateScenario(region: TaylorRuleRegionComparison, neutralRate: string, slackProxy: string) {
-  const inflation = toNumber(region.inflation);
+function selectedInflationValue(region: TaylorRuleRegionComparison, inflationMeasure: "headline" | "core") {
+  if (inflationMeasure === "core" && region.referenceMetrics) {
+    return region.referenceMetrics.coreInflation.value;
+  }
+
+  if (inflationMeasure === "headline" && region.referenceMetrics) {
+    return region.referenceMetrics.headlineInflation.value;
+  }
+
+  return region.inflation;
+}
+
+function calculateScenario(
+  region: TaylorRuleRegionComparison,
+  neutralRate: string,
+  slackProxy: string,
+  inflationMeasure: "headline" | "core"
+) {
+  const inflation = toNumber(selectedInflationValue(region, inflationMeasure));
   const target = toNumber(region.target);
   const actualPolicyRate = toNumber(region.policyRate);
   const parsedNeutralRate = toNumber(neutralRate);
@@ -49,8 +67,13 @@ function calculateScenario(region: TaylorRuleRegionComparison, neutralRate: stri
   };
 }
 
-function buildInterpretation(region: TaylorRuleRegionComparison, neutralRate: string, slackProxy: string) {
-  const scenario = calculateScenario(region, neutralRate, slackProxy);
+function buildInterpretation(
+  region: TaylorRuleRegionComparison,
+  neutralRate: string,
+  slackProxy: string,
+  inflationMeasure: "headline" | "core"
+) {
+  const scenario = calculateScenario(region, neutralRate, slackProxy, inflationMeasure);
   const gap = toNumber(scenario.policyGap);
 
   if (gap >= 0) {
@@ -175,7 +198,8 @@ function buildInitialAssumptions(regions: TaylorRuleRegionComparison[]) {
   return regions.reduce<Record<string, RegionAssumptions>>((accumulator, region) => {
     accumulator[region.region] = {
       neutralRate: region.neutralRate,
-      slackProxy: region.slackProxy
+      slackProxy: region.slackProxy,
+      inflationMeasure: "headline"
     };
     return accumulator;
   }, {});
@@ -385,6 +409,45 @@ export function TaylorRuleClient({ data }: { data: TaylorRulePageData }) {
                       </Stack>
                       <Stack gap="2">
                         <Text color="muted" fontSize="sm">
+                          Inflation input
+                        </Text>
+                        <HStack justify="space-between">
+                          <Button
+                            bg={assumptions.inflationMeasure === "headline" ? "surfaceElevated" : "transparent"}
+                            borderColor="edge"
+                            borderWidth="1px"
+                            onClick={() =>
+                              setAssumptionsByRegion((current) => ({
+                                ...current,
+                                [region.region]: {
+                                  ...current[region.region],
+                                  inflationMeasure: "headline"
+                                }
+                              }))
+                            }
+                          >
+                            Headline CPI
+                          </Button>
+                          <Button
+                            bg={assumptions.inflationMeasure === "core" ? "surfaceElevated" : "transparent"}
+                            borderColor="edge"
+                            borderWidth="1px"
+                            onClick={() =>
+                              setAssumptionsByRegion((current) => ({
+                                ...current,
+                                [region.region]: {
+                                  ...current[region.region],
+                                  inflationMeasure: "core"
+                                }
+                              }))
+                            }
+                          >
+                            Core CPI
+                          </Button>
+                        </HStack>
+                      </Stack>
+                      <Stack gap="2">
+                        <Text color="muted" fontSize="sm">
                           Slack proxy
                         </Text>
                         <HStack justify="space-between">
@@ -421,8 +484,18 @@ export function TaylorRuleClient({ data }: { data: TaylorRulePageData }) {
           <SimpleGrid columns={{ base: 1, md: 2 }} gap="6">
             {data.regions.map((region) => {
               const assumptions = assumptionsByRegion[region.region];
-              const scenario = calculateScenario(region, assumptions.neutralRate, assumptions.slackProxy);
-              const interpretation = buildInterpretation(region, assumptions.neutralRate, assumptions.slackProxy);
+              const scenario = calculateScenario(
+                region,
+                assumptions.neutralRate,
+                assumptions.slackProxy,
+                assumptions.inflationMeasure
+              );
+              const interpretation = buildInterpretation(
+                region,
+                assumptions.neutralRate,
+                assumptions.slackProxy,
+                assumptions.inflationMeasure
+              );
 
               return (
                 <Box
@@ -443,8 +516,10 @@ export function TaylorRuleClient({ data }: { data: TaylorRulePageData }) {
                     <SimpleGrid columns={2} gap="3">
                       <Text color="muted">Policy rate</Text>
                       <Text>{region.policyRate}%</Text>
-                      <Text color="muted">Inflation</Text>
-                      <Text>{region.inflation}%</Text>
+                      <Text color="muted">
+                        {assumptions.inflationMeasure === "core" ? "Core CPI" : "Headline CPI"}
+                      </Text>
+                      <Text>{selectedInflationValue(region, assumptions.inflationMeasure)}%</Text>
                       <Text color="muted">Target</Text>
                       <Text>{region.target}%</Text>
                       <Text color="muted">Scenario implied</Text>
