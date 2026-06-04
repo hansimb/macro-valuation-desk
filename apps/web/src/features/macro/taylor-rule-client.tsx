@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Box, Button, Heading, HStack, Link, SimpleGrid, Stack, Text } from "@chakra-ui/react";
 
 import type {
@@ -19,6 +19,7 @@ type RegionAssumptions = {
 };
 
 const ADJUSTMENT_STEP = 0.25;
+const ASSUMPTIONS_STORAGE_KEY = "taylor-rule-assumptions-v1";
 
 const symbolGuide: { symbol: SymbolKey; meaning: string }[] = [
   { symbol: "i_t", meaning: "Implied nominal policy rate from the rule." },
@@ -194,8 +195,8 @@ function regionReferenceHeading(region: string) {
 function buildInitialAssumptions(regions: TaylorRuleRegionComparison[]) {
   return regions.reduce<Record<string, RegionAssumptions>>((accumulator, region) => {
     accumulator[region.region] = {
-      neutralRate: region.neutralRate,
-      slackProxy: region.slackProxy,
+      neutralRate: "0.00",
+      slackProxy: "0.00",
       inflationMeasure: "headline"
     };
     return accumulator;
@@ -204,6 +205,39 @@ function buildInitialAssumptions(regions: TaylorRuleRegionComparison[]) {
 
 function adjustValue(currentValue: string, delta: number) {
   return formatAdjustmentValue(toNumber(currentValue) + delta);
+}
+
+function isRegionAssumptions(value: unknown): value is RegionAssumptions {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+
+  const candidate = value as Partial<RegionAssumptions>;
+  return (
+    typeof candidate.neutralRate === "string" &&
+    typeof candidate.slackProxy === "string" &&
+    (candidate.inflationMeasure === "headline" || candidate.inflationMeasure === "core")
+  );
+}
+
+function mergePersistedAssumptions(
+  regions: TaylorRuleRegionComparison[],
+  persisted: unknown
+): Record<string, RegionAssumptions> {
+  const defaults = buildInitialAssumptions(regions);
+
+  if (!persisted || typeof persisted !== "object") {
+    return defaults;
+  }
+
+  const persistedRecord = persisted as Record<string, unknown>;
+
+  return Object.keys(defaults).reduce<Record<string, RegionAssumptions>>((accumulator, regionKey) => {
+    accumulator[regionKey] = isRegionAssumptions(persistedRecord[regionKey])
+      ? persistedRecord[regionKey]
+      : defaults[regionKey];
+    return accumulator;
+  }, {});
 }
 
 function academicReferenceText(label: string, url?: string) {
@@ -362,6 +396,23 @@ export function TaylorRuleClient({ data }: { data: TaylorRulePageData }) {
       }
     }));
   }
+
+  useEffect(() => {
+    try {
+      const persisted = window.localStorage.getItem(ASSUMPTIONS_STORAGE_KEY);
+      if (!persisted) {
+        return;
+      }
+
+      setAssumptionsByRegion(mergePersistedAssumptions(data.regions, JSON.parse(persisted)));
+    } catch {
+      setAssumptionsByRegion(buildInitialAssumptions(data.regions));
+    }
+  }, [data.regions]);
+
+  useEffect(() => {
+    window.localStorage.setItem(ASSUMPTIONS_STORAGE_KEY, JSON.stringify(assumptionsByRegion));
+  }, [assumptionsByRegion]);
 
   return (
     <Stack gap={{ base: "8", md: "10" }}>

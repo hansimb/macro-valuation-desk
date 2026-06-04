@@ -119,6 +119,7 @@ const payload = {
 
 afterEach(() => {
   cleanup();
+  window.localStorage.clear();
   vi.unstubAllGlobals();
 });
 
@@ -159,8 +160,8 @@ describe("Taylor Rule page", () => {
     expect(screen.queryByText("Source: ECB, FRED")).not.toBeInTheDocument();
     expect(screen.queryByText("Source: FRED")).not.toBeInTheDocument();
     expect(screen.getAllByText(/forecast/).length).toBeGreaterThan(0);
-    expect(screen.getByText(/Interpretation: EU screens easier than the rule benchmark by 0.90 percentage points\./)).toBeInTheDocument();
-    expect(screen.getByText(/Interpretation: US screens tighter than the rule benchmark by 0.15 percentage points\./)).toBeInTheDocument();
+    expect(screen.getByText(/Interpretation: EU screens tighter than the rule benchmark by 0.10 percentage points\./)).toBeInTheDocument();
+    expect(screen.getByText(/Interpretation: US screens tighter than the rule benchmark by 1.15 percentage points\./)).toBeInTheDocument();
     expect(screen.getByText(/\[1\] European Central Bank, Data Portal, "EU policy rate"\. \[Online\]\. Available:/)).toBeInTheDocument();
     expect(screen.getByText(/\[2\] Federal Reserve Bank of St\. Louis, FRED, "US policy rate"\. \[Online\]\. Available:/)).toBeInTheDocument();
     expect(screen.queryByText("Assumed neutral slack proxy in v1")).not.toBeInTheDocument();
@@ -182,9 +183,9 @@ describe("Taylor Rule page", () => {
     const euNeutralIncrease = screen.getByRole("button", { name: "Increase EU neutral rate" });
     fireEvent.click(euNeutralIncrease);
 
-    expect(screen.getAllByText("1.25").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("0.25").length).toBeGreaterThan(0);
     expect(
-      screen.getByText(/Interpretation: EU screens easier than the rule benchmark by 1.15 percentage points\./)
+      screen.getByText(/Interpretation: EU screens easier than the rule benchmark by 0.15 percentage points\./)
     ).toBeInTheDocument();
 
     const euSlackDecrease = screen.getByRole("button", { name: "Decrease EU slack proxy" });
@@ -192,7 +193,7 @@ describe("Taylor Rule page", () => {
 
     expect(screen.getAllByText("-0.25").length).toBeGreaterThan(0);
     expect(
-      screen.getByText(/Interpretation: EU screens easier than the rule benchmark by 1.03 percentage points\./)
+      screen.getByText(/Interpretation: EU screens easier than the rule benchmark by 0.03 percentage points\./)
     ).toBeInTheDocument();
   });
 
@@ -212,7 +213,41 @@ describe("Taylor Rule page", () => {
     fireEvent.click(screen.getByRole("switch", { name: "EU inflation input" }));
 
     expect(screen.getAllByText(/Core CPI/).length).toBeGreaterThan(0);
-    expect(screen.getByText(/Interpretation: EU screens easier than the rule benchmark by 1.20 percentage points\./)).toBeInTheDocument();
+    expect(screen.getByText(/Interpretation: EU screens easier than the rule benchmark by 0.20 percentage points\./)).toBeInTheDocument();
+  });
+
+  it("persists region assumptions in localStorage and restores them on rerender", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => payload
+      })
+    );
+
+    window.localStorage.clear();
+
+    const firstPage = await TaylorRulePage();
+    const { unmount } = render(<ThemeProvider>{firstPage}</ThemeProvider>);
+
+    fireEvent.click(screen.getByRole("button", { name: "Increase EU neutral rate" }));
+    fireEvent.click(screen.getByRole("switch", { name: "EU inflation input" }));
+
+    expect(JSON.parse(window.localStorage.getItem("taylor-rule-assumptions-v1") ?? "{}")).toMatchObject({
+      EU: {
+        neutralRate: "0.25",
+        slackProxy: "0.00",
+        inflationMeasure: "core"
+      }
+    });
+
+    unmount();
+
+    const secondPage = await TaylorRulePage();
+    render(<ThemeProvider>{secondPage}</ThemeProvider>);
+
+    expect(screen.getAllByText("0.25").length).toBeGreaterThan(0);
+    expect(screen.getByText(/Interpretation: EU screens easier than the rule benchmark by 0.45 percentage points\./)).toBeInTheDocument();
   });
 
   it("shows an explicit unavailable-data notice instead of rendering fallback numbers when the API fetch fails", async () => {
