@@ -11,6 +11,10 @@ def _build_series(key: str, region: str, provider: str, series_id: str, source_u
         category = "market_rate"
         frequency = "monthly"
         unit = "percent"
+    elif "output_gap" in key:
+        category = "output_gap"
+        frequency = "monthly"
+        unit = "ratio_to_trend_index"
     elif "real_gdp" in key:
         category = "growth"
         frequency = "quarterly"
@@ -39,7 +43,16 @@ def _build_series(key: str, region: str, provider: str, series_id: str, source_u
             Observation(date="2025-10-01", value="103.03"),
             Observation(date="2026-01-01", value=value),
         ]
-    elif key in {"us_market_real_rate", "eu_market_real_rate", "eu_hicp_headline", "eu_hicp_core", "us_policy_rate", "eu_policy_rate"}:
+    elif key in {
+        "us_market_real_rate",
+        "eu_market_real_rate",
+        "eu_hicp_headline",
+        "eu_hicp_core",
+        "us_policy_rate",
+        "eu_policy_rate",
+        "us_output_gap",
+        "eu_output_gap",
+    }:
         observations = [Observation(date="2026-04-01", value=value)]
 
     return StandardizedSeries(
@@ -108,6 +121,16 @@ def test_run_taylor_rule_flow_updates_checkpoints_on_success(monkeypatch):
                 "104.06",
             )
         ),
+        "us_output_gap": FetchResult.success(
+            _build_series(
+                "us_output_gap",
+                "US",
+                "fred",
+                "USALORSGPRTSTSAM",
+                "https://fred.stlouisfed.org/series/USALORSGPRTSTSAM",
+                "100.80",
+            )
+        ),
         "eu_policy_rate": FetchResult.success(
             _build_series(
                 "eu_policy_rate",
@@ -158,6 +181,16 @@ def test_run_taylor_rule_flow_updates_checkpoints_on_success(monkeypatch):
                 "104.06",
             )
         ),
+        "eu_output_gap": FetchResult.success(
+            _build_series(
+                "eu_output_gap",
+                "EU",
+                "fred",
+                "EA19LORSGPRTSTSAM",
+                "https://fred.stlouisfed.org/series/EA19LORSGPRTSTSAM",
+                "99.40",
+            )
+        ),
     }
 
     written_checkpoints = []
@@ -169,6 +202,7 @@ def test_run_taylor_rule_flow_updates_checkpoints_on_success(monkeypatch):
         fetched_series["us_cpi_core"],
         fetched_series["us_market_real_rate"],
         fetched_series["us_real_gdp"],
+        fetched_series["us_output_gap"],
     ])
     monkeypatch.setattr("src.tasks.run_eu_macro_core_etl.run_eu_macro_core_etl", lambda: [
         fetched_series["eu_policy_rate"],
@@ -176,6 +210,7 @@ def test_run_taylor_rule_flow_updates_checkpoints_on_success(monkeypatch):
         fetched_series["eu_hicp_core"],
         fetched_series["eu_market_real_rate"],
         fetched_series["eu_real_gdp"],
+        fetched_series["eu_output_gap"],
     ])
     monkeypatch.setattr(
         "src.tasks.load_taylor_layers.write_successful_checkpoint",
@@ -187,17 +222,19 @@ def test_run_taylor_rule_flow_updates_checkpoints_on_success(monkeypatch):
     result = run_taylor_rule_flow()
 
     assert result["status"] == "success"
-    assert result["series_fetched"] == 10
+    assert result["series_fetched"] == 12
     assert result["mart_rows"] == 2
     assert sorted(written_checkpoints) == [
         ("eu_hicp_core", "2026-04-01"),
         ("eu_hicp_headline", "2026-04-01"),
         ("eu_market_real_rate", "2026-04-01"),
+        ("eu_output_gap", "2026-04-01"),
         ("eu_policy_rate", "2026-04-01"),
         ("eu_real_gdp", "2026-01-01"),
         ("us_cpi_core", "2026-04-01"),
         ("us_cpi_headline", "2026-04-01"),
         ("us_market_real_rate", "2026-04-01"),
+        ("us_output_gap", "2026-04-01"),
         ("us_policy_rate", "2026-04-01"),
         ("us_real_gdp", "2026-01-01"),
     ]

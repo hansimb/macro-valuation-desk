@@ -31,11 +31,14 @@ export type TaylorRulePolicyRealRateMetric = TaylorRuleMetricPoint & {
   note: string;
 };
 
+export type TaylorRuleOutputGapMetric = TaylorRuleMetricPoint;
+
 export type TaylorRuleReferenceMetrics = {
   headlineInflation: TaylorRuleMetricPoint;
   coreInflation: TaylorRuleMetricPoint;
   policyRealRate: TaylorRulePolicyRealRateMetric;
   marketRealRate: TaylorRuleMetricPoint;
+  outputGap: TaylorRuleOutputGapMetric;
   gdpGrowthYoy: TaylorRuleGrowthMetric;
   gdpGrowthQoqAnnualized: TaylorRuleGrowthMetric;
 };

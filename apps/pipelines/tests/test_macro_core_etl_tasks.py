@@ -39,6 +39,7 @@ def test_run_us_macro_core_etl_uses_series_aware_fetch_windows(monkeypatch):
     assert captured_options["us_cpi_headline"].start_date == "2025-04-15"
     assert captured_options["us_cpi_core"].start_date == "2025-04-15"
     assert captured_options["us_real_gdp"].start_date is None
+    assert captured_options["us_output_gap"].start_date == "2026-04-20"
 
 
 def test_build_fetch_options_for_eu_hicp_headline_uses_index_lookback_when_fallback_is_index():

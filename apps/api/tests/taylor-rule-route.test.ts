@@ -51,6 +51,8 @@ describe("taylor rule route", () => {
           policy_real_rate_as_of_date: "2026-04-01",
           market_real_rate: "0.46",
           market_real_rate_as_of_date: "2026-04-01",
+          output_gap: "-0.49",
+          output_gap_as_of_date: "2026-01-01",
           gdp_growth_yoy_current: "4.06",
           gdp_growth_yoy_historical_average: "4.06",
           gdp_growth_yoy_gap: "0.00",
@@ -67,6 +69,8 @@ describe("taylor rule route", () => {
           core_source_url: "https://data.ecb.europa.eu/data/datasets/HICP/HICP.M.U2.N.XEFUN0.4D0.ANR",
           market_real_rate_series_key: "eu_market_real_rate",
           market_real_rate_source_url: "https://data.ecb.europa.eu/data/datasets/FM/FM.M.U2.EUR.4F.BB.R_U2_10Y.YLDA",
+          output_gap_series_key: "eu_output_gap",
+          output_gap_source_url: "https://db.nomics.world/AMECO/AVGDGP/EA20.1.0.0.0.AVGDGP",
           gdp_series_key: "eu_real_gdp",
           gdp_source_url: "https://data.ecb.europa.eu/data/datasets/MNA/MNA.Q.Y.I9.W2.S1.S1.B.B1GQ._Z._Z._Z.EUR.LR.N",
           policy_real_rate_note: "Policy real rate = policy rate minus headline inflation."
@@ -94,6 +98,8 @@ describe("taylor rule route", () => {
           policy_real_rate_as_of_date: "2026-04-01",
           market_real_rate: "2.10",
           market_real_rate_as_of_date: "2026-04-01",
+          output_gap: "-0.11",
+          output_gap_as_of_date: "2026-01-01",
           gdp_growth_yoy_current: "4.06",
           gdp_growth_yoy_historical_average: "4.06",
           gdp_growth_yoy_gap: "0.00",
@@ -110,6 +116,8 @@ describe("taylor rule route", () => {
           core_source_url: "https://fred.stlouisfed.org/series/CPILFESL",
           market_real_rate_series_key: "us_market_real_rate",
           market_real_rate_source_url: "https://data.ecb.europa.eu/data/datasets/FM/FM.M.US.USD.4F.BB.R_US10YT_RR.YLDA",
+          output_gap_series_key: "us_output_gap",
+          output_gap_source_url: "https://db.nomics.world/AMECO/AVGDGP/USA.1.0.0.0.AVGDGP",
           gdp_series_key: "us_real_gdp",
           gdp_source_url: "https://fred.stlouisfed.org/series/GDPC1",
           policy_real_rate_note: "Policy real rate = policy rate minus headline inflation."
@@ -141,7 +149,7 @@ describe("taylor rule route", () => {
           slackProxy: "0.00",
           impliedRate: "3.15",
           policyGap: "-0.90",
-          sourceNames: ["ECB"],
+          sourceNames: ["ECB", "AMECO"],
           references: {
             policySeriesKey: "eu_policy_rate",
             policySourceUrl: "https://data.ecb.europa.eu/data/datasets/FM/FM.D.U2.EUR.4F.KR.DFR.LEV",
@@ -158,6 +166,7 @@ describe("taylor rule route", () => {
               note: "Policy real rate = policy rate minus headline inflation."
             },
             marketRealRate: { value: "0.46", asOf: "2026-04-01" },
+            outputGap: { value: "-0.49", asOf: "2026-01-01" },
             gdpGrowthYoy: {
               current: "4.06",
               historicalAverage: "4.06",
@@ -184,7 +193,7 @@ describe("taylor rule route", () => {
           slackProxy: "0.00",
           impliedRate: "4.35",
           policyGap: "0.15",
-          sourceNames: ["FRED", "ECB"],
+          sourceNames: ["FRED", "ECB", "AMECO"],
           references: {
             policySeriesKey: "us_policy_rate",
             policySourceUrl: "https://fred.stlouisfed.org/series/DFEDTARU",
@@ -201,6 +210,7 @@ describe("taylor rule route", () => {
               note: "Policy real rate = policy rate minus headline inflation."
             },
             marketRealRate: { value: "2.10", asOf: "2026-04-01" },
+            outputGap: { value: "-0.11", asOf: "2026-01-01" },
             gdpGrowthYoy: {
               current: "4.06",
               historicalAverage: "4.06",
@@ -228,12 +238,44 @@ describe("taylor rule route", () => {
           url: "https://data.ecb.europa.eu/data/datasets/HICP/HICP.M.U2.N.000000.4D0.ANR"
         },
         {
+          label: "EU core inflation",
+          url: "https://data.ecb.europa.eu/data/datasets/HICP/HICP.M.U2.N.XEFUN0.4D0.ANR"
+        },
+        {
+          label: "EU market real rate",
+          url: "https://data.ecb.europa.eu/data/datasets/FM/FM.M.U2.EUR.4F.BB.R_U2_10Y.YLDA"
+        },
+        {
+          label: "EU output gap",
+          url: "https://db.nomics.world/AMECO/AVGDGP/EA20.1.0.0.0.AVGDGP"
+        },
+        {
+          label: "EU GDP growth proxy",
+          url: "https://data.ecb.europa.eu/data/datasets/MNA/MNA.Q.Y.I9.W2.S1.S1.B.B1GQ._Z._Z._Z.EUR.LR.N"
+        },
+        {
           label: "US policy rate",
           url: "https://fred.stlouisfed.org/series/DFEDTARU"
         },
         {
           label: "US inflation",
           url: "https://fred.stlouisfed.org/series/CPIAUCSL"
+        },
+        {
+          label: "US core inflation",
+          url: "https://fred.stlouisfed.org/series/CPILFESL"
+        },
+        {
+          label: "US market real rate",
+          url: "https://data.ecb.europa.eu/data/datasets/FM/FM.M.US.USD.4F.BB.R_US10YT_RR.YLDA"
+        },
+        {
+          label: "US output gap",
+          url: "https://db.nomics.world/AMECO/AVGDGP/USA.1.0.0.0.AVGDGP"
+        },
+        {
+          label: "US GDP growth proxy",
+          url: "https://fred.stlouisfed.org/series/GDPC1"
         },
         {
           label: "Slack proxy",
@@ -282,6 +324,8 @@ describe("taylor rule route", () => {
           policy_real_rate_as_of_date: null,
           market_real_rate: null,
           market_real_rate_as_of_date: null,
+          output_gap: null,
+          output_gap_as_of_date: null,
           gdp_growth_yoy_current: null,
           gdp_growth_yoy_historical_average: null,
           gdp_growth_yoy_gap: null,
@@ -298,6 +342,8 @@ describe("taylor rule route", () => {
           core_source_url: null,
           market_real_rate_series_key: null,
           market_real_rate_source_url: null,
+          output_gap_series_key: null,
+          output_gap_source_url: null,
           gdp_series_key: null,
           gdp_source_url: null,
           policy_real_rate_note: null

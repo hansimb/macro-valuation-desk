@@ -14,6 +14,7 @@ US_SERIES_KEYS = [
     "us_cpi_core",
     "us_market_real_rate",
     "us_real_gdp",
+    "us_output_gap",
 ]
 
 

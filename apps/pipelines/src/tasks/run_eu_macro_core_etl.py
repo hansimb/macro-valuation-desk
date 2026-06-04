@@ -14,6 +14,7 @@ EU_SERIES_KEYS = [
     "eu_hicp_core",
     "eu_market_real_rate",
     "eu_real_gdp",
+    "eu_output_gap",
 ]
 
 

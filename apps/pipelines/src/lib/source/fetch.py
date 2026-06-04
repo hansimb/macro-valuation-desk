@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 from src.lib.source.adapters.base import SourceAdapter
+from src.lib.source.adapters.dbnomics import DbnomicsAdapter
 from src.lib.source.adapters.ecb import EcbAdapter
 from src.lib.source.adapters.fred import FredAdapter
 from src.lib.source.types import FetchOptions, FetchResult, SeriesDefinition
 
 
 ADAPTERS: dict[str, SourceAdapter] = {
+    "dbnomics": DbnomicsAdapter(),
     "fred": FredAdapter(),
     "ecb": EcbAdapter(),
 }

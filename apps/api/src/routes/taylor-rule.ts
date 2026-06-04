@@ -18,6 +18,10 @@ function sourceNameFromUrl(url: string | null | undefined) {
     return "FRED";
   }
 
+  if (url.includes("db.nomics.world") || url.includes("ec.europa.eu")) {
+    return "AMECO";
+  }
+
   try {
     return new URL(url).hostname;
   } catch {
@@ -51,6 +55,8 @@ export async function registerTaylorRuleRoute(app: FastifyInstance) {
         mrm.policy_real_rate_as_of_date::text,
         mrm.market_real_rate::text,
         mrm.market_real_rate_as_of_date::text,
+        mrm.output_gap::text,
+        mrm.output_gap_as_of_date::text,
         mrm.gdp_growth_yoy_current::text,
         mrm.gdp_growth_yoy_historical_average::text,
         mrm.gdp_growth_yoy_gap::text,
@@ -67,6 +73,8 @@ export async function registerTaylorRuleRoute(app: FastifyInstance) {
         mrm.core_source_url,
         mrm.market_real_rate_series_key,
         mrm.market_real_rate_source_url,
+        mrm.output_gap_series_key,
+        mrm.output_gap_source_url,
         mrm.gdp_series_key,
         mrm.gdp_source_url,
         mrm.policy_real_rate_note
@@ -114,6 +122,10 @@ export async function registerTaylorRuleRoute(app: FastifyInstance) {
                 value: row.market_real_rate,
                 asOf: row.market_real_rate_as_of_date
               },
+              outputGap: {
+                value: row.output_gap,
+                asOf: row.output_gap_as_of_date
+              },
               gdpGrowthYoy: {
                 current: row.gdp_growth_yoy_current,
                 historicalAverage: row.gdp_growth_yoy_historical_average,
@@ -136,6 +148,7 @@ export async function registerTaylorRuleRoute(app: FastifyInstance) {
         row.headline_source_url,
         row.core_source_url,
         row.market_real_rate_source_url,
+        row.output_gap_source_url,
         row.gdp_source_url
       ]
         .map(sourceNameFromUrl)
@@ -164,16 +177,41 @@ export async function registerTaylorRuleRoute(app: FastifyInstance) {
     });
 
     const uniqueReferences = [
-      ...regions.flatMap((region) => [
-        {
-          label: `${region.region} policy rate`,
-          url: region.references.policySourceUrl
-        },
-        {
-          label: `${region.region} inflation`,
-          url: region.references.inflationSourceUrl
+      ...regions.flatMap((region) => {
+        const items = [
+          {
+            label: `${region.region} policy rate`,
+            url: region.references.policySourceUrl
+          },
+          {
+            label: `${region.region} inflation`,
+            url: region.references.inflationSourceUrl
+          }
+        ];
+
+        if (region.referenceMetrics) {
+          items.push(
+            {
+              label: `${region.region} core inflation`,
+              url: result.rows.find((row) => row.region === region.region)?.core_source_url
+            },
+            {
+              label: `${region.region} market real rate`,
+              url: result.rows.find((row) => row.region === region.region)?.market_real_rate_source_url
+            },
+            {
+              label: `${region.region} output gap`,
+              url: result.rows.find((row) => row.region === region.region)?.output_gap_source_url
+            },
+            {
+              label: `${region.region} GDP growth proxy`,
+              url: result.rows.find((row) => row.region === region.region)?.gdp_source_url
+            }
+          );
         }
-      ]),
+
+        return items;
+      }),
       {
         label: "Slack proxy",
         note: regions[0]?.references.slackSourceNote ?? "Assumed neutral slack proxy in v1"

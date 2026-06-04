@@ -8,11 +8,13 @@ def test_series_registry_contains_taylor_rule_v1_keys():
         "us_cpi_core",
         "us_market_real_rate",
         "us_real_gdp",
+        "us_output_gap",
         "eu_policy_rate",
         "eu_hicp_headline",
         "eu_hicp_core",
         "eu_market_real_rate",
         "eu_real_gdp",
+        "eu_output_gap",
     }
 
     assert expected_keys.issubset(SERIES_REGISTRY.keys())
@@ -25,6 +27,8 @@ def test_series_registry_entries_include_required_metadata():
     eu_market_real_rate = get_series_definition("eu_market_real_rate")
     eu_policy_rate = get_series_definition("eu_policy_rate")
     us_market_real_rate = get_series_definition("us_market_real_rate")
+    us_output_gap = get_series_definition("us_output_gap")
+    eu_output_gap = get_series_definition("eu_output_gap")
 
     assert us_policy_rate.provider == "fred"
     assert us_policy_rate.external_series_id == "DFEDTARU"
@@ -59,3 +63,15 @@ def test_series_registry_entries_include_required_metadata():
     assert eu_market_real_rate.frequency == "monthly"
     assert eu_market_real_rate.source_url == "https://data.ecb.europa.eu/data/datasets/FM/FM.M.U2.EUR.4F.BB.U2_10Y.YLD"
     assert eu_market_real_rate.fallback_external_series_id == "IRLTLT01EZM156N"
+
+    assert us_output_gap.provider == "dbnomics"
+    assert us_output_gap.external_series_id == "USA.1.0.0.0.AVGDGP"
+    assert us_output_gap.unit == "percent"
+    assert us_output_gap.source_url == "https://db.nomics.world/AMECO/AVGDGP/USA.1.0.0.0.AVGDGP"
+    assert us_output_gap.fallback_external_series_id == "USALORSGPRTSTSAM"
+
+    assert eu_output_gap.provider == "dbnomics"
+    assert eu_output_gap.external_series_id == "EA20.1.0.0.0.AVGDGP"
+    assert eu_output_gap.unit == "percent"
+    assert eu_output_gap.source_url == "https://db.nomics.world/AMECO/AVGDGP/EA20.1.0.0.0.AVGDGP"
+    assert eu_output_gap.fallback_external_series_id == "EA19LORSGPRTSTSAM"

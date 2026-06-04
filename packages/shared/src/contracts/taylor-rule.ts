@@ -31,11 +31,14 @@ export interface TaylorRulePolicyRealRateMetric extends TaylorRuleMetricPoint {
   note: string;
 }
 
+export interface TaylorRuleOutputGapMetric extends TaylorRuleMetricPoint {}
+
 export interface TaylorRuleReferenceMetrics {
   headlineInflation: TaylorRuleMetricPoint;
   coreInflation: TaylorRuleMetricPoint;
   policyRealRate: TaylorRulePolicyRealRateMetric;
   marketRealRate: TaylorRuleMetricPoint;
+  outputGap: TaylorRuleOutputGapMetric;
   gdpGrowthYoy: TaylorRuleGrowthMetric;
   gdpGrowthQoqAnnualized: TaylorRuleGrowthMetric;
 }

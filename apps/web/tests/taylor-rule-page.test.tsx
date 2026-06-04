@@ -39,6 +39,7 @@ const payload = {
         coreInflation: { value: "2.30", asOf: "2026-04-01" },
         policyRealRate: { value: "0.15", asOf: "2026-04-01", note: "Policy real rate = policy rate minus headline inflation." },
         marketRealRate: { value: "0.46", asOf: "2026-04-01" },
+        outputGap: { value: "-0.49", asOf: "2026-01-01" },
         gdpGrowthYoy: {
           current: "1.20",
           historicalAverage: "1.60",
@@ -78,6 +79,7 @@ const payload = {
         coreInflation: { value: "3.10", asOf: "2026-04-01" },
         policyRealRate: { value: "1.60", asOf: "2026-04-01", note: "Policy real rate = policy rate minus headline inflation." },
         marketRealRate: { value: "2.10", asOf: "2026-04-01" },
+        outputGap: { value: "-0.11", asOf: "2026-01-01" },
         gdpGrowthYoy: {
           current: "2.40",
           historicalAverage: "2.10",
@@ -142,14 +144,15 @@ describe("Taylor Rule page", () => {
     expect(screen.getAllByText("Core CPI").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Policy real rate").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Market real rate").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Output gap").length).toBeGreaterThan(0);
     expect(screen.getAllByText("GDP YoY growth").length).toBeGreaterThan(0);
     expect(screen.getAllByText("GDP YoY Avg").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("GDP q/q ann. growth gap").length).toBeGreaterThan(0);
+    expect(screen.queryByText("GDP q/q ann. growth")).not.toBeInTheDocument();
     expect(screen.getByText("Source: ECB, FRED")).toBeInTheDocument();
     expect(screen.getByText("Source: FRED")).toBeInTheDocument();
     expect(screen.getByText(/Interpretation: EU screens easier than the rule benchmark by 0.90 percentage points\./)).toBeInTheDocument();
     expect(screen.getByText(/Interpretation: US screens tighter than the rule benchmark by 0.15 percentage points\./)).toBeInTheDocument();
-    expect(screen.getByText(/Federal Reserve Bank of St\. Louis, FRED, "EU policy rate"/)).toBeInTheDocument();
+    expect(screen.getByText(/European Central Bank, Data Portal, "EU policy rate"/)).toBeInTheDocument();
     expect(screen.getByText(/Federal Reserve Bank of St\. Louis, FRED, "US policy rate"/)).toBeInTheDocument();
   });
 
@@ -211,7 +214,7 @@ describe("Taylor Rule page", () => {
 
     expect(screen.getByText("Live Taylor Rule data is unavailable right now.")).toBeInTheDocument();
     expect(screen.getByText("Start the API and run the Taylor Rule pipeline to populate current values.")).toBeInTheDocument();
-    expect(screen.queryByText("Federal Reserve Bank of St. Louis, FRED, \"EU policy rate\"")).not.toBeInTheDocument();
+    expect(screen.queryByText("European Central Bank, Data Portal, \"EU policy rate\"")).not.toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "USA" })).not.toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "EU assumptions" })).not.toBeInTheDocument();
   });

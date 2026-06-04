@@ -209,7 +209,15 @@ function adjustValue(currentValue: string, delta: number) {
   return formatAdjustmentValue(toNumber(currentValue) + delta);
 }
 
-function academicReferenceText(label: string) {
+function academicReferenceText(label: string, url?: string) {
+  if (url?.includes("data.ecb.europa.eu")) {
+    return `European Central Bank, Data Portal, "${label}"`;
+  }
+
+  if (url?.includes("db.nomics.world")) {
+    return `European Commission, AMECO (via DBnomics), "${label}"`;
+  }
+
   return `Federal Reserve Bank of St. Louis, FRED, "${label}"`;
 }
 
@@ -334,19 +342,9 @@ export function TaylorRuleClient({ data }: { data: TaylorRulePageData }) {
                       value={formatGrowthValue(metrics.gdpGrowthYoy, "gap")}
                     />
                     <ReferenceMetric
-                      label="GDP q/q ann. growth"
-                      meta={metrics.gdpGrowthQoqAnnualized.asOf}
-                      value={formatGrowthValue(metrics.gdpGrowthQoqAnnualized, "current")}
-                    />
-                    <ReferenceMetric
-                      label="GDP q/q ann. Avg"
-                      meta={metrics.gdpGrowthQoqAnnualized.historyWindow}
-                      value={formatGrowthValue(metrics.gdpGrowthQoqAnnualized, "historicalAverage")}
-                    />
-                    <ReferenceMetric
-                      label="GDP q/q ann. growth gap"
-                      meta={`${metrics.gdpGrowthQoqAnnualized.asOf} vs avg`}
-                      value={formatGrowthValue(metrics.gdpGrowthQoqAnnualized, "gap")}
+                      label="Output gap"
+                      meta={metrics.outputGap.asOf}
+                      value={formatPointValue(metrics.outputGap)}
                     />
                   </SimpleGrid>
                   <Text color="muted" fontSize="xs">
@@ -548,7 +546,7 @@ export function TaylorRuleClient({ data }: { data: TaylorRulePageData }) {
               <Box key={reference.label}>
                 {reference.url ? (
                   <Link color="text" href={reference.url} target="_blank">
-                    {academicReferenceText(reference.label)}
+                    {academicReferenceText(reference.label, reference.url)}
                   </Link>
                 ) : (
                   <Text>{reference.label}</Text>

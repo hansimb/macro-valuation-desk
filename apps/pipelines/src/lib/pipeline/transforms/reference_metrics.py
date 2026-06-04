@@ -67,6 +67,17 @@ def _latest_market_real_rate(
     return _round_rate(latest_value), latest_date
 
 
+def _latest_output_gap(staging_rows: list[dict[str, object]], series_id: str) -> tuple[float, str]:
+    latest_row = _latest_row(staging_rows, series_id)
+    latest_value = float(latest_row["numeric_value"])
+    latest_date = str(latest_row["observation_date"])
+
+    if latest_row["unit"] == "ratio_to_trend_index":
+        return _round_rate(latest_value - 100), latest_date
+
+    return _round_rate(latest_value), latest_date
+
+
 def _series_rates_from_level(
     staging_rows: list[dict[str, object]],
     series_id: str,
@@ -122,6 +133,7 @@ def build_macro_reference_metrics(staging_rows: list[dict[str, object]]) -> list
             "core": "eu_hicp_core",
             "market_real_rate": "eu_market_real_rate",
             "gdp": "eu_real_gdp",
+            "output_gap": "eu_output_gap",
         },
         "US": {
             "policy": "us_policy_rate",
@@ -129,6 +141,7 @@ def build_macro_reference_metrics(staging_rows: list[dict[str, object]]) -> list
             "core": "us_cpi_core",
             "market_real_rate": "us_market_real_rate",
             "gdp": "us_real_gdp",
+            "output_gap": "us_output_gap",
         },
     }
     rows: list[dict[str, object]] = []
@@ -142,6 +155,7 @@ def build_macro_reference_metrics(staging_rows: list[dict[str, object]]) -> list
             series_map["market_real_rate"],
             headline_inflation,
         )
+        output_gap, output_gap_as_of = _latest_output_gap(staging_rows, series_map["output_gap"])
         (gdp_yoy_current, gdp_yoy_average, gdp_yoy_as_of, gdp_yoy_window), (
             gdp_qoq_current,
             gdp_qoq_average,
@@ -160,6 +174,8 @@ def build_macro_reference_metrics(staging_rows: list[dict[str, object]]) -> list
                 "policy_real_rate_as_of_date": max(str(_latest_row(staging_rows, series_map["policy"])["observation_date"]), headline_as_of),
                 "market_real_rate": market_real_rate,
                 "market_real_rate_as_of_date": market_real_rate_as_of,
+                "output_gap": output_gap,
+                "output_gap_as_of_date": output_gap_as_of,
                 "gdp_growth_yoy_current": gdp_yoy_current,
                 "gdp_growth_yoy_historical_average": gdp_yoy_average,
                 "gdp_growth_yoy_gap": _round_rate(gdp_yoy_current - gdp_yoy_average),
@@ -176,6 +192,8 @@ def build_macro_reference_metrics(staging_rows: list[dict[str, object]]) -> list
                 "core_source_url": _latest_source_url(staging_rows, series_map["core"]),
                 "market_real_rate_series_key": series_map["market_real_rate"],
                 "market_real_rate_source_url": _latest_source_url(staging_rows, series_map["market_real_rate"]),
+                "output_gap_series_key": series_map["output_gap"],
+                "output_gap_source_url": _latest_source_url(staging_rows, series_map["output_gap"]),
                 "gdp_series_key": series_map["gdp"],
                 "gdp_source_url": _latest_source_url(staging_rows, series_map["gdp"]),
                 "policy_real_rate_note": POLICY_REAL_RATE_NOTE,

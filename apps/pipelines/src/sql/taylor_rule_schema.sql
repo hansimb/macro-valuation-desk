@@ -84,6 +84,8 @@ create table if not exists mart.macro_reference_metrics (
     policy_real_rate_as_of_date date not null,
     market_real_rate numeric not null,
     market_real_rate_as_of_date date not null,
+    output_gap numeric not null default 0,
+    output_gap_as_of_date date not null default date '1970-01-01',
     gdp_growth_yoy_current numeric not null,
     gdp_growth_yoy_historical_average numeric not null,
     gdp_growth_yoy_gap numeric not null,
@@ -100,10 +102,17 @@ create table if not exists mart.macro_reference_metrics (
     core_source_url text not null,
     market_real_rate_series_key text not null,
     market_real_rate_source_url text not null,
+    output_gap_series_key text not null default '',
+    output_gap_source_url text not null default '',
     gdp_series_key text not null,
     gdp_source_url text not null,
     policy_real_rate_note text not null
 );
+
+alter table mart.macro_reference_metrics add column if not exists output_gap numeric not null default 0;
+alter table mart.macro_reference_metrics add column if not exists output_gap_as_of_date date not null default date '1970-01-01';
+alter table mart.macro_reference_metrics add column if not exists output_gap_series_key text not null default '';
+alter table mart.macro_reference_metrics add column if not exists output_gap_source_url text not null default '';
 
 -- Raw retention policy is intentionally deferred in v1.
 -- Cleanup can be added later as scheduled maintenance work.
