@@ -65,6 +65,7 @@ The page should feel closer to a research worksheet than a long article.
 
 Every analysis page must make its method explicit:
 
+- the short theory or reasoning behind the framework
 - what is being measured
 - which formula or framework is used
 - which inputs come from real data
@@ -72,6 +73,18 @@ Every analysis page must make its method explicit:
 - what the output means
 
 If a formula exists, show it clearly on the page.
+
+Theory and reasoning should appear before the formula, and the formula should appear before the numerical analysis output.
+
+Preferred section flow inside an analysis block:
+
+1. short theory / reasoning
+2. explicit formula or framework
+3. data inputs and assumptions
+4. analysis output
+5. references
+
+This is the default `theory first` rule for MVD analysis work.
 
 ### 3. Minimal User Inputs
 
@@ -121,6 +134,13 @@ Each analysis page should answer one clear question.
 
 If the page starts trying to answer several different macro questions at once, split it into separate analyses.
 
+If a single page intentionally contains multiple tightly related methods inside one analysis, each method block must still keep its own clear internal structure:
+
+- theory first
+- formula second
+- data and outputs after that
+- references at the end of the block
+
 ### 8. Full-Stack Means Full-Stack
 
 Analysis planning in this directory is full-stack planning.
@@ -158,6 +178,22 @@ Analysis plans should prefer reusable building blocks and avoid hardcoding the f
 It is acceptable for v1 scope to start narrow.
 
 It is not acceptable to spread that narrowness as avoidable hardcoding across pipelines, schemas, API contracts, and product structure.
+
+### 11. Open Methodology
+
+MVD analysis should be explicit and inspectable.
+
+The methodology should not be hidden behind black-box outputs, unexplained scores, or unexplained transformations.
+
+The user should be able to see:
+
+- the theory in short plain language
+- the formula or decision framework
+- the required data inputs
+- the distinction between direct observations and derived outputs
+- the final interpretation limits
+
+If the analysis uses a proxy, smoothing rule, base-period choice, or simplifying assumption, that should be stated openly.
 
 ## What A Master Plan Must Cover
 
