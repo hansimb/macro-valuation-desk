@@ -339,3 +339,218 @@ def replace_macro_reference_metrics(connection, rows: list[dict[str, object]]) -
             rows,
         )
     connection.commit()
+
+
+def replace_currency_ppp_snapshots(connection, rows: list[dict[str, object]]) -> None:
+    pair_keys = sorted({row["pair_key"] for row in rows})
+
+    with connection.cursor() as cursor:
+        if pair_keys:
+            cursor.execute(
+                "delete from mart.currency_ppp_snapshots where pair_key = any(%(pair_keys)s)",
+                {"pair_keys": pair_keys},
+            )
+        cursor.executemany(
+            """
+            insert into mart.currency_ppp_snapshots (
+                pair_key,
+                base_month,
+                as_of_month,
+                base_spot,
+                current_spot,
+                implied_ppp,
+                deviation_pct,
+                spot_series_key,
+                spot_source_url,
+                us_cpi_series_key,
+                us_cpi_source_url,
+                ea_cpi_series_key,
+                ea_cpi_source_url
+            )
+            values (
+                %(pair_key)s,
+                %(base_month)s,
+                %(as_of_month)s,
+                %(base_spot)s,
+                %(current_spot)s,
+                %(implied_ppp)s,
+                %(deviation_pct)s,
+                %(spot_series_key)s,
+                %(spot_source_url)s,
+                %(us_cpi_series_key)s,
+                %(us_cpi_source_url)s,
+                %(ea_cpi_series_key)s,
+                %(ea_cpi_source_url)s
+            )
+            on conflict (pair_key, base_month, as_of_month) do update
+            set
+                base_spot = excluded.base_spot,
+                current_spot = excluded.current_spot,
+                implied_ppp = excluded.implied_ppp,
+                deviation_pct = excluded.deviation_pct,
+                spot_series_key = excluded.spot_series_key,
+                spot_source_url = excluded.spot_source_url,
+                us_cpi_series_key = excluded.us_cpi_series_key,
+                us_cpi_source_url = excluded.us_cpi_source_url,
+                ea_cpi_series_key = excluded.ea_cpi_series_key,
+                ea_cpi_source_url = excluded.ea_cpi_source_url
+            """,
+            rows,
+        )
+    connection.commit()
+
+
+def replace_currency_ppp_paths(connection, rows: list[dict[str, object]]) -> None:
+    pair_keys = sorted({row["pair_key"] for row in rows})
+
+    with connection.cursor() as cursor:
+        if pair_keys:
+            cursor.execute(
+                "delete from mart.currency_ppp_paths where pair_key = any(%(pair_keys)s)",
+                {"pair_keys": pair_keys},
+            )
+        cursor.executemany(
+            """
+            insert into mart.currency_ppp_paths (
+                pair_key,
+                base_month,
+                observation_month,
+                actual_spot,
+                implied_ppp
+            )
+            values (
+                %(pair_key)s,
+                %(base_month)s,
+                %(observation_month)s,
+                %(actual_spot)s,
+                %(implied_ppp)s
+            )
+            on conflict (pair_key, base_month, observation_month) do update
+            set
+                actual_spot = excluded.actual_spot,
+                implied_ppp = excluded.implied_ppp
+            """,
+            rows,
+        )
+    connection.commit()
+
+
+def replace_currency_irp_snapshots(connection, rows: list[dict[str, object]]) -> None:
+    pair_keys = sorted({row["pair_key"] for row in rows})
+
+    with connection.cursor() as cursor:
+        if pair_keys:
+            cursor.execute(
+                "delete from mart.currency_irp_snapshots where pair_key = any(%(pair_keys)s)",
+                {"pair_keys": pair_keys},
+            )
+        cursor.executemany(
+            """
+            insert into mart.currency_irp_snapshots (
+                pair_key,
+                as_of_date,
+                tenor,
+                spot,
+                eur_rate,
+                usd_rate,
+                rate_spread,
+                cip_implied_forward,
+                observed_forward,
+                cip_basis_bps,
+                uip_implied_move_pct,
+                uip_implied_spot,
+                spot_series_key,
+                spot_source_url,
+                eur_rate_series_key,
+                eur_rate_source_url,
+                usd_rate_series_key,
+                usd_rate_source_url,
+                forward_series_key,
+                forward_source_url,
+                has_observed_forward
+            )
+            values (
+                %(pair_key)s,
+                %(as_of_date)s,
+                %(tenor)s,
+                %(spot)s,
+                %(eur_rate)s,
+                %(usd_rate)s,
+                %(rate_spread)s,
+                %(cip_implied_forward)s,
+                %(observed_forward)s,
+                %(cip_basis_bps)s,
+                %(uip_implied_move_pct)s,
+                %(uip_implied_spot)s,
+                %(spot_series_key)s,
+                %(spot_source_url)s,
+                %(eur_rate_series_key)s,
+                %(eur_rate_source_url)s,
+                %(usd_rate_series_key)s,
+                %(usd_rate_source_url)s,
+                %(forward_series_key)s,
+                %(forward_source_url)s,
+                %(has_observed_forward)s
+            )
+            on conflict (pair_key, as_of_date, tenor) do update
+            set
+                spot = excluded.spot,
+                eur_rate = excluded.eur_rate,
+                usd_rate = excluded.usd_rate,
+                rate_spread = excluded.rate_spread,
+                cip_implied_forward = excluded.cip_implied_forward,
+                observed_forward = excluded.observed_forward,
+                cip_basis_bps = excluded.cip_basis_bps,
+                uip_implied_move_pct = excluded.uip_implied_move_pct,
+                uip_implied_spot = excluded.uip_implied_spot,
+                spot_series_key = excluded.spot_series_key,
+                spot_source_url = excluded.spot_source_url,
+                eur_rate_series_key = excluded.eur_rate_series_key,
+                eur_rate_source_url = excluded.eur_rate_source_url,
+                usd_rate_series_key = excluded.usd_rate_series_key,
+                usd_rate_source_url = excluded.usd_rate_source_url,
+                forward_series_key = excluded.forward_series_key,
+                forward_source_url = excluded.forward_source_url,
+                has_observed_forward = excluded.has_observed_forward
+            """,
+            rows,
+        )
+    connection.commit()
+
+
+def replace_currency_data_availability(connection, rows: list[dict[str, object]]) -> None:
+    pair_keys = sorted({row["pair_key"] for row in rows})
+
+    with connection.cursor() as cursor:
+        if pair_keys:
+            cursor.execute(
+                "delete from mart.currency_data_availability where pair_key = any(%(pair_keys)s)",
+                {"pair_keys": pair_keys},
+            )
+        cursor.executemany(
+            """
+            insert into mart.currency_data_availability (
+                pair_key,
+                section_key,
+                item_key,
+                status,
+                detail,
+                as_of_date
+            )
+            values (
+                %(pair_key)s,
+                %(section_key)s,
+                %(item_key)s,
+                %(status)s,
+                %(detail)s,
+                %(as_of_date)s
+            )
+            on conflict (pair_key, section_key, item_key) do update
+            set
+                status = excluded.status,
+                detail = excluded.detail,
+                as_of_date = excluded.as_of_date
+            """,
+            rows,
+        )
+    connection.commit()

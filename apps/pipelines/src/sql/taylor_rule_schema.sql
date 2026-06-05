@@ -109,6 +109,67 @@ create table if not exists mart.macro_reference_metrics (
     policy_real_rate_note text not null
 );
 
+create table if not exists mart.currency_ppp_snapshots (
+    pair_key text not null,
+    base_month date not null,
+    as_of_month date not null,
+    base_spot numeric not null,
+    current_spot numeric not null,
+    implied_ppp numeric not null,
+    deviation_pct numeric not null,
+    spot_series_key text not null,
+    spot_source_url text not null,
+    us_cpi_series_key text not null,
+    us_cpi_source_url text not null,
+    ea_cpi_series_key text not null,
+    ea_cpi_source_url text not null,
+    primary key (pair_key, base_month, as_of_month)
+);
+
+create table if not exists mart.currency_ppp_paths (
+    pair_key text not null,
+    base_month date not null,
+    observation_month date not null,
+    actual_spot numeric not null,
+    implied_ppp numeric not null,
+    primary key (pair_key, base_month, observation_month)
+);
+
+create table if not exists mart.currency_irp_snapshots (
+    pair_key text not null,
+    as_of_date date not null,
+    tenor text not null,
+    spot numeric not null,
+    eur_rate numeric not null,
+    usd_rate numeric not null,
+    rate_spread numeric not null,
+    cip_implied_forward numeric not null,
+    observed_forward numeric,
+    cip_basis_bps numeric,
+    uip_implied_move_pct numeric not null,
+    uip_implied_spot numeric not null,
+    spot_series_key text not null,
+    spot_source_url text not null,
+    eur_rate_series_key text not null,
+    eur_rate_source_url text not null,
+    usd_rate_series_key text not null,
+    usd_rate_source_url text not null,
+    forward_series_key text,
+    forward_source_url text,
+    has_observed_forward boolean not null default false,
+    primary key (pair_key, as_of_date, tenor)
+);
+
+create table if not exists mart.currency_data_availability (
+    pair_key text not null,
+    section_key text not null,
+    item_key text not null,
+    status text not null,
+    detail text not null,
+    as_of_date date,
+    primary key (pair_key, section_key, item_key)
+);
+
 alter table mart.macro_reference_metrics add column if not exists output_gap numeric not null default 0;
 alter table mart.macro_reference_metrics add column if not exists output_gap_as_of_date date not null default date '1970-01-01';
 alter table mart.macro_reference_metrics add column if not exists output_gap_series_key text not null default '';

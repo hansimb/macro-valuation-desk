@@ -20,6 +20,23 @@ def test_series_registry_contains_taylor_rule_v1_keys():
     assert expected_keys.issubset(SERIES_REGISTRY.keys())
 
 
+def test_series_registry_contains_currency_analysis_v1_keys():
+    expected_keys = {
+        "eurusd_spot_daily",
+        "eurusd_spot_monthly",
+        "us_cpi_index",
+        "ea_cpi_index",
+        "usd_3m_rate",
+        "usd_6m_rate",
+        "usd_12m_rate",
+        "eur_3m_rate",
+        "eur_6m_rate",
+        "eur_12m_rate",
+    }
+
+    assert expected_keys.issubset(SERIES_REGISTRY.keys())
+
+
 def test_series_registry_entries_include_required_metadata():
     us_policy_rate = get_series_definition("us_policy_rate")
     eu_hicp_headline = get_series_definition("eu_hicp_headline")
@@ -75,3 +92,72 @@ def test_series_registry_entries_include_required_metadata():
     assert eu_output_gap.unit == "percent"
     assert eu_output_gap.source_url == "https://db.nomics.world/AMECO/AVGDGP/EA20.1.0.0.0.AVGDGP"
     assert eu_output_gap.fallback_external_series_id == "EA19LORSGPRTSTSAM"
+
+
+def test_currency_analysis_registry_entries_include_required_metadata():
+    eurusd_spot_daily = get_series_definition("eurusd_spot_daily")
+    eurusd_spot_monthly = get_series_definition("eurusd_spot_monthly")
+    us_cpi_index = get_series_definition("us_cpi_index")
+    ea_cpi_index = get_series_definition("ea_cpi_index")
+    usd_3m_rate = get_series_definition("usd_3m_rate")
+    usd_6m_rate = get_series_definition("usd_6m_rate")
+    usd_12m_rate = get_series_definition("usd_12m_rate")
+    eur_3m_rate = get_series_definition("eur_3m_rate")
+    eur_6m_rate = get_series_definition("eur_6m_rate")
+    eur_12m_rate = get_series_definition("eur_12m_rate")
+
+    assert eurusd_spot_daily.provider == "ecb"
+    assert eurusd_spot_daily.external_series_id == "EXR.D.USD.EUR.SP00.A"
+    assert eurusd_spot_daily.region == "FX"
+    assert eurusd_spot_daily.frequency == "daily"
+    assert eurusd_spot_daily.unit == "usd_per_eur"
+    assert eurusd_spot_daily.source_url == "https://data.ecb.europa.eu/data/datasets/EXR/EXR.D.USD.EUR.SP00.A"
+
+    assert eurusd_spot_monthly.provider == "ecb"
+    assert eurusd_spot_monthly.external_series_id == "EXR.M.USD.EUR.SP00.A"
+    assert eurusd_spot_monthly.frequency == "monthly"
+    assert eurusd_spot_monthly.unit == "usd_per_eur"
+    assert eurusd_spot_monthly.source_url == "https://data.ecb.europa.eu/data/datasets/EXR/EXR.M.USD.EUR.SP00.A"
+
+    assert us_cpi_index.provider == "fred"
+    assert us_cpi_index.external_series_id == "CPIAUCSL"
+    assert us_cpi_index.unit == "index"
+
+    assert ea_cpi_index.provider == "fred"
+    assert ea_cpi_index.external_series_id == "CP00MI15EA20M086NEST"
+    assert ea_cpi_index.frequency == "monthly"
+    assert ea_cpi_index.unit == "index"
+
+    assert usd_3m_rate.provider == "fred"
+    assert usd_3m_rate.external_series_id == "DTB3"
+    assert usd_3m_rate.unit == "percent"
+
+    assert usd_6m_rate.provider == "fred"
+    assert usd_6m_rate.external_series_id == "DTB6"
+    assert usd_6m_rate.unit == "percent"
+
+    assert usd_12m_rate.provider == "fred"
+    assert usd_12m_rate.external_series_id == "DTB1YR"
+    assert usd_12m_rate.unit == "percent"
+
+    assert eur_3m_rate.provider == "ecb"
+    assert eur_3m_rate.external_series_id == "EST.B.EU000A2QQF32.CR"
+    assert eur_3m_rate.unit == "percent"
+
+    assert eur_6m_rate.provider == "ecb"
+    assert eur_6m_rate.external_series_id == "EST.B.EU000A2QQF40.CR"
+    assert eur_6m_rate.unit == "percent"
+
+    assert eur_12m_rate.provider == "ecb"
+    assert eur_12m_rate.external_series_id == "EST.B.EU000A2QQF57.CR"
+    assert eur_12m_rate.unit == "percent"
+
+
+def test_currency_analysis_forward_series_are_not_registered_without_a_real_source_path():
+    unexpected_forward_keys = {
+        "eurusd_forward_3m",
+        "eurusd_forward_6m",
+        "eurusd_forward_12m",
+    }
+
+    assert unexpected_forward_keys.isdisjoint(SERIES_REGISTRY.keys())

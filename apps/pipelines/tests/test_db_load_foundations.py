@@ -7,6 +7,10 @@ from psycopg.rows import dict_row
 from src.lib.db import (
     bootstrap_taylor_rule_schema,
     get_connection,
+    replace_currency_data_availability,
+    replace_currency_irp_snapshots,
+    replace_currency_ppp_paths,
+    replace_currency_ppp_snapshots,
     replace_taylor_rule_inputs,
     upsert_raw_observations,
     upsert_series_metadata,
@@ -97,6 +101,10 @@ def test_bootstrap_taylor_rule_schema_creates_required_schemas_and_tables():
     assert "create table if not exists raw.series_observations" in executed_sql.lower()
     assert "create table if not exists staging.series_observations" in executed_sql.lower()
     assert "create table if not exists mart.taylor_rule_inputs" in executed_sql.lower()
+    assert "create table if not exists mart.currency_ppp_snapshots" in executed_sql.lower()
+    assert "create table if not exists mart.currency_ppp_paths" in executed_sql.lower()
+    assert "create table if not exists mart.currency_irp_snapshots" in executed_sql.lower()
+    assert "create table if not exists mart.currency_data_availability" in executed_sql.lower()
 
 
 def test_upsert_helpers_write_expected_row_shapes():
@@ -152,6 +160,79 @@ def test_upsert_helpers_write_expected_row_shapes():
             }
         ],
     )
+    replace_currency_ppp_snapshots(
+        connection,
+        [
+            {
+                "pair_key": "eurusd",
+                "base_month": "2020-01-01",
+                "as_of_month": "2026-04-01",
+                "base_spot": 1.1111,
+                "current_spot": 1.145,
+                "implied_ppp": 1.0825,
+                "deviation_pct": 5.78,
+                "spot_series_key": "eurusd_spot_monthly",
+                "spot_source_url": "https://data.ecb.europa.eu/data/datasets/EXR/EXR.M.USD.EUR.SP00.A",
+                "us_cpi_series_key": "us_cpi_index",
+                "us_cpi_source_url": "https://fred.stlouisfed.org/series/CPIAUCSL",
+                "ea_cpi_series_key": "ea_cpi_index",
+                "ea_cpi_source_url": "https://fred.stlouisfed.org/series/CP00MI15EA20M086NEST",
+            }
+        ],
+    )
+    replace_currency_ppp_paths(
+        connection,
+        [
+            {
+                "pair_key": "eurusd",
+                "base_month": "2020-01-01",
+                "observation_month": "2020-02-01",
+                "actual_spot": 1.103,
+                "implied_ppp": 1.109,
+            }
+        ],
+    )
+    replace_currency_irp_snapshots(
+        connection,
+        [
+            {
+                "pair_key": "eurusd",
+                "as_of_date": "2026-05-30",
+                "tenor": "3M",
+                "spot": 1.142,
+                "eur_rate": 1.94,
+                "usd_rate": 3.57,
+                "rate_spread": -1.63,
+                "cip_implied_forward": 1.1373,
+                "observed_forward": None,
+                "cip_basis_bps": None,
+                "uip_implied_move_pct": -1.63,
+                "uip_implied_spot": 1.1234,
+                "spot_series_key": "eurusd_spot_daily",
+                "spot_source_url": "https://data.ecb.europa.eu/data/datasets/EXR/EXR.D.USD.EUR.SP00.A",
+                "eur_rate_series_key": "eur_3m_rate",
+                "eur_rate_source_url": "https://data.ecb.europa.eu/data/datasets/EST/EST.B.EU000A2QQF32.CR",
+                "usd_rate_series_key": "usd_3m_rate",
+                "usd_rate_source_url": "https://fred.stlouisfed.org/series/DTB3",
+                "forward_series_key": None,
+                "forward_source_url": None,
+                "has_observed_forward": False,
+            }
+        ],
+    )
+    replace_currency_data_availability(
+        connection,
+        [
+            {
+                "pair_key": "eurusd",
+                "section_key": "irp",
+                "item_key": "3M",
+                "status": "partial",
+                "detail": "Observed forward unavailable; CIP-only comparison returned.",
+                "as_of_date": "2026-05-30",
+            }
+        ],
+    )
 
     commands = connection.cursor_instance.commands
     assert any("insert into core.series_metadata" in query.lower() for query, _ in commands)
@@ -159,7 +240,15 @@ def test_upsert_helpers_write_expected_row_shapes():
     assert any("insert into staging.series_observations" in query.lower() for query, _ in commands)
     assert any("insert into mart.taylor_rule_inputs" in query.lower() for query, _ in commands)
     assert any("delete from mart.taylor_rule_inputs" in query.lower() for query, _ in commands)
-    assert connection.commit_count == 4
+    assert any("insert into mart.currency_ppp_snapshots" in query.lower() for query, _ in commands)
+    assert any("delete from mart.currency_ppp_snapshots" in query.lower() for query, _ in commands)
+    assert any("insert into mart.currency_ppp_paths" in query.lower() for query, _ in commands)
+    assert any("delete from mart.currency_ppp_paths" in query.lower() for query, _ in commands)
+    assert any("insert into mart.currency_irp_snapshots" in query.lower() for query, _ in commands)
+    assert any("delete from mart.currency_irp_snapshots" in query.lower() for query, _ in commands)
+    assert any("insert into mart.currency_data_availability" in query.lower() for query, _ in commands)
+    assert any("delete from mart.currency_data_availability" in query.lower() for query, _ in commands)
+    assert connection.commit_count == 8
 
 
 def test_checkpoint_helpers_read_write_and_build_reprocessing_window():

@@ -12,13 +12,18 @@ def test_run_all_flows_executes_macro_seed_then_taylor_rule(monkeypatch):
         "src.flows.all_flows.run_taylor_rule_flow",
         lambda: calls.append("taylor_rule") or {"status": "success", "mart_rows": 2},
     )
+    monkeypatch.setattr(
+        "src.flows.all_flows.run_currency_analysis_flow",
+        lambda: calls.append("currency_analysis") or {"status": "success", "ppp_snapshot_rows": 2, "irp_snapshot_rows": 3},
+    )
 
     result = run_all_flows()
 
-    assert calls == ["macro_seed", "taylor_rule"]
+    assert calls == ["macro_seed", "taylor_rule", "currency_analysis"]
     assert result == {
         "macro_seed": {"rows_loaded": 3},
         "taylor_rule": {"status": "success", "mart_rows": 2},
+        "currency_analysis": {"status": "success", "ppp_snapshot_rows": 2, "irp_snapshot_rows": 3},
     }
 
 
@@ -28,6 +33,7 @@ def test_run_all_flows_raises_when_a_child_flow_reports_failed_status(monkeypatc
         "src.flows.all_flows.run_taylor_rule_flow",
         lambda: {"status": "failed", "errors": ["us_policy_rate: boom"]},
     )
+    monkeypatch.setattr("src.flows.all_flows.run_currency_analysis_flow", lambda: {"status": "success"})
 
     try:
         run_all_flows()
@@ -46,6 +52,7 @@ def test_run_all_flows_formats_multiple_errors_as_bulleted_lines(monkeypatch):
             "errors": ["us_policy_rate: boom", "eu_policy_rate: blocked"],
         },
     )
+    monkeypatch.setattr("src.flows.all_flows.run_currency_analysis_flow", lambda: {"status": "success"})
 
     try:
         run_all_flows()
