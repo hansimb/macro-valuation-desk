@@ -4,6 +4,10 @@ This file restates the analysis-planning rules in a process-oriented form for ag
 
 Use it together with `docs/analysis/README.md`, not as a replacement for it.
 
+For explicit analysis UI construction rules, also use:
+
+- `docs/analysis/FOR-AGENTS-UI-BUILD-INSTRUCTIONS.md`
+
 ## Default Behavior
 
 Follow these rules by default.
