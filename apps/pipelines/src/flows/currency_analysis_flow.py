@@ -33,8 +33,6 @@ def run_currency_analysis_flow() -> dict[str, object]:
         for result in fetch_results
         if not result.ok and result.error is not None
     ]
-    if failures:
-        return {"status": "failed", "errors": failures}
 
     staging_rows = [
         row
@@ -44,6 +42,13 @@ def run_currency_analysis_flow() -> dict[str, object]:
     ]
     ppp_outputs = build_currency_ppp_outputs(staging_rows)
     irp_outputs = build_currency_irp_outputs(staging_rows)
+
+    if not ppp_outputs["snapshot_rows"] and not irp_outputs["snapshot_rows"]:
+        return {
+            "status": "failed",
+            "errors": failures or ["No currency analysis sections could be built from the fetched inputs."],
+        }
+
     availability_rows = ppp_outputs["availability_rows"] + irp_outputs["availability_rows"]
     load_summary = _call_task(
         load_currency_analysis_layers_module.load_currency_analysis_layers,
@@ -64,6 +69,7 @@ def run_currency_analysis_flow() -> dict[str, object]:
         "ppp_path_rows": len(ppp_outputs["path_rows"]),
         "irp_snapshot_rows": len(irp_outputs["snapshot_rows"]),
         "availability_rows": len(availability_rows),
+        "fetch_errors": failures,
         "load_summary": load_summary,
     }
 

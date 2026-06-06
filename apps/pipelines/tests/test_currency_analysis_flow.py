@@ -209,3 +209,144 @@ def test_run_currency_analysis_flow_handles_required_input_failure_without_check
     assert result["status"] == "failed"
     assert result["errors"] == ["eurusd_spot_monthly: boom"]
     assert written_checkpoints == []
+
+
+def test_run_currency_analysis_flow_tolerates_optional_irp_fetch_failures_when_ppp_still_builds(monkeypatch):
+    fetch_results = [
+        FetchResult.success(
+            _build_series(
+                key="eurusd_spot_monthly",
+                category="fx_spot",
+                region="FX",
+                frequency="monthly",
+                unit="usd_per_eur",
+                provider="ecb",
+                series_id="EXR.M.USD.EUR.SP00.A",
+                source_url="https://data.ecb.europa.eu/data/datasets/EXR/EXR.M.USD.EUR.SP00.A",
+                observations=[("2026-01", "1.10"), ("2026-02", "1.20")],
+            )
+        ),
+        FetchResult.success(
+            _build_series(
+                key="eurusd_spot_daily",
+                category="fx_spot",
+                region="FX",
+                frequency="daily",
+                unit="usd_per_eur",
+                provider="ecb",
+                series_id="EXR.D.USD.EUR.SP00.A",
+                source_url="https://data.ecb.europa.eu/data/datasets/EXR/EXR.D.USD.EUR.SP00.A",
+                observations=[("2026-05-30", "1.14")],
+            )
+        ),
+        FetchResult.success(
+            _build_series(
+                key="us_cpi_index",
+                category="inflation",
+                region="US",
+                frequency="monthly",
+                unit="index",
+                provider="fred",
+                series_id="CPIAUCSL",
+                source_url="https://fred.stlouisfed.org/series/CPIAUCSL",
+                observations=[("2026-01", "100.0"), ("2026-02", "102.0")],
+            )
+        ),
+        FetchResult.success(
+            _build_series(
+                key="ea_cpi_index",
+                category="inflation",
+                region="EU",
+                frequency="monthly",
+                unit="index",
+                provider="fred",
+                series_id="CP00MI15EA20M086NEST",
+                source_url="https://fred.stlouisfed.org/series/CP00MI15EA20M086NEST",
+                observations=[("2026-01", "100.0"), ("2026-02", "101.0")],
+            )
+        ),
+        FetchResult.failure(
+            provider="ecb",
+            key="eur_3m_rate",
+            external_series_id="EST.B.EU000A2QQF32.CR",
+            error_type="fetch_error",
+            message="blocked",
+        ),
+        FetchResult.failure(
+            provider="ecb",
+            key="eur_6m_rate",
+            external_series_id="EST.B.EU000A2QQF40.CR",
+            error_type="fetch_error",
+            message="blocked",
+        ),
+        FetchResult.failure(
+            provider="ecb",
+            key="eur_12m_rate",
+            external_series_id="EST.B.EU000A2QQF57.CR",
+            error_type="fetch_error",
+            message="blocked",
+        ),
+        FetchResult.success(
+            _build_series(
+                key="usd_3m_rate",
+                category="market_rate",
+                region="US",
+                frequency="daily",
+                unit="percent",
+                provider="fred",
+                series_id="DTB3",
+                source_url="https://fred.stlouisfed.org/series/DTB3",
+                observations=[("2026-05-30", "4.0")],
+            )
+        ),
+        FetchResult.success(
+            _build_series(
+                key="usd_6m_rate",
+                category="market_rate",
+                region="US",
+                frequency="daily",
+                unit="percent",
+                provider="fred",
+                series_id="DTB6",
+                source_url="https://fred.stlouisfed.org/series/DTB6",
+                observations=[("2026-05-30", "4.1")],
+            )
+        ),
+        FetchResult.success(
+            _build_series(
+                key="usd_12m_rate",
+                category="market_rate",
+                region="US",
+                frequency="daily",
+                unit="percent",
+                provider="fred",
+                series_id="DTB1YR",
+                source_url="https://fred.stlouisfed.org/series/DTB1YR",
+                observations=[("2026-05-30", "4.2")],
+            )
+        ),
+    ]
+
+    written_checkpoints = []
+
+    monkeypatch.setattr("src.flows.currency_analysis_flow.get_connection", lambda: None)
+    monkeypatch.setattr("src.tasks.run_currency_market_etl.run_currency_market_etl", lambda connection=None: fetch_results)
+    monkeypatch.setattr(
+        "src.tasks.load_currency_analysis_layers.write_successful_checkpoint",
+        lambda _connection, series_id, last_successful_observation_date, last_run_at: written_checkpoints.append(
+            (series_id, last_successful_observation_date)
+        ),
+    )
+
+    result = run_currency_analysis_flow()
+
+    assert result["status"] == "success"
+    assert result["ppp_snapshot_rows"] == 2
+    assert result["irp_snapshot_rows"] == 0
+    assert result["availability_rows"] == 4
+    assert result["fetch_errors"] == [
+        "eur_3m_rate: blocked",
+        "eur_6m_rate: blocked",
+        "eur_12m_rate: blocked",
+    ]
+    assert ("eur_3m_rate", "2026-05-30") not in written_checkpoints
