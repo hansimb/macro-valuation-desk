@@ -4,6 +4,7 @@ import React from "react";
 import { useRouter } from "next/navigation";
 import {
   Box,
+  Button,
   Grid,
   Heading,
   Link,
@@ -184,6 +185,40 @@ function ValueCard({
   );
 }
 
+function toMonthStartTimestamp(value: string) {
+  const timestamp = Date.parse(value);
+  return Number.isNaN(timestamp) ? null : timestamp;
+}
+
+function closestBaseMonthByYears(availableBaseMonths: string[], latestMonth: string, yearsBack: number) {
+  const latestTimestamp = toMonthStartTimestamp(latestMonth);
+  if (latestTimestamp === null) {
+    return null;
+  }
+
+  const targetDate = new Date(latestTimestamp);
+  targetDate.setUTCFullYear(targetDate.getUTCFullYear() - yearsBack);
+  const targetTimestamp = targetDate.getTime();
+
+  let closestMonth: string | null = null;
+  let closestDistance = Number.POSITIVE_INFINITY;
+
+  for (const month of availableBaseMonths) {
+    const monthTimestamp = toMonthStartTimestamp(month);
+    if (monthTimestamp === null) {
+      continue;
+    }
+
+    const distance = Math.abs(monthTimestamp - targetTimestamp);
+    if (distance < closestDistance) {
+      closestDistance = distance;
+      closestMonth = month;
+    }
+  }
+
+  return closestMonth;
+}
+
 export function CurrencyAnalysisClient({ data }: { data: CurrencyAnalysisPageData }) {
   const router = useRouter();
   const pppSummary = data.ppp.summary;
@@ -192,6 +227,15 @@ export function CurrencyAnalysisClient({ data }: { data: CurrencyAnalysisPageDat
   const recentPathRows = data.ppp.path.slice(-12);
   const hasReferences = data.ppp.references.length > 0;
   const referenceNumberByLabel = new Map(data.ppp.references.map((reference, index) => [reference.label, index + 1]));
+  const latestAvailableBaseMonth = data.ppp.availableBaseMonths[data.ppp.availableBaseMonths.length - 1] ?? null;
+  const baseMonthPresets = latestAvailableBaseMonth
+    ? [3, 5, 10, 20, 30]
+        .map((yearsBack) => ({
+          yearsBack,
+          month: closestBaseMonthByYears(data.ppp.availableBaseMonths, latestAvailableBaseMonth, yearsBack),
+        }))
+        .filter((preset): preset is { yearsBack: number; month: string } => preset.month !== null)
+    : [];
 
   if (!pppSummary) {
     return null;
@@ -314,6 +358,46 @@ export function CurrencyAnalysisClient({ data }: { data: CurrencyAnalysisPageDat
                       v
                     </Box>
                   </Box>
+                  {baseMonthPresets.length > 0 ? (
+                    <Stack gap="2" pt="2">
+                      <Text color="muted" fontSize="xs" letterSpacing="0.08em" textTransform="uppercase">
+                        Quick anchors
+                      </Text>
+                      <Grid gap="2" templateColumns={{ base: "repeat(2, minmax(0, 1fr))", md: "repeat(5, minmax(0, 1fr))" }}>
+                        {baseMonthPresets.map((preset) => {
+                          const isActive = preset.month === selectedBaseMonth;
+
+                          return (
+                            <Button
+                              bg={isActive ? "accent" : "canvas"}
+                              borderColor="edge"
+                              borderWidth="1px"
+                              color={isActive ? "canvas" : "text"}
+                              fontSize="sm"
+                              key={`${preset.yearsBack}-${preset.month}`}
+                              onClick={() => {
+                                router.push(
+                                  `/macro/currency-analysis?baseMonth=${encodeURIComponent(preset.month)}`,
+                                  {
+                                    scroll: false,
+                                  },
+                                );
+                              }}
+                              size="sm"
+                              variant="outline"
+                            >
+                              {preset.yearsBack}Y
+                            </Button>
+                          );
+                        })}
+                      </Grid>
+                      <Text color="muted" fontSize="xs">
+                        Each button jumps to the nearest available month around {baseMonthPresets
+                          .map((preset) => `${preset.yearsBack} years`)
+                          .join(", ")} back from the latest selectable anchor.
+                      </Text>
+                    </Stack>
+                  ) : null}
                 </Stack>
 
                 <Stack gap="2">
