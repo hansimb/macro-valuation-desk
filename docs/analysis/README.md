@@ -74,15 +74,20 @@ Every analysis page must make its method explicit:
 
 If a formula exists, show it clearly on the page.
 
+If a formula is shown, its terms must also be opened explicitly in plain language on the page.
+
+Do not leave compact symbolic notation unexplained.
+
 Theory and reasoning should appear before the formula, and the formula should appear before the numerical analysis output.
 
 Preferred section flow inside an analysis block:
 
 1. short theory / reasoning
 2. explicit formula or framework
-3. data inputs and assumptions
-4. analysis output
-5. references
+3. formula terms / symbol explanations
+4. data inputs and assumptions
+5. analysis output
+6. references
 
 This is the default `theory first` rule for MVD analysis work.
 

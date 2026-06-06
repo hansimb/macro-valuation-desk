@@ -25,8 +25,8 @@ export const macroAnalyses: MacroAnalysisEntry[] = [
   {
     slug: "currency-analysis",
     title: "Currency Analysis",
-    summary: "Open-methodology EUR/USD analysis through relative PPP and interest rate parity.",
-    cue: "Theory-first PPP and IRP workup with selectable base month and tenor-based parity table.",
+    summary: "Open-methodology EUR/USD analysis through relative purchasing power parity.",
+    cue: "Theory-first PPP workup with a selectable base month and transparent valuation path.",
     eyebrow: "Macro FX"
   },
   {

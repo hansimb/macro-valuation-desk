@@ -1,10 +1,50 @@
 "use client";
 
 import React from "react";
-import NextLink from "next/link";
-import { Box, Grid, Heading, Link, Stack, Table, Text } from "@chakra-ui/react";
+import { useRouter } from "next/navigation";
+import {
+  Box,
+  Grid,
+  Heading,
+  Link,
+  SimpleGrid,
+  Stack,
+  Table,
+  Text,
+  VisuallyHidden,
+} from "@chakra-ui/react";
 
 import type { CurrencyAnalysisPageData } from "./currency-analysis-types";
+
+type CurrencyReferenceItem = CurrencyAnalysisPageData["ppp"]["references"][number];
+type PppSymbolKey = "PPP_t" | "S_base" | "CPI_US_t" | "CPI_US_base" | "CPI_EA_t" | "CPI_EA_base";
+
+const pppSymbolGuide: { symbol: PppSymbolKey; meaning: string }[] = [
+  {
+    symbol: "S_base",
+    meaning: "Observed EUR/USD spot at the selected base month.",
+  },
+  {
+    symbol: "CPI_US_t",
+    meaning: "U.S. CPI index at observation month t.",
+  },
+  {
+    symbol: "CPI_US_base",
+    meaning: "U.S. CPI index at the selected base month.",
+  },
+  {
+    symbol: "CPI_EA_t",
+    meaning: "Euro area CPI index at observation month t.",
+  },
+  {
+    symbol: "CPI_EA_base",
+    meaning: "Euro area CPI index at the selected base month.",
+  },
+  {
+    symbol: "PPP_t",
+    meaning: "Inflation-adjusted fair-value anchor implied by the selected base month.",
+  },
+];
 
 function pppTakeaway(data: CurrencyAnalysisPageData) {
   if (!data.ppp.summary) {
@@ -17,260 +57,377 @@ function pppTakeaway(data: CurrencyAnalysisPageData) {
   }
 
   if (deviation > 0) {
-    return `Relative PPP suggests EUR/USD is trading ${data.ppp.summary.deviationPct}% above its inflation-adjusted fair-value anchor for the selected base month.`;
+    return `The latest market spot sits ${data.ppp.summary.deviationPct}% above the PPP-implied fair-value anchor built from the selected base month, so the euro screens rich against the dollar on this relative-PPP lens.`;
   }
 
   if (deviation < 0) {
-    return `Relative PPP suggests EUR/USD is trading ${Math.abs(deviation).toFixed(2)}% below its inflation-adjusted fair-value anchor for the selected base month.`;
+    return `The latest market spot sits ${Math.abs(deviation).toFixed(2)}% below the PPP-implied fair-value anchor built from the selected base month, so the euro screens cheap against the dollar on this relative-PPP lens.`;
   }
 
-  return "Relative PPP suggests EUR/USD is sitting almost exactly on its inflation-adjusted fair-value anchor for the selected base month.";
+  return "The latest market spot is sitting almost exactly on the PPP-implied fair-value anchor built from the selected base month.";
 }
 
-function irpTakeaway(data: CurrencyAnalysisPageData) {
-  if (data.irp.cipRows.length === 0) {
-    return null;
+function currencyAcademicReferenceText(label: string, url?: string) {
+  if (url?.includes("data.ecb.europa.eu")) {
+    return `European Central Bank, Data Portal, "${label}"`;
   }
 
-  const negativeSpreadCount = data.irp.cipRows.filter((row) => Number.parseFloat(row.rateSpread) < 0).length;
-  if (negativeSpreadCount === data.irp.cipRows.length) {
-    return "Across the visible tenors, EUR rates sit below USD rates, so the CIP-implied forwards price a weaker euro path than spot.";
+  return `Federal Reserve Bank of St. Louis, FRED, "${label}"`;
+}
+
+function currencyIeeeReferenceText(index: number, reference: CurrencyReferenceItem) {
+  const sourceText = currencyAcademicReferenceText(reference.label, reference.url);
+  return `[${index}] ${sourceText}. [Online]. Available: ${reference.url}.`;
+}
+
+function MathToken({ symbol }: { symbol: PppSymbolKey }) {
+  if (symbol === "PPP_t") {
+    return (
+      <>
+        <Box as="span" fontStyle="italic">
+          PPP
+        </Box>
+        <Box as="sub" display="inline-block" fontSize="0.7em" transform="translateY(0.22em)">
+          t
+        </Box>
+      </>
+    );
   }
 
-  if (negativeSpreadCount === 0) {
-    return "Across the visible tenors, EUR rates sit above USD rates, so the CIP-implied forwards price a stronger euro path than spot.";
+  if (symbol === "S_base") {
+    return (
+      <>
+        <Box as="span" fontStyle="italic">
+          S
+        </Box>
+        <Box as="sub" display="inline-block" fontSize="0.7em" transform="translateY(0.22em)">
+          base
+        </Box>
+      </>
+    );
   }
 
-  return "The tenor structure is mixed, so IRP is not sending one clean message across the curve.";
+  if (symbol === "CPI_US_t") {
+    return (
+      <>
+        <Box as="span" fontStyle="italic">
+          CPI
+        </Box>
+        <Box as="sub" display="inline-block" fontSize="0.7em" transform="translateY(0.22em)">
+          US,t
+        </Box>
+      </>
+    );
+  }
+
+  if (symbol === "CPI_US_base") {
+    return (
+      <>
+        <Box as="span" fontStyle="italic">
+          CPI
+        </Box>
+        <Box as="sub" display="inline-block" fontSize="0.7em" transform="translateY(0.22em)">
+          US,base
+        </Box>
+      </>
+    );
+  }
+
+  if (symbol === "CPI_EA_t") {
+    return (
+      <>
+        <Box as="span" fontStyle="italic">
+          CPI
+        </Box>
+        <Box as="sub" display="inline-block" fontSize="0.7em" transform="translateY(0.22em)">
+          EA,t
+        </Box>
+      </>
+    );
+  }
+
+  return (
+    <>
+      <Box as="span" fontStyle="italic">
+        CPI
+      </Box>
+      <Box as="sub" display="inline-block" fontSize="0.7em" transform="translateY(0.22em)">
+        EA,base
+      </Box>
+    </>
+  );
+}
+
+function ValueCard({
+  label,
+  value,
+  description,
+}: {
+  label: string;
+  value: string;
+  description: string;
+}) {
+  return (
+    <Box bg="canvas" borderColor="edge" borderWidth="1px" p="4" rounded="panel">
+      <Stack gap="2">
+        <Text color="muted" fontSize="xs" letterSpacing="0.08em" textTransform="uppercase">
+          {label}
+        </Text>
+        <Text fontSize="xl" fontWeight="semibold" lineHeight="1.1">
+          {value}
+        </Text>
+        <Text color="muted" fontSize="sm" lineHeight="1.4">
+          {description}
+        </Text>
+      </Stack>
+    </Box>
+  );
 }
 
 export function CurrencyAnalysisClient({ data }: { data: CurrencyAnalysisPageData }) {
-  const pppSectionVisible = data.ppp.summary !== null;
-  const irpSectionVisible = data.irp.cipRows.length > 0;
+  const router = useRouter();
   const pppSummary = data.ppp.summary;
   const pppInterpretation = pppTakeaway(data);
-  const irpInterpretation = irpTakeaway(data);
+  const selectedBaseMonth = data.ppp.selectedBaseMonth ?? "";
+  const recentPathRows = data.ppp.path.slice(-12);
+  const hasReferences = data.ppp.references.length > 0;
+  const referenceNumberByLabel = new Map(data.ppp.references.map((reference, index) => [reference.label, index + 1]));
+
+  if (!pppSummary) {
+    return null;
+  }
+
+  const pathRowsWithGap = recentPathRows.map((point) => {
+    const spot = Number.parseFloat(point.actualSpot);
+    const implied = Number.parseFloat(point.impliedPpp);
+    const gap = Number.isNaN(spot) || Number.isNaN(implied) || implied === 0 ? null : ((spot / implied) - 1) * 100;
+
+    return {
+      ...point,
+      gapLabel: gap === null ? "N/A" : `${gap.toFixed(2)}%`,
+    };
+  });
 
   return (
     <Stack gap={{ base: "8", md: "10" }}>
-      {pppSectionVisible ? (
-        <Box bg="surface" borderColor="edge" borderWidth="1px" p={{ base: "6", md: "7" }} rounded="panel">
-          <Stack gap="5">
-            <Text color="accent" fontSize="xs" letterSpacing="0.16em" textTransform="uppercase">
+      <Box as="section">
+        <Stack gap="5">
+          <Stack gap="3" maxW="4xl">
+            <Heading as="h2" fontSize={{ base: "2xl", md: "3xl" }} lineHeight="1.05">
               1.0 Relative Purchasing Power Parity
-            </Text>
-            <Heading as="h2" fontSize={{ base: "2xl", md: "3xl" }}>
-              Relative Purchasing Power Parity
             </Heading>
             <Text color="muted">
-              Relative PPP treats EUR/USD as a long-run valuation relationship: if U.S. prices and euro-area prices move differently over time, the exchange rate should eventually reflect that inflation differential.
+              Relative PPP treats EUR/USD as a long-run valuation relationship: if U.S. prices and euro-area prices
+              move differently over time, the exchange rate should eventually reflect that inflation differential.
             </Text>
-            <Box bg="canvas" borderColor="edge" borderWidth="1px" p="5" rounded="panel">
-              <Text fontFamily="heading" fontSize={{ base: "lg", md: "xl" }}>
-                PPP_t = S_base * (CPI_US_t / CPI_US_base) / (CPI_EA_t / CPI_EA_base)
+          </Stack>
+
+          <Box bg="surface" borderColor="edge" borderWidth="1px" p={{ base: "6", md: "7" }} rounded="panel">
+            <Stack gap="4">
+              <Text color="accent" fontSize="xs" letterSpacing="0.16em" textTransform="uppercase">
+                Formula
               </Text>
-            </Box>
-            <Stack gap="2">
-              <Text color="muted" fontSize="sm">
-                Base month
-              </Text>
-              <Box bg="canvas" borderColor="edge" borderWidth="1px" p="3" rounded="panel">
-                <Text fontWeight="medium">{data.ppp.selectedBaseMonth ?? "No base month"}</Text>
+              <Box bg="canvas" borderColor="edge" borderWidth="1px" overflowX="auto" p={{ base: "5", md: "6" }} rounded="panel">
+                <VisuallyHidden>PPP_t = S_base * (CPI_US_t / CPI_US_base) / (CPI_EA_t / CPI_EA_base)</VisuallyHidden>
+                <Text
+                  fontFamily="heading"
+                  fontSize={{ base: "xl", md: "2xl" }}
+                  lineHeight="1.4"
+                  textAlign={{ base: "left", md: "center" }}
+                  whiteSpace="nowrap"
+                >
+                  <MathToken symbol="PPP_t" /> = <MathToken symbol="S_base" /> * (
+                  <MathToken symbol="CPI_US_t" /> / <MathToken symbol="CPI_US_base" />) / (
+                  <MathToken symbol="CPI_EA_t" /> / <MathToken symbol="CPI_EA_base" />)
+                </Text>
               </Box>
               <Stack gap="2">
-                {data.ppp.availableBaseMonths.map((baseMonth) => (
-                  <Link asChild color={baseMonth === data.ppp.selectedBaseMonth ? "accent" : "muted"} key={baseMonth}>
-                    <NextLink href={`/macro/currency-analysis?baseMonth=${encodeURIComponent(baseMonth)}`}>
-                      {baseMonth}
-                    </NextLink>
-                  </Link>
+                {pppSymbolGuide.map((item) => (
+                  <Text color="muted" fontSize="sm" key={item.symbol}>
+                    <Box as="span" color="text" fontFamily="heading" mr="2">
+                      <MathToken symbol={item.symbol} />
+                    </Box>
+                    {item.meaning}
+                  </Text>
                 ))}
               </Stack>
+              <Text color="muted" fontSize="sm">
+                The model starts from the chosen anchor month and then re-scales that observed spot by the relative
+                change in U.S. and euro-area CPI index levels.
+              </Text>
             </Stack>
-            {pppSummary ? (
-              <Grid gap="4" templateColumns={{ base: "1fr", md: "repeat(4, minmax(0, 1fr))" }}>
-                <Box bg="canvas" borderColor="edge" borderWidth="1px" p="4" rounded="panel">
-                  <Text color="muted" fontSize="xs" textTransform="uppercase">
-                    Base Spot
-                  </Text>
-                  <Text fontSize="xl" fontWeight="semibold">
-                    {pppSummary.baseSpot}
-                  </Text>
-                </Box>
-                <Box bg="canvas" borderColor="edge" borderWidth="1px" p="4" rounded="panel">
-                  <Text color="muted" fontSize="xs" textTransform="uppercase">
-                    Current Spot
-                  </Text>
-                  <Text fontSize="xl" fontWeight="semibold">
-                    {pppSummary.currentSpot}
-                  </Text>
-                </Box>
-                <Box bg="canvas" borderColor="edge" borderWidth="1px" p="4" rounded="panel">
-                  <Text color="muted" fontSize="xs" textTransform="uppercase">
-                    Implied PPP
-                  </Text>
-                  <Text fontSize="xl" fontWeight="semibold">
-                    {pppSummary.impliedPpp}
-                  </Text>
-                </Box>
-                <Box bg="canvas" borderColor="edge" borderWidth="1px" p="4" rounded="panel">
-                  <Text color="muted" fontSize="xs" textTransform="uppercase">
-                    Mispricing
-                  </Text>
-                  <Text fontSize="xl" fontWeight="semibold">
-                    {pppSummary.deviationPct}%
-                  </Text>
-                </Box>
-              </Grid>
-            ) : null}
-            <Box bg="canvas" borderColor="edge" borderWidth="1px" p="5" rounded="panel">
-              <Stack gap="3">
-                <Text color="muted" fontSize="sm">
-                  Spot vs PPP path
-                </Text>
-                <Table.Root size="sm" variant="outline">
-                  <Table.Header>
-                    <Table.Row>
-                      <Table.ColumnHeader>Month</Table.ColumnHeader>
-                      <Table.ColumnHeader>Spot</Table.ColumnHeader>
-                      <Table.ColumnHeader>PPP</Table.ColumnHeader>
-                    </Table.Row>
-                  </Table.Header>
-                  <Table.Body>
-                    {data.ppp.path.map((point) => (
-                      <Table.Row key={`${point.observationMonth}-${point.impliedPpp}`}>
-                        <Table.Cell>{point.observationMonth}</Table.Cell>
-                        <Table.Cell>{point.actualSpot}</Table.Cell>
-                        <Table.Cell>{point.impliedPpp}</Table.Cell>
-                      </Table.Row>
-                    ))}
-                  </Table.Body>
-                </Table.Root>
-              </Stack>
-            </Box>
-            {pppInterpretation ? (
-              <Box bg="canvas" borderColor="edge" borderWidth="1px" p="5" rounded="panel">
+          </Box>
+
+          <Box bg="surface" borderColor="edge" borderWidth="1px" p={{ base: "6", md: "7" }} rounded="panel">
+            <Stack gap="4">
+              <Text color="accent" fontSize="xs" letterSpacing="0.16em" textTransform="uppercase">
+                Data Inputs
+              </Text>
+              <SimpleGrid columns={{ base: 1, md: 2 }} gap="5">
                 <Stack gap="2">
+                  <Text color="muted" fontSize="sm">
+                    PPP base month
+                  </Text>
+                  <Box position="relative">
+                    <select
+                      aria-label="PPP base month"
+                      onChange={(event: React.ChangeEvent<HTMLSelectElement>) => {
+                        const nextValue = event.currentTarget.value;
+                        if (!nextValue) {
+                          return;
+                        }
+
+                        router.push(`/macro/currency-analysis?baseMonth=${encodeURIComponent(nextValue)}`, {
+                          scroll: false,
+                        });
+                      }}
+                      style={{
+                        appearance: "none",
+                        background: "#181A1B",
+                        border: "1px solid #7e91a8",
+                        borderRadius: "0.875rem",
+                        color: "#d9e8ff",
+                        fontSize: "1rem",
+                        lineHeight: "1.2",
+                        minHeight: "3rem",
+                        paddingInlineEnd: "3rem",
+                        paddingInlineStart: "0.875rem",
+                        width: "100%",
+                      }}
+                      value={selectedBaseMonth}
+                    >
+                      {data.ppp.availableBaseMonths.map((month) => (
+                        <option key={month} style={{ background: "#181A1B", color: "#d9e8ff" }} value={month}>
+                          {month}
+                        </option>
+                      ))}
+                    </select>
+                    <Box
+                      aria-hidden="true"
+                      color="text"
+                      pointerEvents="none"
+                      position="absolute"
+                      right="0.875rem"
+                      top="50%"
+                      transform="translateY(-50%)"
+                    >
+                      v
+                    </Box>
+                  </Box>
+                </Stack>
+
+                <Stack gap="2">
+                  <Text color="muted" fontSize="sm">
+                    Selection logic
+                  </Text>
+                  <Text>
+                    The selected month sets the observed EUR/USD anchor and the starting CPI levels for both regions.
+                  </Text>
+                  <Text color="muted" fontSize="sm">
+                    {data.ppp.availableBaseMonths.length} available base months in the dataset.
+                  </Text>
+                </Stack>
+              </SimpleGrid>
+            </Stack>
+          </Box>
+
+          <Box bg="surface" borderColor="edge" borderWidth="1px" p={{ base: "6", md: "7" }} rounded="panel">
+            <Stack gap="4">
+              <Text color="accent" fontSize="xs" letterSpacing="0.16em" textTransform="uppercase">
+                Current PPP Valuation Readout
+              </Text>
+              <Text color="muted" fontSize="sm">
+                These values are computed from the selected base month and the latest month where spot and both CPI
+                series overlap.
+              </Text>
+              <Grid gap="4" templateColumns={{ base: "1fr", md: "repeat(2, minmax(0, 1fr))", xl: "repeat(4, minmax(0, 1fr))" }}>
+                <ValueCard
+                  description="Observed EUR/USD spot in the selected anchor month."
+                  label="Selected base-month spot"
+                  value={pppSummary.baseSpot}
+                />
+                <ValueCard
+                  description={`Observed EUR/USD spot in the latest overlapping month (${pppSummary.asOf}).`}
+                  label="Latest observed spot"
+                  value={pppSummary.currentSpot}
+                />
+                <ValueCard
+                  description="PPP-implied EUR/USD fair-value anchor for the latest overlapping month."
+                  label="Latest PPP-implied fair value"
+                  value={pppSummary.impliedPpp}
+                />
+                <ValueCard
+                  description="Percent gap between the latest market spot and the PPP-implied fair value."
+                  label="Current valuation gap"
+                  value={`${pppSummary.deviationPct}%`}
+                />
+              </Grid>
+              {pppInterpretation ? (
+                <Stack borderTopWidth="1px" borderColor="edge" gap="2" pt="4">
                   <Text color="accent" fontSize="xs" letterSpacing="0.16em" textTransform="uppercase">
                     Analysis Takeaway
                   </Text>
                   <Text color="muted">{pppInterpretation}</Text>
                 </Stack>
-              </Box>
-            ) : null}
-            <Stack gap="2">
-              <Text color="accent" fontSize="xs" letterSpacing="0.16em" textTransform="uppercase">
-                References
-              </Text>
-              {data.ppp.references.map((reference) => (
-                <Link href={reference.url} key={`${reference.label}-${reference.url}`} target="_blank">
-                  {reference.label}
-                </Link>
-              ))}
+              ) : null}
             </Stack>
-          </Stack>
-        </Box>
-      ) : null}
+          </Box>
 
-      {irpSectionVisible ? (
-        <Box bg="surface" borderColor="edge" borderWidth="1px" p={{ base: "6", md: "7" }} rounded="panel">
-          <Stack gap="5">
-            <Text color="accent" fontSize="xs" letterSpacing="0.16em" textTransform="uppercase">
-              2.0 Interest Rate Parity
-            </Text>
-            <Heading as="h2" fontSize={{ base: "2xl", md: "3xl" }}>
-              Interest Rate Parity
-            </Heading>
-            <Text color="muted">
-              Interest rate parity links spot, tenor-specific rates, and forwards. In this view, covered interest parity is the main market anchor, while uncovered interest parity stays a lighter expectation framework underneath it.
-            </Text>
-            <Box bg="canvas" borderColor="edge" borderWidth="1px" p="5" rounded="panel">
-              <Stack gap="2">
-                <Text fontFamily="heading" fontSize={{ base: "lg", md: "xl" }}>
-                  F = S * ((1 + r_EUR) / (1 + r_USD))
-                </Text>
-                <Text color="muted" fontSize="sm">
-                  UIP approximation: (F - S) / S ~= r_EUR - r_USD
-                </Text>
-              </Stack>
-            </Box>
-            <Table.Root size="sm" variant="outline">
-              <Table.Header>
-                <Table.Row>
-                  <Table.ColumnHeader>Tenor</Table.ColumnHeader>
-                  <Table.ColumnHeader>EUR Rate</Table.ColumnHeader>
-                  <Table.ColumnHeader>USD Rate</Table.ColumnHeader>
-                  <Table.ColumnHeader>Spread</Table.ColumnHeader>
-                  <Table.ColumnHeader>Spot</Table.ColumnHeader>
-                  <Table.ColumnHeader>CIP Implied Forward</Table.ColumnHeader>
-                  <Table.ColumnHeader>Observed Forward</Table.ColumnHeader>
-                </Table.Row>
-              </Table.Header>
-              <Table.Body>
-                {data.irp.cipRows.map((row) => (
-                  <Table.Row key={row.tenor}>
-                    <Table.Cell>{row.tenor}</Table.Cell>
-                    <Table.Cell>{row.eurRate}%</Table.Cell>
-                    <Table.Cell>{row.usdRate}%</Table.Cell>
-                    <Table.Cell>{row.rateSpread}%</Table.Cell>
-                    <Table.Cell>{row.spot}</Table.Cell>
-                    <Table.Cell>{row.cipImpliedForward}</Table.Cell>
-                    <Table.Cell>{row.observedForward ?? "Not available"}</Table.Cell>
-                  </Table.Row>
-                ))}
-              </Table.Body>
-            </Table.Root>
-            <Box bg="canvas" borderColor="edge" borderWidth="1px" p="5" rounded="panel">
-              <Stack gap="3">
-                <Text color="accent" fontSize="xs" letterSpacing="0.16em" textTransform="uppercase">
-                  UIP Subsection
-                </Text>
-                <Text color="muted">
-                  UIP is shown as a theoretical expectation lens rather than a hard market-pricing anchor.
-                </Text>
-                <Table.Root size="sm" variant="outline">
-                  <Table.Header>
-                    <Table.Row>
-                      <Table.ColumnHeader>Tenor</Table.ColumnHeader>
-                      <Table.ColumnHeader>Implied Move</Table.ColumnHeader>
-                      <Table.ColumnHeader>Implied Spot</Table.ColumnHeader>
-                    </Table.Row>
-                  </Table.Header>
-                  <Table.Body>
-                    {data.irp.uip.rows.map((row) => (
-                      <Table.Row key={`uip-${row.tenor}`}>
-                        <Table.Cell>{row.tenor}</Table.Cell>
-                        <Table.Cell>{row.impliedMovePct}%</Table.Cell>
-                        <Table.Cell>{row.impliedSpot}</Table.Cell>
-                      </Table.Row>
-                    ))}
-                  </Table.Body>
-                </Table.Root>
-              </Stack>
-            </Box>
-            {irpInterpretation ? (
-              <Box bg="canvas" borderColor="edge" borderWidth="1px" p="5" rounded="panel">
-                <Stack gap="2">
-                  <Text color="accent" fontSize="xs" letterSpacing="0.16em" textTransform="uppercase">
-                    Analysis Takeaway
-                  </Text>
-                  <Text color="muted">{irpInterpretation}</Text>
-                </Stack>
-              </Box>
-            ) : null}
-            <Stack gap="2">
+          <Box bg="surface" borderColor="edge" borderWidth="1px" p={{ base: "6", md: "7" }} rounded="panel">
+            <Stack gap="4">
               <Text color="accent" fontSize="xs" letterSpacing="0.16em" textTransform="uppercase">
-                References
+                Selected Base-Month Path
               </Text>
-              {data.irp.references.map((reference) => (
-                <Link href={reference.url} key={`${reference.label}-${reference.url}`} target="_blank">
-                  {reference.label}
-                </Link>
-              ))}
+              <Text color="muted" fontSize="sm">
+                Each row compares the observed EUR/USD spot with the PPP-implied level generated from the selected
+                anchor month.
+              </Text>
+              <Table.Root size="sm" variant="outline">
+                <Table.Header>
+                  <Table.Row>
+                    <Table.ColumnHeader>Month</Table.ColumnHeader>
+                    <Table.ColumnHeader>Observed spot</Table.ColumnHeader>
+                    <Table.ColumnHeader>PPP-implied level</Table.ColumnHeader>
+                    <Table.ColumnHeader>Valuation gap %</Table.ColumnHeader>
+                  </Table.Row>
+                </Table.Header>
+                <Table.Body>
+                  {pathRowsWithGap.map((point) => (
+                    <Table.Row key={`${point.observationMonth}-${point.impliedPpp}`}>
+                      <Table.Cell>{point.observationMonth}</Table.Cell>
+                      <Table.Cell>{point.actualSpot}</Table.Cell>
+                      <Table.Cell>{point.impliedPpp}</Table.Cell>
+                      <Table.Cell>{point.gapLabel}</Table.Cell>
+                    </Table.Row>
+                  ))}
+                </Table.Body>
+              </Table.Root>
             </Stack>
-          </Stack>
-        </Box>
-      ) : null}
+          </Box>
+
+          {hasReferences ? (
+            <Box bg="surface" borderColor="edge" borderWidth="1px" p={{ base: "6", md: "7" }} rounded="panel">
+              <Stack gap="4">
+                <Text color="accent" fontSize="xs" letterSpacing="0.16em" textTransform="uppercase">
+                  References
+                </Text>
+                {data.ppp.references.map((reference) => {
+                  const index = referenceNumberByLabel.get(reference.label) ?? 0;
+                  const referenceText = currencyIeeeReferenceText(index, reference);
+
+                  return (
+                    <Box key={`${reference.label}-${reference.url}`}>
+                      <Link color="text" href={reference.url} target="_blank">
+                        {referenceText}
+                      </Link>
+                    </Box>
+                  );
+                })}
+              </Stack>
+            </Box>
+          ) : null}
+        </Stack>
+      </Box>
     </Stack>
   );
 }

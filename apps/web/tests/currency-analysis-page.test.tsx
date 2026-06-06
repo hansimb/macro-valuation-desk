@@ -5,6 +5,19 @@ import { cleanup, render, screen } from "@testing-library/react";
 import CurrencyAnalysisPage from "../src/app/macro/currency-analysis/page";
 import { ThemeProvider } from "../src/features/theme/provider";
 
+const pushMock = vi.fn();
+
+vi.mock("next/navigation", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("next/navigation")>();
+
+  return {
+    ...actual,
+    useRouter: () => ({
+      push: pushMock,
+    }),
+  };
+});
+
 const payload = {
   asOf: "2026-05-30",
   ppp: {
@@ -76,11 +89,12 @@ const payload = {
 
 afterEach(() => {
   cleanup();
+  pushMock.mockReset();
   vi.unstubAllGlobals();
 });
 
 describe("Currency Analysis page", () => {
-  it("renders theory-first PPP and IRP sections from API data", async () => {
+  it("renders a PPP-only analysis with a Taylor-style formula block, dropdown base month, and academic references", async () => {
     vi.stubGlobal(
       "fetch",
       vi.fn().mockResolvedValue({
@@ -96,19 +110,24 @@ describe("Currency Analysis page", () => {
     render(<ThemeProvider>{page}</ThemeProvider>);
 
     expect(screen.getByRole("heading", { name: /Currency Analysis/i })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: /Relative Purchasing Power Parity/i })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /1.0 Relative Purchasing Power Parity/i })).toBeInTheDocument();
     expect(screen.getByText(/Relative PPP treats EUR\/USD as a long-run valuation relationship/i)).toBeInTheDocument();
     expect(screen.getByText(/PPP_t = S_base/i)).toBeInTheDocument();
+    expect(screen.getByText(/Observed EUR\/USD spot at the selected base month/i)).toBeInTheDocument();
+    expect(screen.getByText(/U\.S\. CPI index at observation month t/i)).toBeInTheDocument();
+    expect(screen.getByText(/Euro area CPI index at the selected base month/i)).toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: /PPP base month/i })).toBeInTheDocument();
     expect(screen.getAllByText("2026-01-01").length).toBeGreaterThan(0);
     expect(screen.getAllByText("1.1109").length).toBeGreaterThan(0);
-    expect(screen.getByText(/Relative PPP suggests EUR\/USD is trading 8.02% above/i)).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: /Interest Rate Parity/i })).toBeInTheDocument();
-    expect(screen.getByText(/Interest rate parity links spot, tenor-specific rates, and forwards/i)).toBeInTheDocument();
-    expect(screen.getByText(/F = S \* \(\(1 \+ r_EUR\) \/ \(1 \+ r_USD\)\)/i)).toBeInTheDocument();
-    expect(screen.getAllByText("3M").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("6M").length).toBeGreaterThan(0);
-    expect(screen.getByText("UIP Subsection")).toBeInTheDocument();
-    expect(screen.getByText(/Across the visible tenors, EUR rates sit below USD rates/i)).toBeInTheDocument();
+    expect(screen.getByText(/The latest market spot sits 8.02% above the PPP-implied fair-value anchor/i)).toBeInTheDocument();
+    expect(screen.getByText(/These values are computed from the selected base month and the latest month where spot and both CPI series overlap/i)).toBeInTheDocument();
+    expect(screen.getByText(/Each row compares the observed EUR\/USD spot with the PPP-implied level generated from the selected anchor month/i)).toBeInTheDocument();
+    expect(screen.getAllByText("8.02%").length).toBeGreaterThan(1);
+    expect(screen.queryByText("Snapshot")).not.toBeInTheDocument();
+    expect(screen.queryByText("Recent Path Excerpt")).not.toBeInTheDocument();
+    expect(screen.getByText(/\[1\] European Central Bank, Data Portal, "EUR\/USD spot"\. \[Online\]\. Available:/)).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: /Interest Rate Parity/i })).not.toBeInTheDocument();
+    expect(screen.queryByText("UIP Subsection")).not.toBeInTheDocument();
     expect(screen.queryByText("Live currency analysis data is unavailable right now.")).not.toBeInTheDocument();
   });
 

@@ -57,9 +57,14 @@ Every analysis block should follow this order:
 
 1. short theory / reasoning
 2. explicit formula or framework
-3. data inputs and assumptions
-4. numerical analysis or output
-5. references
+3. explicit formula-term explanations
+4. data inputs and assumptions
+5. numerical analysis or output
+6. references
+
+If the page shows a compact formula, always open every important symbol or term in plain language directly on the page.
+
+Do not assume the formula is self-explanatory.
 
 The same rule applies whether the page has one method block or several related method blocks.
 
