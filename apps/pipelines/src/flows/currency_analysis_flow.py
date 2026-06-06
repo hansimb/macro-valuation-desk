@@ -3,6 +3,7 @@ from __future__ import annotations
 from prefect import flow
 
 from src.lib.db import bootstrap_taylor_rule_schema, get_connection
+from src.lib.pipeline.error_handling import collect_fetch_errors
 from src.lib.pipeline.transforms.currency_irp import build_currency_irp_outputs
 from src.lib.pipeline.transforms.currency_ppp import build_currency_ppp_outputs
 from src.lib.pipeline.transforms.staging import stage_standardized_series
@@ -28,11 +29,7 @@ def run_currency_analysis_flow() -> dict[str, object]:
         else _call_task(run_currency_market_etl_module.run_currency_market_etl, connection)
     )
 
-    failures = [
-        f"{result.error.key}: {result.error.message}"
-        for result in fetch_results
-        if not result.ok and result.error is not None
-    ]
+    failures = collect_fetch_errors(fetch_results)
 
     staging_rows = [
         row

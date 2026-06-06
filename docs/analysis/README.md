@@ -171,6 +171,21 @@ Especially important:
 
 Do not invent analysis plans that conflict with architecture rules unless the user or developer explicitly approves the exception.
 
+### 9.5. Standardize Error Presentation, Not Flow Policy
+
+Analysis flows may need different failure policies depending on which inputs are truly required for that analysis.
+
+Do not force every analysis to use the same fail-fast or partial-success policy.
+
+However, error presentation should be standardized.
+
+When formatting pipeline fetch errors or flow failure messages, reuse the shared helpers under `apps/pipelines/src/lib/pipeline/error_handling.py` instead of inventing analysis-specific message styles.
+
+In short:
+
+- share error text formatting
+- do not share analysis failure policy unless that policy is genuinely common
+
 ### 10. Reuse First, Hardcoding Last
 
 Analysis plans should prefer reusable building blocks and avoid hardcoding the first supported geography, country set, currency pair, or region deep into the architecture unless that scope is explicitly meant to be permanent.

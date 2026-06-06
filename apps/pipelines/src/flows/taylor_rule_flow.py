@@ -3,6 +3,7 @@ from __future__ import annotations
 from prefect import flow
 
 from src.lib.db import bootstrap_taylor_rule_schema, get_connection
+from src.lib.pipeline.error_handling import collect_fetch_errors
 from src.lib.pipeline.transforms.reference_metrics import build_macro_reference_metrics
 from src.lib.pipeline.transforms.staging import stage_standardized_series
 from src.lib.pipeline.transforms.taylor_rule import build_taylor_rule_inputs
@@ -29,11 +30,7 @@ def run_taylor_rule_flow() -> dict[str, object]:
         fetch_results = _call_task(run_us_macro_core_etl_module.run_us_macro_core_etl, connection)
         fetch_results += _call_task(run_eu_macro_core_etl_module.run_eu_macro_core_etl, connection)
 
-    failures = [
-        f"{result.error.key}: {result.error.message}"
-        for result in fetch_results
-        if not result.ok and result.error is not None
-    ]
+    failures = collect_fetch_errors(fetch_results)
     if failures:
         return {"status": "failed", "errors": failures}
 
