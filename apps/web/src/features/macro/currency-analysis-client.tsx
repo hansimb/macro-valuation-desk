@@ -18,32 +18,32 @@ import {
 import type { CurrencyAnalysisPageData } from "./currency-analysis-types";
 
 type CurrencyReferenceItem = CurrencyAnalysisPageData["ppp"]["references"][number];
-type PppSymbolKey = "PPP_t" | "S_base" | "CPI_US_t" | "CPI_US_base" | "CPI_EA_t" | "CPI_EA_base";
+type PppSymbolKey = "PPP_t" | "S_0" | "P_h_t" | "P_h_0" | "P_f_t" | "P_f_0";
 
 const pppSymbolGuide: { symbol: PppSymbolKey; meaning: string }[] = [
   {
-    symbol: "S_base",
-    meaning: "Observed EUR/USD spot at the selected base month.",
+    symbol: "S_0",
+    meaning: "Base-period spot exchange rate (here: annual-average EUR/USD in the selected base year).",
   },
   {
-    symbol: "CPI_US_t",
-    meaning: "U.S. CPI index at observation month t.",
+    symbol: "P_h_t",
+    meaning: "Home-country price level at time t (here: U.S. CPI index at observation month t).",
   },
   {
-    symbol: "CPI_US_base",
-    meaning: "U.S. CPI index at the selected base month.",
+    symbol: "P_h_0",
+    meaning: "Home-country price level in the base period (here: annual-average U.S. CPI index in the selected base year).",
   },
   {
-    symbol: "CPI_EA_t",
-    meaning: "Euro area CPI index at observation month t.",
+    symbol: "P_f_t",
+    meaning: "Foreign-country price level at time t (here: euro area CPI index at observation month t).",
   },
   {
-    symbol: "CPI_EA_base",
-    meaning: "Euro area CPI index at the selected base month.",
+    symbol: "P_f_0",
+    meaning: "Foreign-country price level in the base period (here: annual-average euro area CPI index in the selected base year).",
   },
   {
     symbol: "PPP_t",
-    meaning: "Inflation-adjusted fair-value anchor implied by the selected base month.",
+    meaning: "PPP-implied exchange rate at time t (here: the model-implied EUR/USD fair-value anchor).",
   },
 ];
 
@@ -58,14 +58,14 @@ function pppTakeaway(data: CurrencyAnalysisPageData) {
   }
 
   if (deviation > 0) {
-    return `The latest market spot sits ${data.ppp.summary.deviationPct}% above the PPP-implied fair-value anchor built from the selected base month, so the euro screens rich against the dollar on this relative-PPP lens.`;
+    return `The latest market spot sits ${data.ppp.summary.deviationPct}% above the PPP-implied fair-value anchor built from the selected base-year average, so the euro screens rich against the dollar on this relative-PPP lens.`;
   }
 
   if (deviation < 0) {
-    return `The latest market spot sits ${Math.abs(deviation).toFixed(2)}% below the PPP-implied fair-value anchor built from the selected base month, so the euro screens cheap against the dollar on this relative-PPP lens.`;
+    return `The latest market spot sits ${Math.abs(deviation).toFixed(2)}% below the PPP-implied fair-value anchor built from the selected base-year average, so the euro screens cheap against the dollar on this relative-PPP lens.`;
   }
 
-  return "The latest market spot is sitting almost exactly on the PPP-implied fair-value anchor built from the selected base month.";
+  return "The latest market spot is sitting almost exactly on the PPP-implied fair-value anchor built from the selected base-year average.";
 }
 
 function currencyAcademicReferenceText(label: string, url?: string) {
@@ -95,53 +95,53 @@ function MathToken({ symbol }: { symbol: PppSymbolKey }) {
     );
   }
 
-  if (symbol === "S_base") {
+  if (symbol === "S_0") {
     return (
       <>
         <Box as="span" fontStyle="italic">
           S
         </Box>
         <Box as="sub" display="inline-block" fontSize="0.7em" transform="translateY(0.22em)">
-          base
+          0
         </Box>
       </>
     );
   }
 
-  if (symbol === "CPI_US_t") {
+  if (symbol === "P_h_t") {
     return (
       <>
         <Box as="span" fontStyle="italic">
-          CPI
+          P
         </Box>
         <Box as="sub" display="inline-block" fontSize="0.7em" transform="translateY(0.22em)">
-          US,t
+          h,t
         </Box>
       </>
     );
   }
 
-  if (symbol === "CPI_US_base") {
+  if (symbol === "P_h_0") {
     return (
       <>
         <Box as="span" fontStyle="italic">
-          CPI
+          P
         </Box>
         <Box as="sub" display="inline-block" fontSize="0.7em" transform="translateY(0.22em)">
-          US,base
+          h,0
         </Box>
       </>
     );
   }
 
-  if (symbol === "CPI_EA_t") {
+  if (symbol === "P_f_t") {
     return (
       <>
         <Box as="span" fontStyle="italic">
-          CPI
+          P
         </Box>
         <Box as="sub" display="inline-block" fontSize="0.7em" transform="translateY(0.22em)">
-          EA,t
+          f,t
         </Box>
       </>
     );
@@ -150,10 +150,10 @@ function MathToken({ symbol }: { symbol: PppSymbolKey }) {
   return (
     <>
       <Box as="span" fontStyle="italic">
-        CPI
+        P
       </Box>
       <Box as="sub" display="inline-block" fontSize="0.7em" transform="translateY(0.22em)">
-        EA,base
+        f,0
       </Box>
     </>
   );
@@ -185,56 +185,53 @@ function ValueCard({
   );
 }
 
-function toMonthStartTimestamp(value: string) {
-  const timestamp = Date.parse(value);
-  return Number.isNaN(timestamp) ? null : timestamp;
+function toYearNumber(value: string) {
+  const parsed = Number.parseInt(value, 10);
+  return Number.isNaN(parsed) ? null : parsed;
 }
 
-function closestBaseMonthByYears(availableBaseMonths: string[], latestMonth: string, yearsBack: number) {
-  const latestTimestamp = toMonthStartTimestamp(latestMonth);
-  if (latestTimestamp === null) {
+function closestBaseYearByYears(availableBaseYears: string[], latestYear: string, yearsBack: number) {
+  const latestYearNumber = toYearNumber(latestYear);
+  if (latestYearNumber === null) {
     return null;
   }
 
-  const targetDate = new Date(latestTimestamp);
-  targetDate.setUTCFullYear(targetDate.getUTCFullYear() - yearsBack);
-  const targetTimestamp = targetDate.getTime();
-
-  let closestMonth: string | null = null;
+  const targetYear = latestYearNumber - yearsBack;
+  let closestYear: string | null = null;
   let closestDistance = Number.POSITIVE_INFINITY;
 
-  for (const month of availableBaseMonths) {
-    const monthTimestamp = toMonthStartTimestamp(month);
-    if (monthTimestamp === null) {
+  for (const year of availableBaseYears) {
+    const yearNumber = toYearNumber(year);
+    if (yearNumber === null) {
       continue;
     }
 
-    const distance = Math.abs(monthTimestamp - targetTimestamp);
+    const distance = Math.abs(yearNumber - targetYear);
     if (distance < closestDistance) {
       closestDistance = distance;
-      closestMonth = month;
+      closestYear = year;
     }
   }
 
-  return closestMonth;
+  return closestYear;
 }
 
 export function CurrencyAnalysisClient({ data }: { data: CurrencyAnalysisPageData }) {
   const router = useRouter();
   const pppSummary = data.ppp.summary;
   const pppInterpretation = pppTakeaway(data);
-  const selectedBaseMonth = data.ppp.selectedBaseMonth ?? "";
+  const selectedBaseYear = data.ppp.selectedBaseYear ?? "";
   const recentPathRows = data.ppp.path.slice(-12);
   const hasReferences = data.ppp.references.length > 0;
   const referenceNumberByLabel = new Map(data.ppp.references.map((reference, index) => [reference.label, index + 1]));
-  const latestAvailableBaseMonth = data.ppp.availableBaseMonths[data.ppp.availableBaseMonths.length - 1] ?? null;
-  const baseMonthPresets = latestAvailableBaseMonth
+  const latestAvailableBaseYear = data.ppp.availableBaseYears[data.ppp.availableBaseYears.length - 1] ?? null;
+  const baseYearPresets = latestAvailableBaseYear
     ? [3, 5, 10, 20, 30]
         .map((yearsBack) => ({
           yearsBack,
-          month: closestBaseMonthByYears(data.ppp.availableBaseMonths, latestAvailableBaseMonth, yearsBack),
+          year: closestBaseYearByYears(data.ppp.availableBaseYears, latestAvailableBaseYear, yearsBack),
         }))
-        .filter((preset): preset is { yearsBack: number; month: string } => preset.month !== null)
+        .filter((preset): preset is { yearsBack: number; year: string } => preset.year !== null)
     : [];
 
   if (!pppSummary) {
@@ -272,7 +269,7 @@ export function CurrencyAnalysisClient({ data }: { data: CurrencyAnalysisPageDat
                 Formula
               </Text>
               <Box bg="canvas" borderColor="edge" borderWidth="1px" overflowX="auto" p={{ base: "5", md: "6" }} rounded="panel">
-                <VisuallyHidden>PPP_t = S_base * (CPI_US_t / CPI_US_base) / (CPI_EA_t / CPI_EA_base)</VisuallyHidden>
+                <VisuallyHidden>PPP_t = S_0 * (P_h_t / P_h_0) / (P_f_t / P_f_0)</VisuallyHidden>
                 <Text
                   fontFamily="heading"
                   fontSize={{ base: "xl", md: "2xl" }}
@@ -280,24 +277,26 @@ export function CurrencyAnalysisClient({ data }: { data: CurrencyAnalysisPageDat
                   textAlign={{ base: "left", md: "center" }}
                   whiteSpace="nowrap"
                 >
-                  <MathToken symbol="PPP_t" /> = <MathToken symbol="S_base" /> * (
-                  <MathToken symbol="CPI_US_t" /> / <MathToken symbol="CPI_US_base" />) / (
-                  <MathToken symbol="CPI_EA_t" /> / <MathToken symbol="CPI_EA_base" />)
+                  <MathToken symbol="PPP_t" /> = <MathToken symbol="S_0" /> * (
+                  <MathToken symbol="P_h_t" /> / <MathToken symbol="P_h_0" />) / (
+                  <MathToken symbol="P_f_t" /> / <MathToken symbol="P_f_0" />)
                 </Text>
               </Box>
-              <Stack gap="2">
+              <Grid columnGap="4" rowGap="2" templateColumns={{ base: "7.5rem 1fr", md: "10rem 1fr" }}>
                 {pppSymbolGuide.map((item) => (
-                  <Text color="muted" fontSize="sm" key={item.symbol}>
-                    <Box as="span" color="text" fontFamily="heading" mr="2">
+                  <React.Fragment key={item.symbol}>
+                    <Text color="text" fontFamily="heading" fontSize="sm">
                       <MathToken symbol={item.symbol} />
-                    </Box>
-                    {item.meaning}
-                  </Text>
+                    </Text>
+                    <Text color="muted" fontSize="sm">
+                      {item.meaning}
+                    </Text>
+                  </React.Fragment>
                 ))}
-              </Stack>
+              </Grid>
               <Text color="muted" fontSize="sm">
-                The model starts from the chosen anchor month and then re-scales that observed spot by the relative
-                change in U.S. and euro-area CPI index levels.
+                The model starts from the selected base-year average for spot and CPI levels and then re-scales that
+                annual anchor by the relative change in U.S. and euro-area CPI index levels.
               </Text>
             </Stack>
           </Box>
@@ -310,18 +309,18 @@ export function CurrencyAnalysisClient({ data }: { data: CurrencyAnalysisPageDat
               <SimpleGrid columns={{ base: 1, md: 2 }} gap="5">
                 <Stack gap="2">
                   <Text color="muted" fontSize="sm">
-                    PPP base month
+                    PPP base-year average
                   </Text>
                   <Box position="relative">
                     <select
-                      aria-label="PPP base month"
+                      aria-label="PPP base-year average"
                       onChange={(event: React.ChangeEvent<HTMLSelectElement>) => {
-                        const nextValue = event.currentTarget.value;
-                        if (!nextValue) {
+                        const nextYear = event.currentTarget.value;
+                        if (!nextYear) {
                           return;
                         }
 
-                        router.push(`/macro/currency-analysis?baseMonth=${encodeURIComponent(nextValue)}`, {
+                        router.push(`/macro/currency-analysis?baseYear=${encodeURIComponent(nextYear)}`, {
                           scroll: false,
                         });
                       }}
@@ -338,11 +337,11 @@ export function CurrencyAnalysisClient({ data }: { data: CurrencyAnalysisPageDat
                         paddingInlineStart: "0.875rem",
                         width: "100%",
                       }}
-                      value={selectedBaseMonth}
+                      value={selectedBaseYear}
                     >
-                      {data.ppp.availableBaseMonths.map((month) => (
-                        <option key={month} style={{ background: "#181A1B", color: "#d9e8ff" }} value={month}>
-                          {month}
+                      {data.ppp.availableBaseYears.map((year) => (
+                        <option key={year} style={{ background: "#181A1B", color: "#d9e8ff" }} value={year}>
+                          {year}
                         </option>
                       ))}
                     </select>
@@ -358,14 +357,14 @@ export function CurrencyAnalysisClient({ data }: { data: CurrencyAnalysisPageDat
                       v
                     </Box>
                   </Box>
-                  {baseMonthPresets.length > 0 ? (
+                  {baseYearPresets.length > 0 ? (
                     <Stack gap="2" pt="2">
                       <Text color="muted" fontSize="xs" letterSpacing="0.08em" textTransform="uppercase">
-                        Quick anchors
+                        Base-year-average anchors
                       </Text>
                       <Grid gap="2" templateColumns={{ base: "repeat(2, minmax(0, 1fr))", md: "repeat(5, minmax(0, 1fr))" }}>
-                        {baseMonthPresets.map((preset) => {
-                          const isActive = preset.month === selectedBaseMonth;
+                        {baseYearPresets.map((preset) => {
+                          const isActive = preset.year === selectedBaseYear;
 
                           return (
                             <Button
@@ -374,14 +373,11 @@ export function CurrencyAnalysisClient({ data }: { data: CurrencyAnalysisPageDat
                               borderWidth="1px"
                               color={isActive ? "canvas" : "text"}
                               fontSize="sm"
-                              key={`${preset.yearsBack}-${preset.month}`}
+                              key={`${preset.yearsBack}-${preset.year}`}
                               onClick={() => {
-                                router.push(
-                                  `/macro/currency-analysis?baseMonth=${encodeURIComponent(preset.month)}`,
-                                  {
-                                    scroll: false,
-                                  },
-                                );
+                                router.push(`/macro/currency-analysis?baseYear=${encodeURIComponent(preset.year)}`, {
+                                  scroll: false,
+                                });
                               }}
                               size="sm"
                               variant="outline"
@@ -392,7 +388,7 @@ export function CurrencyAnalysisClient({ data }: { data: CurrencyAnalysisPageDat
                         })}
                       </Grid>
                       <Text color="muted" fontSize="xs">
-                        Each button jumps to the nearest available month around {baseMonthPresets
+                        Each button jumps to the nearest available yearly average around {baseYearPresets
                           .map((preset) => `${preset.yearsBack} years`)
                           .join(", ")} back from the latest selectable anchor.
                       </Text>
@@ -405,10 +401,10 @@ export function CurrencyAnalysisClient({ data }: { data: CurrencyAnalysisPageDat
                     Selection logic
                   </Text>
                   <Text>
-                    The selected month sets the observed EUR/USD anchor and the starting CPI levels for both regions.
+                    The selected base-year average sets the annual-average EUR/USD anchor and the annual-average starting CPI levels for both regions.
                   </Text>
                   <Text color="muted" fontSize="sm">
-                    {data.ppp.availableBaseMonths.length} available base months in the dataset.
+                    {data.ppp.availableBaseYears.length} available base-year averages in the dataset.
                   </Text>
                 </Stack>
               </SimpleGrid>
@@ -421,13 +417,13 @@ export function CurrencyAnalysisClient({ data }: { data: CurrencyAnalysisPageDat
                 Current PPP Valuation Readout
               </Text>
               <Text color="muted" fontSize="sm">
-                These values are computed from the selected base month and the latest month where spot and both CPI
+                These values are computed from the selected base-year average and the latest month where spot and both CPI
                 series overlap.
               </Text>
-              <Grid gap="4" templateColumns={{ base: "1fr", md: "repeat(2, minmax(0, 1fr))", xl: "repeat(4, minmax(0, 1fr))" }}>
+              <Grid gap="4" templateColumns={{ base: "1fr", md: "repeat(2, minmax(0, 1fr))", xl: "repeat(5, minmax(0, 1fr))" }}>
                 <ValueCard
-                  description="Observed EUR/USD spot in the selected anchor month."
-                  label="Selected base-month spot"
+                  description="Annual-average EUR/USD spot in the selected anchor year."
+                  label="Selected base-year average spot"
                   value={pppSummary.baseSpot}
                 />
                 <ValueCard
@@ -445,6 +441,11 @@ export function CurrencyAnalysisClient({ data }: { data: CurrencyAnalysisPageDat
                   label="Current valuation gap"
                   value={`${pppSummary.deviationPct}%`}
                 />
+                <ValueCard
+                  description="Average valuation gap across the latest 12 monthly observations in the selected path."
+                  label="Trailing 12M average gap"
+                  value={`${pppSummary.trailing12mAverageGapPct}%`}
+                />
               </Grid>
               {pppInterpretation ? (
                 <Stack borderTopWidth="1px" borderColor="edge" gap="2" pt="4">
@@ -460,11 +461,11 @@ export function CurrencyAnalysisClient({ data }: { data: CurrencyAnalysisPageDat
           <Box bg="surface" borderColor="edge" borderWidth="1px" p={{ base: "6", md: "7" }} rounded="panel">
             <Stack gap="4">
               <Text color="accent" fontSize="xs" letterSpacing="0.16em" textTransform="uppercase">
-                Selected Base-Month Path
+                Selected Base-Year Path
               </Text>
               <Text color="muted" fontSize="sm">
                 Each row compares the observed EUR/USD spot with the PPP-implied level generated from the selected
-                anchor month.
+                base-year average.
               </Text>
               <Table.Root size="sm" variant="outline">
                 <Table.Header>
