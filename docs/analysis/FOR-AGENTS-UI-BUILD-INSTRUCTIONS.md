@@ -115,16 +115,41 @@ If the page shows:
 
 then the page must explicitly explain each important term in plain language.
 
+The displayed formula should prefer the general mathematical form first.
+
+Applied or dataset-specific interpretation should come second in parentheses.
+
+Example:
+
+- general form: `S_0`, `P_h,t`, `P_h,0`, `P_f,t`, `P_f,0`
+- applied clarification: `(here: annual-average EUR/USD in the selected base year)`
+
 Rules:
 
 - do not assume the user understands notation
 - do not assume the formula explanation can be inferred from labels elsewhere
 - do not hide symbol explanations in tooltips or collapsibles by default
+- do not make the formula itself overly application-specific if a general mathematical form exists
 
 Each term explanation should read like:
 
-- `S_base = observed EUR/USD spot at the selected base month.`
-- `CPI_US_t = U.S. CPI index at observation month t.`
+- `S_0 = base-period spot exchange rate (here: annual-average EUR/USD in the selected base year).`
+- `P_h,t = home-country price level at time t (here: U.S. CPI index at observation month t).`
+
+### 6.1 Formula-Term Alignment Is Mandatory
+
+Formula term explanations must be visually aligned.
+
+The symbol column should start at one fixed position and the explanation column should start at one fixed position.
+
+Use a two-column layout such as:
+
+- left column: symbol
+- right column: explanation
+
+Do not render formula explanations as a loose stack of lines where the explanation text begins at a different horizontal position on each row.
+
+That looks messy and low quality.
 
 ## 7. Controls Must Feel Intentional
 
