@@ -5,7 +5,11 @@ export type CurrencyAnalysisPageData = CurrencyAnalysisResponse;
 export const emptyCurrencyAnalysisPageData: CurrencyAnalysisPageData = {
   asOf: null,
   ppp: {
+    availableWindowYears: [],
     availableBaseYears: [],
+    selectedAnchorKind: null,
+    selectedAnchorStatistic: "average",
+    selectedWindowYears: null,
     selectedBaseYear: null,
     summary: null,
     path: [],

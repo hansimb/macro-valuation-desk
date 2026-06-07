@@ -9,10 +9,28 @@ import {
 } from "../../../features/macro/currency-analysis-types";
 
 async function getCurrencyAnalysisPageData(
-  baseYear?: string,
+  params?: {
+    baseYear?: string;
+    anchorKind?: string;
+    anchorStatistic?: string;
+    windowYears?: string;
+  },
 ): Promise<{ data: CurrencyAnalysisPageData; unavailable: boolean }> {
   const apiBaseUrl = process.env.MVD_API_URL ?? process.env.API_BASE_URL ?? "http://127.0.0.1:4000";
-  const search = baseYear ? `?baseYear=${encodeURIComponent(baseYear)}` : "";
+  const searchParams = new URLSearchParams();
+  if (params?.baseYear) {
+    searchParams.set("baseYear", params.baseYear);
+  }
+  if (params?.anchorKind) {
+    searchParams.set("anchorKind", params.anchorKind);
+  }
+  if (params?.anchorStatistic) {
+    searchParams.set("anchorStatistic", params.anchorStatistic);
+  }
+  if (params?.windowYears) {
+    searchParams.set("windowYears", params.windowYears);
+  }
+  const search = searchParams.toString() ? `?${searchParams.toString()}` : "";
 
   try {
     const response = await fetch(`${apiBaseUrl}/macro/currency-analysis${search}`, { cache: "no-store" });
@@ -34,10 +52,10 @@ async function getCurrencyAnalysisPageData(
 export default async function CurrencyAnalysisPage({
   searchParams,
 }: {
-  searchParams?: Promise<{ baseYear?: string }>;
+  searchParams?: Promise<{ baseYear?: string; anchorKind?: string; anchorStatistic?: string; windowYears?: string }>;
 }) {
   const resolvedSearchParams = searchParams ? await searchParams : undefined;
-  const { data, unavailable } = await getCurrencyAnalysisPageData(resolvedSearchParams?.baseYear);
+  const { data, unavailable } = await getCurrencyAnalysisPageData(resolvedSearchParams);
 
   return (
     <Stack gap={{ base: "8", md: "10" }}>

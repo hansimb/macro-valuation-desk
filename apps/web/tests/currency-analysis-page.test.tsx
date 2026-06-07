@@ -21,10 +21,20 @@ vi.mock("next/navigation", async (importOriginal) => {
 const payload = {
   asOf: "2026-05-30",
   ppp: {
+    availableWindowYears: [3, 5, 10, 20],
     availableBaseYears: ["2025", "2026"],
+    selectedAnchorKind: "window",
+    selectedAnchorStatistic: "average",
+    selectedWindowYears: 10,
     selectedBaseYear: "2025",
     summary: {
-      baseYear: "2025",
+      anchorKind: "window",
+      anchorStatistic: "average",
+      anchorLabel: "10-year average anchor",
+      anchorStartMonth: "2016-05-01",
+      anchorEndMonth: "2026-04-01",
+      anchorYears: 10,
+      baseYear: null,
       asOf: "2026-02-01",
       baseSpot: "1.1000",
       currentSpot: "1.2000",
@@ -105,7 +115,7 @@ describe("Currency Analysis page", () => {
     );
 
     const page = await CurrencyAnalysisPage({
-      searchParams: Promise.resolve({ baseYear: "2025" }),
+      searchParams: Promise.resolve({ anchorKind: "window", anchorStatistic: "average", windowYears: "10", baseYear: "2025" }),
     });
 
     render(<ThemeProvider>{page}</ThemeProvider>);
@@ -114,15 +124,18 @@ describe("Currency Analysis page", () => {
     expect(screen.getByRole("heading", { name: /1.0 Relative Purchasing Power Parity/i })).toBeInTheDocument();
     expect(screen.getByText(/Relative PPP treats EUR\/USD as a long-run valuation relationship/i)).toBeInTheDocument();
     expect(screen.getByText(/PPP_t = S_0/i)).toBeInTheDocument();
-    expect(screen.getByText(/Base-period spot exchange rate \(here: annual-average EUR\/USD in the selected base year\)/i)).toBeInTheDocument();
+    expect(screen.getByText(/Base-period spot exchange rate \(here: the selected long-run anchor value for EUR\/USD under the chosen rule\)/i)).toBeInTheDocument();
     expect(screen.getByText(/Home-country price level at time t \(here: U\.S\. CPI index at observation month t\)/i)).toBeInTheDocument();
-    expect(screen.getByText(/Foreign-country price level in the base period \(here: annual-average euro area CPI index in the selected base year\)/i)).toBeInTheDocument();
-    expect(screen.getByRole("combobox", { name: /PPP base-year average/i })).toBeInTheDocument();
+    expect(screen.getByText(/Foreign-country price level in the base period \(here: the selected long-run anchor value for euro-area CPI under the chosen rule\)/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/10-year average anchor/i).length).toBeGreaterThan(0);
+    expect(screen.getByRole("button", { name: /Average/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Median/i })).toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: /Single-year anchor/i })).toBeInTheDocument();
     expect(screen.getAllByText("2025").length).toBeGreaterThan(0);
     expect(screen.getAllByText("1.1109").length).toBeGreaterThan(0);
     expect(screen.getByText(/The latest market spot sits 8.02% above the PPP-implied fair-value anchor/i)).toBeInTheDocument();
-    expect(screen.getByText(/These values are computed from the selected base-year average and the latest month where spot and both CPI series overlap/i)).toBeInTheDocument();
-    expect(screen.getByText(/Each row compares the observed EUR\/USD spot with the PPP-implied level generated from the selected base-year average/i)).toBeInTheDocument();
+    expect(screen.getByText(/These values are computed from the selected long-run anchor and the latest month where spot and both CPI series overlap/i)).toBeInTheDocument();
+    expect(screen.getByText(/Each row compares the observed EUR\/USD spot with the PPP-implied level generated from the selected anchor rule/i)).toBeInTheDocument();
     expect(screen.getByText("6.40%")).toBeInTheDocument();
     expect(screen.queryByText("Snapshot")).not.toBeInTheDocument();
     expect(screen.queryByText("Recent Path Excerpt")).not.toBeInTheDocument();

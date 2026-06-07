@@ -30,56 +30,78 @@ describe("currency analysis route", () => {
       .mockResolvedValueOnce({
         rows: [
           {
-            pair_key: "eurusd",
-            base_month: "2025-01-01",
-            as_of_month: "2026-02-01",
-            base_spot: "1.1000",
-            current_spot: "1.2000",
-            implied_ppp: "1.1109",
-            deviation_pct: "8.02",
-            trailing_12m_average_gap_pct: "6.40",
-            spot_series_key: "eurusd_spot_monthly",
-            spot_source_url: "https://data.ecb.europa.eu/data/datasets/EXR/EXR.M.USD.EUR.SP00.A",
-            us_cpi_series_key: "us_cpi_index",
-            us_cpi_source_url: "https://fred.stlouisfed.org/series/CPIAUCSL",
-            ea_cpi_series_key: "ea_cpi_index",
-            ea_cpi_source_url: "https://fred.stlouisfed.org/series/CP00MI15EA20M086NEST",
+            series_id: "eurusd_spot_monthly",
+            observation_date: "2025-01-01",
+            numeric_value: "1.0000",
+            source_url: "https://data.ecb.europa.eu/data/datasets/EXR/EXR.M.USD.EUR.SP00.A",
           },
           {
-            pair_key: "eurusd",
-            base_month: "2026-02-01",
-            as_of_month: "2026-02-01",
-            base_spot: "1.2000",
-            current_spot: "1.2000",
-            implied_ppp: "1.2000",
-            deviation_pct: "0.00",
-            trailing_12m_average_gap_pct: "0.00",
-            spot_series_key: "eurusd_spot_monthly",
-            spot_source_url: "https://data.ecb.europa.eu/data/datasets/EXR/EXR.M.USD.EUR.SP00.A",
-            us_cpi_series_key: "us_cpi_index",
-            us_cpi_source_url: "https://fred.stlouisfed.org/series/CPIAUCSL",
-            ea_cpi_series_key: "ea_cpi_index",
-            ea_cpi_source_url: "https://fred.stlouisfed.org/series/CP00MI15EA20M086NEST",
-          },
-        ]
-      })
-      .mockResolvedValueOnce({
-        rows: [
-          {
-            pair_key: "eurusd",
-            base_month: "2025-01-01",
-            observation_month: "2026-01-01",
-            actual_spot: "1.1000",
-            implied_ppp: "1.1000",
+            series_id: "eurusd_spot_monthly",
+            observation_date: "2025-02-01",
+            numeric_value: "1.2000",
+            source_url: "https://data.ecb.europa.eu/data/datasets/EXR/EXR.M.USD.EUR.SP00.A",
           },
           {
-            pair_key: "eurusd",
-            base_month: "2026-01-01",
-            observation_month: "2026-02-01",
-            actual_spot: "1.2000",
-            implied_ppp: "1.1109",
+            series_id: "eurusd_spot_monthly",
+            observation_date: "2026-01-01",
+            numeric_value: "1.3000",
+            source_url: "https://data.ecb.europa.eu/data/datasets/EXR/EXR.M.USD.EUR.SP00.A",
           },
-        ]
+          {
+            series_id: "eurusd_spot_monthly",
+            observation_date: "2026-02-01",
+            numeric_value: "1.4000",
+            source_url: "https://data.ecb.europa.eu/data/datasets/EXR/EXR.M.USD.EUR.SP00.A",
+          },
+          {
+            series_id: "us_cpi_index",
+            observation_date: "2025-01-01",
+            numeric_value: "100.0000",
+            source_url: "https://fred.stlouisfed.org/series/CPIAUCSL",
+          },
+          {
+            series_id: "us_cpi_index",
+            observation_date: "2025-02-01",
+            numeric_value: "102.0000",
+            source_url: "https://fred.stlouisfed.org/series/CPIAUCSL",
+          },
+          {
+            series_id: "us_cpi_index",
+            observation_date: "2026-01-01",
+            numeric_value: "104.0000",
+            source_url: "https://fred.stlouisfed.org/series/CPIAUCSL",
+          },
+          {
+            series_id: "us_cpi_index",
+            observation_date: "2026-02-01",
+            numeric_value: "106.0000",
+            source_url: "https://fred.stlouisfed.org/series/CPIAUCSL",
+          },
+          {
+            series_id: "ea_cpi_index",
+            observation_date: "2025-01-01",
+            numeric_value: "100.0000",
+            source_url: "https://fred.stlouisfed.org/series/CP00MI15EA20M086NEST",
+          },
+          {
+            series_id: "ea_cpi_index",
+            observation_date: "2025-02-01",
+            numeric_value: "101.0000",
+            source_url: "https://fred.stlouisfed.org/series/CP00MI15EA20M086NEST",
+          },
+          {
+            series_id: "ea_cpi_index",
+            observation_date: "2026-01-01",
+            numeric_value: "102.0000",
+            source_url: "https://fred.stlouisfed.org/series/CP00MI15EA20M086NEST",
+          },
+          {
+            series_id: "ea_cpi_index",
+            observation_date: "2026-02-01",
+            numeric_value: "103.0000",
+            source_url: "https://fred.stlouisfed.org/series/CP00MI15EA20M086NEST",
+          },
+        ],
       })
       .mockResolvedValueOnce({
         rows: [
@@ -150,26 +172,38 @@ describe("currency analysis route", () => {
         ]
       });
 
-    const response = await app.inject({ method: "GET", url: "/macro/currency-analysis?baseYear=2025" });
+    const response = await app.inject({ method: "GET", url: "/macro/currency-analysis?anchorKind=window&anchorStatistic=median&windowYears=3&baseYear=2025" });
 
     expect(response.statusCode).toBe(200);
     expect(response.json()).toEqual({
       asOf: "2026-05-30",
       ppp: {
+        availableWindowYears: [],
         availableBaseYears: ["2025", "2026"],
+        selectedAnchorKind: "year",
+        selectedAnchorStatistic: "median",
+        selectedWindowYears: null,
         selectedBaseYear: "2025",
         summary: {
+          anchorKind: "year",
+          anchorStatistic: "median",
+          anchorLabel: "2025 median base-year anchor",
+          anchorStartMonth: "2025-01-01",
+          anchorEndMonth: "2025-02-01",
+          anchorYears: null,
           baseYear: "2025",
           asOf: "2026-02-01",
           baseSpot: "1.1000",
-          currentSpot: "1.2000",
-          impliedPpp: "1.1109",
-          deviationPct: "8.02",
-          trailing12mAverageGapPct: "6.40",
+          currentSpot: "1.4000",
+          impliedPpp: "1.1264",
+          deviationPct: "24.29",
+          trailing12mAverageGapPct: "10.17",
         },
         path: [
-          { observationMonth: "2026-01-01", actualSpot: "1.1000", impliedPpp: "1.1000" },
-          { observationMonth: "2026-02-01", actualSpot: "1.2000", impliedPpp: "1.1109" },
+          { observationMonth: "2025-01-01", actualSpot: "1.0000", impliedPpp: "1.0946" },
+          { observationMonth: "2025-02-01", actualSpot: "1.2000", impliedPpp: "1.1054" },
+          { observationMonth: "2026-01-01", actualSpot: "1.3000", impliedPpp: "1.1160" },
+          { observationMonth: "2026-02-01", actualSpot: "1.4000", impliedPpp: "1.1264" },
         ],
         references: [
           { label: "EUR/USD spot", url: "https://data.ecb.europa.eu/data/datasets/EXR/EXR.M.USD.EUR.SP00.A" },
@@ -246,7 +280,11 @@ describe("currency analysis route", () => {
     expect(response.json()).toEqual({
       asOf: null,
       ppp: {
+        availableWindowYears: [],
         availableBaseYears: [],
+        selectedAnchorKind: null,
+        selectedAnchorStatistic: "average",
+        selectedWindowYears: null,
         selectedBaseYear: null,
         summary: null,
         path: [],

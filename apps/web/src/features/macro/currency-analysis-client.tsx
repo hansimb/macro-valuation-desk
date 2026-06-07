@@ -23,7 +23,7 @@ type PppSymbolKey = "PPP_t" | "S_0" | "P_h_t" | "P_h_0" | "P_f_t" | "P_f_0";
 const pppSymbolGuide: { symbol: PppSymbolKey; meaning: string }[] = [
   {
     symbol: "S_0",
-    meaning: "Base-period spot exchange rate (here: annual-average EUR/USD in the selected base year).",
+    meaning: "Base-period spot exchange rate (here: the selected long-run anchor value for EUR/USD under the chosen rule).",
   },
   {
     symbol: "P_h_t",
@@ -31,7 +31,7 @@ const pppSymbolGuide: { symbol: PppSymbolKey; meaning: string }[] = [
   },
   {
     symbol: "P_h_0",
-    meaning: "Home-country price level in the base period (here: annual-average U.S. CPI index in the selected base year).",
+    meaning: "Home-country price level in the base period (here: the selected long-run anchor value for U.S. CPI under the chosen rule).",
   },
   {
     symbol: "P_f_t",
@@ -39,7 +39,7 @@ const pppSymbolGuide: { symbol: PppSymbolKey; meaning: string }[] = [
   },
   {
     symbol: "P_f_0",
-    meaning: "Foreign-country price level in the base period (here: annual-average euro area CPI index in the selected base year).",
+    meaning: "Foreign-country price level in the base period (here: the selected long-run anchor value for euro-area CPI under the chosen rule).",
   },
   {
     symbol: "PPP_t",
@@ -52,20 +52,21 @@ function pppTakeaway(data: CurrencyAnalysisPageData) {
     return null;
   }
 
+  const anchorLabel = data.ppp.summary.anchorLabel;
   const deviation = Number.parseFloat(data.ppp.summary.deviationPct);
   if (Number.isNaN(deviation)) {
     return null;
   }
 
   if (deviation > 0) {
-    return `The latest market spot sits ${data.ppp.summary.deviationPct}% above the PPP-implied fair-value anchor built from the selected base-year average, so the euro screens rich against the dollar on this relative-PPP lens.`;
+    return `The latest market spot sits ${data.ppp.summary.deviationPct}% above the PPP-implied fair-value anchor built from the selected ${anchorLabel}, so the euro screens rich against the dollar on this relative-PPP lens.`;
   }
 
   if (deviation < 0) {
-    return `The latest market spot sits ${Math.abs(deviation).toFixed(2)}% below the PPP-implied fair-value anchor built from the selected base-year average, so the euro screens cheap against the dollar on this relative-PPP lens.`;
+    return `The latest market spot sits ${Math.abs(deviation).toFixed(2)}% below the PPP-implied fair-value anchor built from the selected ${anchorLabel}, so the euro screens cheap against the dollar on this relative-PPP lens.`;
   }
 
-  return "The latest market spot is sitting almost exactly on the PPP-implied fair-value anchor built from the selected base-year average.";
+  return `The latest market spot is sitting almost exactly on the PPP-implied fair-value anchor built from the selected ${anchorLabel}.`;
 }
 
 function currencyAcademicReferenceText(label: string, url?: string) {
@@ -185,54 +186,30 @@ function ValueCard({
   );
 }
 
-function toYearNumber(value: string) {
-  const parsed = Number.parseInt(value, 10);
-  return Number.isNaN(parsed) ? null : parsed;
-}
-
-function closestBaseYearByYears(availableBaseYears: string[], latestYear: string, yearsBack: number) {
-  const latestYearNumber = toYearNumber(latestYear);
-  if (latestYearNumber === null) {
-    return null;
-  }
-
-  const targetYear = latestYearNumber - yearsBack;
-  let closestYear: string | null = null;
-  let closestDistance = Number.POSITIVE_INFINITY;
-
-  for (const year of availableBaseYears) {
-    const yearNumber = toYearNumber(year);
-    if (yearNumber === null) {
-      continue;
-    }
-
-    const distance = Math.abs(yearNumber - targetYear);
-    if (distance < closestDistance) {
-      closestDistance = distance;
-      closestYear = year;
+function buildSearch(
+  params: Record<string, string | null | undefined>,
+) {
+  const search = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (value) {
+      search.set(key, value);
     }
   }
-
-  return closestYear;
+  const query = search.toString();
+  return query ? `?${query}` : "";
 }
 
 export function CurrencyAnalysisClient({ data }: { data: CurrencyAnalysisPageData }) {
   const router = useRouter();
   const pppSummary = data.ppp.summary;
   const pppInterpretation = pppTakeaway(data);
+  const selectedAnchorKind = data.ppp.selectedAnchorKind ?? "window";
+  const selectedAnchorStatistic = data.ppp.selectedAnchorStatistic;
+  const selectedWindowYears = data.ppp.selectedWindowYears;
   const selectedBaseYear = data.ppp.selectedBaseYear ?? "";
   const recentPathRows = data.ppp.path.slice(-12);
   const hasReferences = data.ppp.references.length > 0;
   const referenceNumberByLabel = new Map(data.ppp.references.map((reference, index) => [reference.label, index + 1]));
-  const latestAvailableBaseYear = data.ppp.availableBaseYears[data.ppp.availableBaseYears.length - 1] ?? null;
-  const baseYearPresets = latestAvailableBaseYear
-    ? [3, 5, 10, 20, 30]
-        .map((yearsBack) => ({
-          yearsBack,
-          year: closestBaseYearByYears(data.ppp.availableBaseYears, latestAvailableBaseYear, yearsBack),
-        }))
-        .filter((preset): preset is { yearsBack: number; year: string } => preset.year !== null)
-    : [];
 
   if (!pppSummary) {
     return null;
@@ -295,8 +272,8 @@ export function CurrencyAnalysisClient({ data }: { data: CurrencyAnalysisPageDat
                 ))}
               </Grid>
               <Text color="muted" fontSize="sm">
-                The model starts from the selected base-year average for spot and CPI levels and then re-scales that
-                annual anchor by the relative change in U.S. and euro-area CPI index levels.
+                The model starts from the selected anchor rule for spot and CPI levels and then re-scales that anchor
+                by the relative change in U.S. and euro-area CPI index levels.
               </Text>
             </Stack>
           </Box>
@@ -306,108 +283,168 @@ export function CurrencyAnalysisClient({ data }: { data: CurrencyAnalysisPageDat
               <Text color="accent" fontSize="xs" letterSpacing="0.16em" textTransform="uppercase">
                 Data Inputs
               </Text>
-              <SimpleGrid columns={{ base: 1, md: 2 }} gap="5">
+              <Stack gap="5">
                 <Stack gap="2">
                   <Text color="muted" fontSize="sm">
-                    PPP base-year average
+                    Anchor statistic
                   </Text>
-                  <Box position="relative">
-                    <select
-                      aria-label="PPP base-year average"
-                      onChange={(event: React.ChangeEvent<HTMLSelectElement>) => {
-                        const nextYear = event.currentTarget.value;
-                        if (!nextYear) {
-                          return;
-                        }
+                  <Grid gap="2" templateColumns={{ base: "repeat(2, minmax(0, 1fr))", md: "repeat(2, minmax(0, 12rem))" }}>
+                    {(["average", "median"] as const).map((statistic) => {
+                      const isActive = selectedAnchorStatistic === statistic;
 
-                        router.push(`/macro/currency-analysis?baseYear=${encodeURIComponent(nextYear)}`, {
-                          scroll: false,
-                        });
-                      }}
-                      style={{
-                        appearance: "none",
-                        background: "#181A1B",
-                        border: "1px solid #7e91a8",
-                        borderRadius: "0.875rem",
-                        color: "#d9e8ff",
-                        fontSize: "1rem",
-                        lineHeight: "1.2",
-                        minHeight: "3rem",
-                        paddingInlineEnd: "3rem",
-                        paddingInlineStart: "0.875rem",
-                        width: "100%",
-                      }}
-                      value={selectedBaseYear}
-                    >
-                      {data.ppp.availableBaseYears.map((year) => (
-                        <option key={year} style={{ background: "#181A1B", color: "#d9e8ff" }} value={year}>
-                          {year}
-                        </option>
-                      ))}
-                    </select>
-                    <Box
-                      aria-hidden="true"
-                      color="text"
-                      pointerEvents="none"
-                      position="absolute"
-                      right="0.875rem"
-                      top="50%"
-                      transform="translateY(-50%)"
-                    >
-                      v
-                    </Box>
-                  </Box>
-                  {baseYearPresets.length > 0 ? (
-                    <Stack gap="2" pt="2">
-                      <Text color="muted" fontSize="xs" letterSpacing="0.08em" textTransform="uppercase">
-                        Base-year-average anchors
-                      </Text>
-                      <Grid gap="2" templateColumns={{ base: "repeat(2, minmax(0, 1fr))", md: "repeat(5, minmax(0, 1fr))" }}>
-                        {baseYearPresets.map((preset) => {
-                          const isActive = preset.year === selectedBaseYear;
+                      return (
+                        <Button
+                          aria-pressed={isActive}
+                          bg={isActive ? "accent" : "canvas"}
+                          borderColor="edge"
+                          borderWidth="1px"
+                          color={isActive ? "canvas" : "text"}
+                          key={statistic}
+                          onClick={() => {
+                            router.push(
+                              `/macro/currency-analysis${buildSearch({
+                                anchorKind: selectedAnchorKind,
+                                anchorStatistic: statistic,
+                                windowYears: selectedWindowYears ? String(selectedWindowYears) : null,
+                                baseYear: selectedBaseYear || null,
+                              })}`,
+                              { scroll: false },
+                            );
+                          }}
+                          size="sm"
+                          variant="outline"
+                        >
+                          {statistic === "average" ? "Average" : "Median"}
+                        </Button>
+                      );
+                    })}
+                  </Grid>
+                  <Text color="muted" fontSize="xs">
+                    This setting controls whether the long-run anchor uses the arithmetic average or the median of the selected anchor sample.
+                  </Text>
+                </Stack>
 
-                          return (
-                            <Button
-                              bg={isActive ? "accent" : "canvas"}
-                              borderColor="edge"
-                              borderWidth="1px"
-                              color={isActive ? "canvas" : "text"}
-                              fontSize="sm"
-                              key={`${preset.yearsBack}-${preset.year}`}
-                              onClick={() => {
-                                router.push(`/macro/currency-analysis?baseYear=${encodeURIComponent(preset.year)}`, {
-                                  scroll: false,
-                                });
-                              }}
-                              size="sm"
-                              variant="outline"
-                            >
-                              {preset.yearsBack}Y
-                            </Button>
+                <Stack gap="2">
+                  <Text color="muted" fontSize="sm">
+                    Long-term anchor window
+                  </Text>
+                  <Grid gap="2" templateColumns={{ base: "repeat(2, minmax(0, 1fr))", md: "repeat(5, minmax(0, 1fr))" }}>
+                    {[3, 5, 10, 20, 30].map((years) => {
+                      const isAvailable = data.ppp.availableWindowYears.includes(years);
+                      const isActive = selectedAnchorKind === "window" && selectedWindowYears === years;
+
+                      return (
+                        <Button
+                          aria-pressed={isActive}
+                          bg={isActive ? "accent" : "canvas"}
+                          borderColor="edge"
+                          borderWidth="1px"
+                          color={isActive ? "canvas" : "text"}
+                          disabled={!isAvailable}
+                          key={years}
+                          onClick={() => {
+                            if (!isAvailable) {
+                              return;
+                            }
+
+                            router.push(
+                              `/macro/currency-analysis${buildSearch({
+                                anchorKind: "window",
+                                anchorStatistic: selectedAnchorStatistic,
+                                windowYears: String(years),
+                                baseYear: selectedBaseYear || null,
+                              })}`,
+                              { scroll: false },
+                            );
+                          }}
+                          size="sm"
+                          variant="outline"
+                        >
+                          {years}Y
+                        </Button>
+                      );
+                    })}
+                  </Grid>
+                  <Text color="muted" fontSize="xs">
+                    Each button builds a new PPP base anchor from the latest {`3, 5, 10, 20, or 30`} years of monthly data under the selected average or median rule.
+                  </Text>
+                </Stack>
+
+                <SimpleGrid columns={{ base: 1, md: 2 }} gap="5">
+                  <Stack gap="2">
+                    <Text color="muted" fontSize="sm">
+                      Single-year anchor
+                    </Text>
+                    <Box position="relative">
+                      <select
+                        aria-label="Single-year anchor"
+                        onChange={(event: React.ChangeEvent<HTMLSelectElement>) => {
+                          const nextYear = event.currentTarget.value;
+                          if (!nextYear) {
+                            return;
+                          }
+
+                          router.push(
+                            `/macro/currency-analysis${buildSearch({
+                              anchorKind: "year",
+                              anchorStatistic: selectedAnchorStatistic,
+                              windowYears: selectedWindowYears ? String(selectedWindowYears) : null,
+                              baseYear: nextYear,
+                            })}`,
+                            { scroll: false },
                           );
-                        })}
-                      </Grid>
-                      <Text color="muted" fontSize="xs">
-                        Each button jumps to the nearest available yearly average around {baseYearPresets
-                          .map((preset) => `${preset.yearsBack} years`)
-                          .join(", ")} back from the latest selectable anchor.
-                      </Text>
-                    </Stack>
-                  ) : null}
-                </Stack>
+                        }}
+                        style={{
+                          appearance: "none",
+                          background: "#181A1B",
+                          border: "1px solid #7e91a8",
+                          borderRadius: "0.875rem",
+                          color: "#d9e8ff",
+                          fontSize: "1rem",
+                          lineHeight: "1.2",
+                          minHeight: "3rem",
+                          paddingInlineEnd: "3rem",
+                          paddingInlineStart: "0.875rem",
+                          width: "100%",
+                        }}
+                        value={selectedBaseYear}
+                      >
+                        {data.ppp.availableBaseYears.map((year) => (
+                          <option key={year} style={{ background: "#181A1B", color: "#d9e8ff" }} value={year}>
+                            {year}
+                          </option>
+                        ))}
+                      </select>
+                      <Box
+                        aria-hidden="true"
+                        color="text"
+                        pointerEvents="none"
+                        position="absolute"
+                        right="0.875rem"
+                        top="50%"
+                        transform="translateY(-50%)"
+                      >
+                        v
+                      </Box>
+                    </Box>
+                    <Text color="muted" fontSize="xs">
+                      This is the alternative one-year anchor mode. It uses the selected year's own monthly sample under the same average or median rule.
+                    </Text>
+                  </Stack>
 
-                <Stack gap="2">
-                  <Text color="muted" fontSize="sm">
-                    Selection logic
-                  </Text>
-                  <Text>
-                    The selected base-year average sets the annual-average EUR/USD anchor and the annual-average starting CPI levels for both regions.
-                  </Text>
-                  <Text color="muted" fontSize="sm">
-                    {data.ppp.availableBaseYears.length} available base-year averages in the dataset.
-                  </Text>
-                </Stack>
-              </SimpleGrid>
+                  <Stack gap="2">
+                    <Text color="muted" fontSize="sm">
+                      Selection logic
+                    </Text>
+                    <Text>
+                      The active PPP baseline is now the selected {pppSummary.anchorLabel}. That anchor supplies the base spot value and the base CPI values used in the relative-PPP formula.
+                    </Text>
+                    <Text color="muted" fontSize="sm">
+                      {data.ppp.availableBaseYears.length} available single-year anchors and {data.ppp.availableWindowYears.length} available long-run windows in the dataset.
+                    </Text>
+                  </Stack>
+                </SimpleGrid>
+              </Stack>
             </Stack>
           </Box>
 
@@ -417,13 +454,13 @@ export function CurrencyAnalysisClient({ data }: { data: CurrencyAnalysisPageDat
                 Current PPP Valuation Readout
               </Text>
               <Text color="muted" fontSize="sm">
-                These values are computed from the selected base-year average and the latest month where spot and both CPI
+                These values are computed from the selected long-run anchor and the latest month where spot and both CPI
                 series overlap.
               </Text>
               <Grid gap="4" templateColumns={{ base: "1fr", md: "repeat(2, minmax(0, 1fr))", xl: "repeat(5, minmax(0, 1fr))" }}>
                 <ValueCard
-                  description="Annual-average EUR/USD spot in the selected anchor year."
-                  label="Selected base-year average spot"
+                  description={`Base spot anchor implied by the selected ${pppSummary.anchorLabel}.`}
+                  label="Selected anchor spot"
                   value={pppSummary.baseSpot}
                 />
                 <ValueCard
@@ -464,8 +501,7 @@ export function CurrencyAnalysisClient({ data }: { data: CurrencyAnalysisPageDat
                 Selected Base-Year Path
               </Text>
               <Text color="muted" fontSize="sm">
-                Each row compares the observed EUR/USD spot with the PPP-implied level generated from the selected
-                base-year average.
+                Each row compares the observed EUR/USD spot with the PPP-implied level generated from the selected anchor rule.
               </Text>
               <Table.Root size="sm" variant="outline">
                 <Table.Header>
