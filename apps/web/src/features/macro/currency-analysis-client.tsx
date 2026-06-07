@@ -53,7 +53,9 @@ function pppTakeaway(data: CurrencyAnalysisPageData) {
   }
 
   const deviation = Number.parseFloat(data.ppp.summary.deviationPct);
-  const trailingAverageGap = Number.parseFloat(data.ppp.summary.trailing12mAverageGapPct);
+  const trailingAverageGap = data.ppp.summary.trailing12mAverageGapPct
+    ? Number.parseFloat(data.ppp.summary.trailing12mAverageGapPct)
+    : Number.NaN;
   if (Number.isNaN(deviation)) {
     return null;
   }
@@ -489,9 +491,13 @@ export function CurrencyAnalysisClient({ data }: { data: CurrencyAnalysisPageDat
                   value={`${pppSummary.deviationPct}%`}
                 />
                 <ValueCard
-                  description="Average valuation gap across the latest 12 monthly observations in the selected path."
+                  description={
+                    pppSummary.trailing12mAverageGapPct
+                      ? "Average valuation gap across the latest 12 consecutive monthly observations in the selected path."
+                      : "Unavailable because the latest common PPP path does not contain 12 consecutive monthly observations."
+                  }
                   label="Trailing 12M average gap"
-                  value={`${pppSummary.trailing12mAverageGapPct}%`}
+                  value={pppSummary.trailing12mAverageGapPct ? `${pppSummary.trailing12mAverageGapPct}%` : "N/A"}
                 />
               </Grid>
               <Text color="muted" fontSize="sm">

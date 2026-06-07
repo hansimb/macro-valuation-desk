@@ -25,7 +25,7 @@ interface PppSnapshotRow {
   current_spot: string;
   implied_ppp: string;
   deviation_pct: string;
-  trailing_12m_average_gap_pct: string;
+  trailing_12m_average_gap_pct: string | null;
   spot_source_url: string;
   us_cpi_source_url: string;
   ea_cpi_source_url: string;

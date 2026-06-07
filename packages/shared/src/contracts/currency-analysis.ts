@@ -28,7 +28,7 @@ export interface CurrencyAnalysisPppSummary {
   currentSpot: string;
   impliedPpp: string;
   deviationPct: string;
-  trailing12mAverageGapPct: string;
+  trailing12mAverageGapPct: string | null;
 }
 
 export interface CurrencyAnalysisPppPathPoint {
