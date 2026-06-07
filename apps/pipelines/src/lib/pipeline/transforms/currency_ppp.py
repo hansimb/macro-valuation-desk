@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-from collections import defaultdict
-
 
 PAIR_KEY = "eurusd"
 PPP_SECTION_KEY = "ppp"
 PPP_ITEM_KEY = "relative_ppp"
+WINDOW_OPTIONS = [3, 5, 10, 20]
+ANCHOR_STATISTICS = ["average", "median"]
 
 
 def _sorted_valid_rows(staging_rows: list[dict[str, object]], series_id: str) -> list[dict[str, object]]:
@@ -33,6 +33,18 @@ def _year_from_month(value: str) -> str:
 
 def _average(values: list[float]) -> float:
     return sum(values) / len(values)
+
+
+def _median(values: list[float]) -> float:
+    ordered = sorted(values)
+    midpoint = len(ordered) // 2
+    if len(ordered) % 2 == 1:
+        return ordered[midpoint]
+    return (ordered[midpoint - 1] + ordered[midpoint]) / 2
+
+
+def _aggregate(values: list[float], statistic: str) -> float:
+    return _median(values) if statistic == "median" else _average(values)
 
 
 def build_currency_ppp_outputs(staging_rows: list[dict[str, object]]) -> dict[str, list[dict[str, object]]]:
@@ -63,40 +75,50 @@ def build_currency_ppp_outputs(staging_rows: list[dict[str, object]]) -> dict[st
     us_cpi_source_url = str(us_cpi_rows[latest_month]["source_url"])
     ea_cpi_source_url = str(ea_cpi_rows[latest_month]["source_url"])
 
-    months_by_year: dict[str, list[str]] = defaultdict(list)
-    for month in common_months:
-        months_by_year[_year_from_month(month)].append(month)
-
-    base_years = sorted(months_by_year)
     snapshot_rows: list[dict[str, object]] = []
     path_rows: list[dict[str, object]] = []
 
-    for base_year in base_years:
-        base_year_months = months_by_year[base_year]
-        base_month = f"{base_year}-01-01"
-        base_spot = _average([float(spot_rows[month]["numeric_value"]) for month in base_year_months])
-        base_us_cpi = _average([float(us_cpi_rows[month]["numeric_value"]) for month in base_year_months])
-        base_ea_cpi = _average([float(ea_cpi_rows[month]["numeric_value"]) for month in base_year_months])
+    def add_anchor(
+        *,
+        anchor_kind: str,
+        anchor_statistic: str,
+        anchor_window_code: str | None,
+        base_year: str | None,
+        anchor_months: list[str],
+    ) -> None:
+        if not anchor_months:
+            return
 
-        for observation_month in [month for month in common_months if _year_from_month(month) >= base_year]:
+        anchor_start_month = anchor_months[0]
+        anchor_end_month = anchor_months[-1]
+        base_month = anchor_start_month
+        anchor_years_covered = max(1, round(len(anchor_months) / 12))
+
+        base_spot = _aggregate([float(spot_rows[month]["numeric_value"]) for month in anchor_months], anchor_statistic)
+        base_us_cpi = _aggregate([float(us_cpi_rows[month]["numeric_value"]) for month in anchor_months], anchor_statistic)
+        base_ea_cpi = _aggregate([float(ea_cpi_rows[month]["numeric_value"]) for month in anchor_months], anchor_statistic)
+
+        anchor_path_rows: list[dict[str, object]] = []
+        for observation_month in [month for month in common_months if month >= anchor_start_month]:
             current_us_cpi = float(us_cpi_rows[observation_month]["numeric_value"])
             current_ea_cpi = float(ea_cpi_rows[observation_month]["numeric_value"])
             implied_ppp = base_spot * (current_us_cpi / base_us_cpi) / (current_ea_cpi / base_ea_cpi)
 
-            path_rows.append(
-                {
-                    "pair_key": PAIR_KEY,
-                    "base_month": base_month,
-                    "observation_month": observation_month,
-                    "actual_spot": _round_price(float(spot_rows[observation_month]["numeric_value"])),
-                    "implied_ppp": _round_price(implied_ppp),
-                }
-            )
+            path_row = {
+                "pair_key": PAIR_KEY,
+                "base_month": base_month,
+                "anchor_kind": anchor_kind,
+                "anchor_statistic": anchor_statistic,
+                "anchor_window_code": anchor_window_code,
+                "base_year": base_year,
+                "observation_month": observation_month,
+                "actual_spot": _round_price(float(spot_rows[observation_month]["numeric_value"])),
+                "implied_ppp": _round_price(implied_ppp),
+            }
+            path_rows.append(path_row)
+            anchor_path_rows.append(path_row)
 
-        latest_path_rows = [
-            row for row in path_rows if row["base_month"] == base_month and row["observation_month"] <= latest_month
-        ]
-        trailing_12_rows = latest_path_rows[-12:]
+        trailing_12_rows = anchor_path_rows[-12:]
         trailing_12_average_gap = _average(
             [
                 ((float(row["actual_spot"]) / float(row["implied_ppp"])) - 1) * 100
@@ -104,12 +126,19 @@ def build_currency_ppp_outputs(staging_rows: list[dict[str, object]]) -> dict[st
                 if float(row["implied_ppp"]) != 0
             ]
         )
-        implied_latest = float(latest_path_rows[-1]["implied_ppp"])
+        implied_latest = float(anchor_path_rows[-1]["implied_ppp"])
 
         snapshot_rows.append(
             {
                 "pair_key": PAIR_KEY,
                 "base_month": base_month,
+                "anchor_kind": anchor_kind,
+                "anchor_statistic": anchor_statistic,
+                "anchor_window_code": anchor_window_code,
+                "anchor_start_month": anchor_start_month,
+                "anchor_end_month": anchor_end_month,
+                "anchor_years_covered": anchor_years_covered,
+                "base_year": base_year,
                 "as_of_month": latest_month,
                 "base_spot": _round_price(base_spot),
                 "current_spot": _round_price(latest_spot),
@@ -123,6 +152,36 @@ def build_currency_ppp_outputs(staging_rows: list[dict[str, object]]) -> dict[st
                 "ea_cpi_series_key": "ea_cpi_index",
                 "ea_cpi_source_url": ea_cpi_source_url,
             }
+        )
+
+    for statistic in ANCHOR_STATISTICS:
+        for year in sorted({_year_from_month(month) for month in common_months}):
+            add_anchor(
+                anchor_kind="year",
+                anchor_statistic=statistic,
+                anchor_window_code=None,
+                base_year=year,
+                anchor_months=[month for month in common_months if _year_from_month(month) == year],
+            )
+
+        for years in WINDOW_OPTIONS:
+            required_months = years * 12
+            if len(common_months) < required_months:
+                continue
+            add_anchor(
+                anchor_kind="window",
+                anchor_statistic=statistic,
+                anchor_window_code=f"{years}Y",
+                base_year=None,
+                anchor_months=common_months[-required_months:],
+            )
+
+        add_anchor(
+            anchor_kind="window",
+            anchor_statistic=statistic,
+            anchor_window_code="MAX",
+            base_year=None,
+            anchor_months=common_months,
         )
 
     return {

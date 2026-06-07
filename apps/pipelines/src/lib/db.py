@@ -384,6 +384,13 @@ def replace_currency_ppp_snapshots(connection, rows: list[dict[str, object]]) ->
             insert into mart.currency_ppp_snapshots (
                 pair_key,
                 base_month,
+                anchor_kind,
+                anchor_statistic,
+                anchor_window_code,
+                anchor_start_month,
+                anchor_end_month,
+                anchor_years_covered,
+                base_year,
                 as_of_month,
                 base_spot,
                 current_spot,
@@ -400,6 +407,13 @@ def replace_currency_ppp_snapshots(connection, rows: list[dict[str, object]]) ->
             values (
                 %(pair_key)s,
                 %(base_month)s,
+                %(anchor_kind)s,
+                %(anchor_statistic)s,
+                %(anchor_window_code)s,
+                %(anchor_start_month)s,
+                %(anchor_end_month)s,
+                %(anchor_years_covered)s,
+                %(base_year)s,
                 %(as_of_month)s,
                 %(base_spot)s,
                 %(current_spot)s,
@@ -413,13 +427,18 @@ def replace_currency_ppp_snapshots(connection, rows: list[dict[str, object]]) ->
                 %(ea_cpi_series_key)s,
                 %(ea_cpi_source_url)s
             )
-            on conflict (pair_key, base_month, as_of_month) do update
+            on conflict (pair_key, base_month, anchor_kind, anchor_statistic, as_of_month) do update
             set
                 base_spot = excluded.base_spot,
                 current_spot = excluded.current_spot,
                 implied_ppp = excluded.implied_ppp,
                 deviation_pct = excluded.deviation_pct,
                 trailing_12m_average_gap_pct = excluded.trailing_12m_average_gap_pct,
+                anchor_window_code = excluded.anchor_window_code,
+                anchor_start_month = excluded.anchor_start_month,
+                anchor_end_month = excluded.anchor_end_month,
+                anchor_years_covered = excluded.anchor_years_covered,
+                base_year = excluded.base_year,
                 spot_series_key = excluded.spot_series_key,
                 spot_source_url = excluded.spot_source_url,
                 us_cpi_series_key = excluded.us_cpi_series_key,
@@ -446,6 +465,10 @@ def replace_currency_ppp_paths(connection, rows: list[dict[str, object]]) -> Non
             insert into mart.currency_ppp_paths (
                 pair_key,
                 base_month,
+                anchor_kind,
+                anchor_statistic,
+                anchor_window_code,
+                base_year,
                 observation_month,
                 actual_spot,
                 implied_ppp
@@ -453,12 +476,18 @@ def replace_currency_ppp_paths(connection, rows: list[dict[str, object]]) -> Non
             values (
                 %(pair_key)s,
                 %(base_month)s,
+                %(anchor_kind)s,
+                %(anchor_statistic)s,
+                %(anchor_window_code)s,
+                %(base_year)s,
                 %(observation_month)s,
                 %(actual_spot)s,
                 %(implied_ppp)s
             )
-            on conflict (pair_key, base_month, observation_month) do update
+            on conflict (pair_key, base_month, anchor_kind, anchor_statistic, observation_month) do update
             set
+                anchor_window_code = excluded.anchor_window_code,
+                base_year = excluded.base_year,
                 actual_spot = excluded.actual_spot,
                 implied_ppp = excluded.implied_ppp
             """,

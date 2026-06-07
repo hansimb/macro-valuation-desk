@@ -13,7 +13,7 @@ async function getCurrencyAnalysisPageData(
     baseYear?: string;
     anchorKind?: string;
     anchorStatistic?: string;
-    windowYears?: string;
+    windowCode?: string;
   },
 ): Promise<{ data: CurrencyAnalysisPageData; unavailable: boolean }> {
   const apiBaseUrl = process.env.MVD_API_URL ?? process.env.API_BASE_URL ?? "http://127.0.0.1:4000";
@@ -27,8 +27,8 @@ async function getCurrencyAnalysisPageData(
   if (params?.anchorStatistic) {
     searchParams.set("anchorStatistic", params.anchorStatistic);
   }
-  if (params?.windowYears) {
-    searchParams.set("windowYears", params.windowYears);
+  if (params?.windowCode) {
+    searchParams.set("windowCode", params.windowCode);
   }
   const search = searchParams.toString() ? `?${searchParams.toString()}` : "";
 
@@ -52,7 +52,7 @@ async function getCurrencyAnalysisPageData(
 export default async function CurrencyAnalysisPage({
   searchParams,
 }: {
-  searchParams?: Promise<{ baseYear?: string; anchorKind?: string; anchorStatistic?: string; windowYears?: string }>;
+  searchParams?: Promise<{ baseYear?: string; anchorKind?: string; anchorStatistic?: string; windowCode?: string }>;
 }) {
   const resolvedSearchParams = searchParams ? await searchParams : undefined;
   const { data, unavailable } = await getCurrencyAnalysisPageData(resolvedSearchParams);

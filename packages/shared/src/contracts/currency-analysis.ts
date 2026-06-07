@@ -6,14 +6,22 @@ export interface CurrencyAnalysisReferenceItem {
 
 export type CurrencyAnalysisPppAnchorKind = "window" | "year";
 export type CurrencyAnalysisPppAnchorStatistic = "average" | "median";
+export type CurrencyAnalysisPppWindowCode = "3Y" | "5Y" | "10Y" | "20Y" | "MAX";
+
+export interface CurrencyAnalysisPppWindowOption {
+  code: CurrencyAnalysisPppWindowCode;
+  label: string;
+  yearsCovered: number;
+}
 
 export interface CurrencyAnalysisPppSummary {
   anchorKind: CurrencyAnalysisPppAnchorKind;
   anchorStatistic: CurrencyAnalysisPppAnchorStatistic;
   anchorLabel: string;
+  anchorWindowCode: CurrencyAnalysisPppWindowCode | null;
   anchorStartMonth: string;
   anchorEndMonth: string;
-  anchorYears: number | null;
+  anchorYearsCovered: number | null;
   baseYear: string | null;
   asOf: string;
   baseSpot: string;
@@ -30,11 +38,11 @@ export interface CurrencyAnalysisPppPathPoint {
 }
 
 export interface CurrencyAnalysisPppBlock {
-  availableWindowYears: number[];
+  availableWindowOptions: CurrencyAnalysisPppWindowOption[];
   availableBaseYears: string[];
   selectedAnchorKind: CurrencyAnalysisPppAnchorKind | null;
   selectedAnchorStatistic: CurrencyAnalysisPppAnchorStatistic;
-  selectedWindowYears: number | null;
+  selectedWindowCode: CurrencyAnalysisPppWindowCode | null;
   selectedBaseYear: string | null;
   summary: CurrencyAnalysisPppSummary | null;
   path: CurrencyAnalysisPppPathPoint[];

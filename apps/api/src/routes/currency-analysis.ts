@@ -5,16 +5,41 @@ import type {
   CurrencyAnalysisIrpCipRow,
   CurrencyAnalysisPppAnchorKind,
   CurrencyAnalysisPppAnchorStatistic,
+  CurrencyAnalysisPppWindowCode,
   CurrencyAnalysisReferenceItem,
   CurrencyAnalysisResponse,
 } from "../../../../packages/shared/src/contracts/currency-analysis";
 import { getDbPool } from "../lib/db";
 
-interface PppInputRow {
-  series_id: string;
-  observation_date: string;
-  numeric_value: string;
-  source_url: string;
+interface PppSnapshotRow {
+  anchor_kind: CurrencyAnalysisPppAnchorKind;
+  anchor_statistic: CurrencyAnalysisPppAnchorStatistic;
+  anchor_window_code: CurrencyAnalysisPppWindowCode | null;
+  anchor_start_month: string;
+  anchor_end_month: string;
+  anchor_years_covered: number | null;
+  base_year: string | null;
+  base_month: string;
+  as_of_month: string;
+  base_spot: string;
+  current_spot: string;
+  implied_ppp: string;
+  deviation_pct: string;
+  trailing_12m_average_gap_pct: string;
+  spot_source_url: string;
+  us_cpi_source_url: string;
+  ea_cpi_source_url: string;
+}
+
+interface PppPathRow {
+  anchor_kind: CurrencyAnalysisPppAnchorKind;
+  anchor_statistic: CurrencyAnalysisPppAnchorStatistic;
+  anchor_window_code: CurrencyAnalysisPppWindowCode | null;
+  base_year: string | null;
+  base_month: string;
+  observation_month: string;
+  actual_spot: string;
+  implied_ppp: string;
 }
 
 interface IrpSnapshotRow {
@@ -44,8 +69,7 @@ interface AvailabilityRow {
   as_of_date: string | null;
 }
 
-const WINDOW_OPTIONS = [3, 5, 10, 20, 30] as const;
-type WindowOption = (typeof WINDOW_OPTIONS)[number];
+const WINDOW_CODE_ORDER: CurrencyAnalysisPppWindowCode[] = ["3Y", "5Y", "10Y", "20Y", "MAX"];
 
 function uniqueReferences(references: CurrencyAnalysisReferenceItem[]) {
   return references.filter(
@@ -69,52 +93,29 @@ function parseAnchorKind(value: unknown): CurrencyAnalysisPppAnchorKind | null {
   return null;
 }
 
-function parseWindowYears(value: unknown): WindowOption | null {
-  const parsed = Number.parseInt(String(value ?? ""), 10);
-  return WINDOW_OPTIONS.includes(parsed as WindowOption) ? (parsed as WindowOption) : null;
-}
-
-function formatPrice(value: number) {
-  return value.toFixed(4);
-}
-
-function formatPercent(value: number) {
-  return value.toFixed(2);
-}
-
-function mean(values: number[]) {
-  return values.reduce((sum, value) => sum + value, 0) / values.length;
-}
-
-function median(values: number[]) {
-  const sorted = [...values].sort((left, right) => left - right);
-  const middle = Math.floor(sorted.length / 2);
-  if (sorted.length % 2 === 1) {
-    return sorted[middle]!;
+function parseWindowCode(value: unknown): CurrencyAnalysisPppWindowCode | null {
+  if (value === "3Y" || value === "5Y" || value === "10Y" || value === "20Y" || value === "MAX") {
+    return value;
   }
-  return (sorted[middle - 1]! + sorted[middle]!) / 2;
-}
-
-function aggregate(values: number[], statistic: CurrencyAnalysisPppAnchorStatistic) {
-  return statistic === "median" ? median(values) : mean(values);
-}
-
-function yearOf(value: string) {
-  return value.slice(0, 4);
+  return null;
 }
 
 function buildAnchorLabel(
   anchorKind: CurrencyAnalysisPppAnchorKind,
   statistic: CurrencyAnalysisPppAnchorStatistic,
-  selectedWindowYears: number | null,
+  selectedWindowCode: CurrencyAnalysisPppWindowCode | null,
+  anchorYearsCovered: number | null,
   selectedBaseYear: string | null,
 ) {
-  if (anchorKind === "window" && selectedWindowYears !== null) {
-    return `${selectedWindowYears}-year ${statistic} anchor`;
+  if (anchorKind === "window" && selectedWindowCode !== null) {
+    if (selectedWindowCode === "MAX") {
+      return `MAX ${statistic} anchor${anchorYearsCovered ? ` (${anchorYearsCovered} years covered)` : ""}`;
+    }
+    return `${selectedWindowCode.replace("Y", "-year")} ${statistic} anchor`;
   }
 
   if (anchorKind === "year" && selectedBaseYear !== null) {
-    return `${selectedBaseYear} ${statistic} base-year anchor`;
+    return `${selectedBaseYear} ${statistic} base-year-average anchor`;
   }
 
   return `${statistic} PPP anchor`;
@@ -126,56 +127,88 @@ export async function registerCurrencyAnalysisRoute(app: FastifyInstance) {
     const requestedBaseYear = typeof query.baseYear === "string" ? query.baseYear : null;
     const requestedAnchorKind = parseAnchorKind(query.anchorKind);
     const requestedAnchorStatistic = parseAnchorStatistic(query.anchorStatistic);
-    const requestedWindowYears = parseWindowYears(query.windowYears);
+    const requestedWindowCode = parseWindowCode(query.windowCode);
 
-    const pppInputsResult = await getDbPool().query<PppInputRow>(
+    const pppSnapshotsResult = await getDbPool().query<PppSnapshotRow>(
       `
         select
-          staging.series_id,
-          staging.observation_date::text,
-          staging.numeric_value::text,
-          metadata.source_url
-        from staging.series_observations as staging
-        join core.series_metadata as metadata
-          on metadata.series_id = staging.series_id
-        where staging.series_id = any($1::text[])
-          and staging.is_valid = true
-        order by staging.observation_date asc, staging.series_id asc
+          anchor_kind,
+          anchor_statistic,
+          anchor_window_code,
+          anchor_start_month::text,
+          anchor_end_month::text,
+          anchor_years_covered,
+          base_year,
+          base_month::text,
+          as_of_month::text,
+          base_spot::text,
+          current_spot::text,
+          implied_ppp::text,
+          deviation_pct::text,
+          trailing_12m_average_gap_pct::text,
+          spot_source_url,
+          us_cpi_source_url,
+          ea_cpi_source_url
+        from mart.currency_ppp_snapshots
+        where pair_key = 'eurusd'
+        order by as_of_month asc, anchor_kind asc, anchor_statistic asc, coalesce(anchor_window_code, ''), coalesce(base_year, '')
       `,
-      [["eurusd_spot_monthly", "us_cpi_index", "ea_cpi_index"]],
     );
 
-    const pppRowsBySeries = new Map<string, Map<string, PppInputRow>>();
-    for (const row of pppInputsResult.rows) {
-      if (!pppRowsBySeries.has(row.series_id)) {
-        pppRowsBySeries.set(row.series_id, new Map());
+    const pppPathsResult = await getDbPool().query<PppPathRow>(
+      `
+        select
+          anchor_kind,
+          anchor_statistic,
+          anchor_window_code,
+          base_year,
+          base_month::text,
+          observation_month::text,
+          actual_spot::text,
+          implied_ppp::text
+        from mart.currency_ppp_paths
+        where pair_key = 'eurusd'
+        order by observation_month asc, anchor_kind asc, anchor_statistic asc, coalesce(anchor_window_code, ''), coalesce(base_year, '')
+      `,
+    );
+
+    const snapshotRows = pppSnapshotsResult.rows;
+    const pathRows = pppPathsResult.rows;
+
+    const snapshotsForStatistic = snapshotRows.filter((row) => row.anchor_statistic === requestedAnchorStatistic);
+    const yearSnapshots = snapshotsForStatistic.filter((row) => row.anchor_kind === "year" && row.base_year !== null);
+    const windowSnapshots = snapshotsForStatistic.filter((row) => row.anchor_kind === "window" && row.anchor_window_code !== null);
+
+    const availableBaseYears = Array.from(new Set(yearSnapshots.map((row) => row.base_year!))).sort();
+    const availableWindowOptions = WINDOW_CODE_ORDER.map((code) => {
+      const snapshot = windowSnapshots.find((row) => row.anchor_window_code === code);
+      if (!snapshot) {
+        return null;
       }
-      pppRowsBySeries.get(row.series_id)!.set(row.observation_date, row);
-    }
 
-    const spotRows = pppRowsBySeries.get("eurusd_spot_monthly") ?? new Map<string, PppInputRow>();
-    const usCpiRows = pppRowsBySeries.get("us_cpi_index") ?? new Map<string, PppInputRow>();
-    const eaCpiRows = pppRowsBySeries.get("ea_cpi_index") ?? new Map<string, PppInputRow>();
-    const commonMonths = [...spotRows.keys()].filter((month) => usCpiRows.has(month) && eaCpiRows.has(month)).sort();
+      return {
+        code,
+        label: code,
+        yearsCovered: snapshot.anchor_years_covered ?? 0,
+      };
+    }).filter((option): option is NonNullable<typeof option> => option !== null);
 
-    const availableBaseYears = Array.from(new Set(commonMonths.map(yearOf)));
-    const availableWindowYears: WindowOption[] = WINDOW_OPTIONS.filter((years) => commonMonths.length >= years * 12);
     const defaultBaseYear = availableBaseYears[availableBaseYears.length - 1] ?? null;
     const selectedBaseYear = requestedBaseYear && availableBaseYears.includes(requestedBaseYear) ? requestedBaseYear : defaultBaseYear;
 
-    const defaultWindowYears =
-      (availableWindowYears.includes(10) ? 10 : null) ??
-      availableWindowYears[availableWindowYears.length - 1] ??
+    const defaultWindowCode =
+      (availableWindowOptions.some((option) => option.code === "10Y") ? "10Y" : null) ??
+      availableWindowOptions[availableWindowOptions.length - 1]?.code ??
       null;
-    const selectedWindowYears =
-      requestedWindowYears !== null && availableWindowYears.includes(requestedWindowYears)
-        ? requestedWindowYears
-        : defaultWindowYears;
+    const selectedWindowCode =
+      requestedWindowCode !== null && availableWindowOptions.some((option) => option.code === requestedWindowCode)
+        ? requestedWindowCode
+        : defaultWindowCode;
 
     const selectedAnchorKind =
       requestedAnchorKind === "year" && selectedBaseYear !== null
         ? "year"
-        : selectedWindowYears !== null
+        : selectedWindowCode !== null
           ? "window"
           : selectedBaseYear !== null
             ? "year"
@@ -185,70 +218,57 @@ export async function registerCurrencyAnalysisRoute(app: FastifyInstance) {
     let pppPath: CurrencyAnalysisResponse["ppp"]["path"] = [];
     let pppReferences: CurrencyAnalysisReferenceItem[] = [];
 
-    if (commonMonths.length > 0 && selectedAnchorKind !== null) {
-      const latestMonth = commonMonths[commonMonths.length - 1]!;
-      const anchorMonths =
-        selectedAnchorKind === "window" && selectedWindowYears !== null
-          ? commonMonths.slice(-selectedWindowYears * 12)
-          : commonMonths.filter((month) => yearOf(month) === selectedBaseYear);
+    let selectedSnapshot: PppSnapshotRow | undefined;
+    if (selectedAnchorKind === "window" && selectedWindowCode !== null) {
+      selectedSnapshot = windowSnapshots.find((row) => row.anchor_window_code === selectedWindowCode);
+    } else if (selectedAnchorKind === "year" && selectedBaseYear !== null) {
+      selectedSnapshot = yearSnapshots.find((row) => row.base_year === selectedBaseYear);
+    }
 
-      if (anchorMonths.length > 0) {
-        const anchorStartMonth = anchorMonths[0]!;
-        const anchorEndMonth = anchorMonths[anchorMonths.length - 1]!;
-        const baseSpot = aggregate(anchorMonths.map((month) => Number.parseFloat(spotRows.get(month)!.numeric_value)), requestedAnchorStatistic);
-        const baseUsCpi = aggregate(anchorMonths.map((month) => Number.parseFloat(usCpiRows.get(month)!.numeric_value)), requestedAnchorStatistic);
-        const baseEaCpi = aggregate(anchorMonths.map((month) => Number.parseFloat(eaCpiRows.get(month)!.numeric_value)), requestedAnchorStatistic);
-        const pathMonths =
-          selectedAnchorKind === "window"
-            ? commonMonths.filter((month) => month >= anchorStartMonth)
-            : commonMonths.filter((month) => month >= anchorStartMonth);
+    if (selectedSnapshot) {
+      pppPath = pathRows
+        .filter(
+          (row) =>
+            row.anchor_kind === selectedSnapshot!.anchor_kind &&
+            row.anchor_statistic === selectedSnapshot!.anchor_statistic &&
+            row.base_month === selectedSnapshot!.base_month &&
+            row.anchor_window_code === selectedSnapshot!.anchor_window_code &&
+            row.base_year === selectedSnapshot!.base_year,
+        )
+        .map((row) => ({
+          observationMonth: row.observation_month,
+          actualSpot: row.actual_spot,
+          impliedPpp: row.implied_ppp,
+        }));
 
-        pppPath = pathMonths.map((observationMonth) => {
-          const actualSpot = Number.parseFloat(spotRows.get(observationMonth)!.numeric_value);
-          const currentUsCpi = Number.parseFloat(usCpiRows.get(observationMonth)!.numeric_value);
-          const currentEaCpi = Number.parseFloat(eaCpiRows.get(observationMonth)!.numeric_value);
-          const impliedPpp = baseSpot * (currentUsCpi / baseUsCpi) / (currentEaCpi / baseEaCpi);
+      pppSummary = {
+        anchorKind: selectedSnapshot.anchor_kind,
+        anchorStatistic: selectedSnapshot.anchor_statistic,
+        anchorLabel: buildAnchorLabel(
+          selectedSnapshot.anchor_kind,
+          selectedSnapshot.anchor_statistic,
+          selectedSnapshot.anchor_window_code,
+          selectedSnapshot.anchor_years_covered,
+          selectedSnapshot.base_year,
+        ),
+        anchorWindowCode: selectedSnapshot.anchor_window_code,
+        anchorStartMonth: selectedSnapshot.anchor_start_month,
+        anchorEndMonth: selectedSnapshot.anchor_end_month,
+        anchorYearsCovered: selectedSnapshot.anchor_years_covered,
+        baseYear: selectedSnapshot.base_year,
+        asOf: selectedSnapshot.as_of_month,
+        baseSpot: selectedSnapshot.base_spot,
+        currentSpot: selectedSnapshot.current_spot,
+        impliedPpp: selectedSnapshot.implied_ppp,
+        deviationPct: selectedSnapshot.deviation_pct,
+        trailing12mAverageGapPct: selectedSnapshot.trailing_12m_average_gap_pct,
+      };
 
-          return {
-            observationMonth,
-            actualSpot: formatPrice(actualSpot),
-            impliedPpp: formatPrice(impliedPpp),
-          };
-        });
-
-        const latestPathRow = pppPath[pppPath.length - 1]!;
-        const latestSpot = Number.parseFloat(latestPathRow.actualSpot);
-        const impliedLatest = Number.parseFloat(latestPathRow.impliedPpp);
-        const trailing12Rows = pppPath.slice(-12);
-        const trailing12AverageGap =
-          trailing12Rows.length === 0
-            ? 0
-            : mean(
-                trailing12Rows.map((row) => ((Number.parseFloat(row.actualSpot) / Number.parseFloat(row.impliedPpp)) - 1) * 100),
-              );
-
-        pppSummary = {
-          anchorKind: selectedAnchorKind,
-          anchorStatistic: requestedAnchorStatistic,
-          anchorLabel: buildAnchorLabel(selectedAnchorKind, requestedAnchorStatistic, selectedWindowYears, selectedBaseYear),
-          anchorStartMonth,
-          anchorEndMonth,
-          anchorYears: selectedAnchorKind === "window" ? selectedWindowYears : null,
-          baseYear: selectedAnchorKind === "year" ? selectedBaseYear : null,
-          asOf: latestMonth,
-          baseSpot: formatPrice(baseSpot),
-          currentSpot: formatPrice(latestSpot),
-          impliedPpp: formatPrice(impliedLatest),
-          deviationPct: formatPercent(((latestSpot / impliedLatest) - 1) * 100),
-          trailing12mAverageGapPct: formatPercent(trailing12AverageGap),
-        };
-
-        pppReferences = uniqueReferences([
-          { label: "EUR/USD spot", url: spotRows.get(latestMonth)?.source_url },
-          { label: "US CPI index", url: usCpiRows.get(latestMonth)?.source_url },
-          { label: "Euro Area CPI index", url: eaCpiRows.get(latestMonth)?.source_url },
-        ]);
-      }
+      pppReferences = uniqueReferences([
+        { label: "EUR/USD spot", url: selectedSnapshot.spot_source_url },
+        { label: "US CPI index", url: selectedSnapshot.us_cpi_source_url },
+        { label: "Euro Area CPI index", url: selectedSnapshot.ea_cpi_source_url },
+      ]);
     }
 
     const irpSnapshotsResult = await getDbPool().query<IrpSnapshotRow>(`
@@ -326,11 +346,11 @@ export async function registerCurrencyAnalysisRoute(app: FastifyInstance) {
     return {
       asOf: irpSnapshotsResult.rows[0]?.as_of_date ?? pppSummary?.asOf ?? null,
       ppp: {
-        availableWindowYears,
+        availableWindowOptions,
         availableBaseYears,
         selectedAnchorKind,
         selectedAnchorStatistic: requestedAnchorStatistic,
-        selectedWindowYears,
+        selectedWindowCode,
         selectedBaseYear,
         summary: pppSummary,
         path: pppPath,

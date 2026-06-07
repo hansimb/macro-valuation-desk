@@ -1,155 +1,67 @@
 from src.lib.pipeline.transforms.currency_ppp import build_currency_ppp_outputs
 
 
-def test_build_currency_ppp_outputs_creates_paths_and_snapshots_for_base_year_averages():
-    staging_rows = [
-        {
-            "series_id": "eurusd_spot_monthly",
-            "observation_date": "2025-01-01",
-            "numeric_value": 1.0,
-            "category": "fx_spot",
-            "region": "FX",
-            "frequency": "monthly",
-            "unit": "usd_per_eur",
-            "provider": "ecb",
-            "source_url": "https://data.ecb.europa.eu/data/datasets/EXR/EXR.M.USD.EUR.SP00.A",
-            "is_valid": True,
-        },
-        {
-            "series_id": "eurusd_spot_monthly",
-            "observation_date": "2025-02-01",
-            "numeric_value": 1.2,
-            "category": "fx_spot",
-            "region": "FX",
-            "frequency": "monthly",
-            "unit": "usd_per_eur",
-            "provider": "ecb",
-            "source_url": "https://data.ecb.europa.eu/data/datasets/EXR/EXR.M.USD.EUR.SP00.A",
-            "is_valid": True,
-        },
-        {
-            "series_id": "eurusd_spot_monthly",
-            "observation_date": "2026-01-01",
-            "numeric_value": 1.3,
-            "category": "fx_spot",
-            "region": "FX",
-            "frequency": "monthly",
-            "unit": "usd_per_eur",
-            "provider": "ecb",
-            "source_url": "https://data.ecb.europa.eu/data/datasets/EXR/EXR.M.USD.EUR.SP00.A",
-            "is_valid": True,
-        },
-        {
-            "series_id": "eurusd_spot_monthly",
-            "observation_date": "2026-02-01",
-            "numeric_value": 1.4,
-            "category": "fx_spot",
-            "region": "FX",
-            "frequency": "monthly",
-            "unit": "usd_per_eur",
-            "provider": "ecb",
-            "source_url": "https://data.ecb.europa.eu/data/datasets/EXR/EXR.M.USD.EUR.SP00.A",
-            "is_valid": True,
-        },
-        {
-            "series_id": "us_cpi_index",
-            "observation_date": "2025-01-01",
-            "numeric_value": 100.0,
-            "category": "inflation",
-            "region": "US",
-            "frequency": "monthly",
-            "unit": "index",
-            "provider": "fred",
-            "source_url": "https://fred.stlouisfed.org/series/CPIAUCSL",
-            "is_valid": True,
-        },
-        {
-            "series_id": "us_cpi_index",
-            "observation_date": "2025-02-01",
-            "numeric_value": 102.0,
-            "category": "inflation",
-            "region": "US",
-            "frequency": "monthly",
-            "unit": "index",
-            "provider": "fred",
-            "source_url": "https://fred.stlouisfed.org/series/CPIAUCSL",
-            "is_valid": True,
-        },
-        {
-            "series_id": "us_cpi_index",
-            "observation_date": "2026-01-01",
-            "numeric_value": 104.0,
-            "category": "inflation",
-            "region": "US",
-            "frequency": "monthly",
-            "unit": "index",
-            "provider": "fred",
-            "source_url": "https://fred.stlouisfed.org/series/CPIAUCSL",
-            "is_valid": True,
-        },
-        {
-            "series_id": "us_cpi_index",
-            "observation_date": "2026-02-01",
-            "numeric_value": 106.0,
-            "category": "inflation",
-            "region": "US",
-            "frequency": "monthly",
-            "unit": "index",
-            "provider": "fred",
-            "source_url": "https://fred.stlouisfed.org/series/CPIAUCSL",
-            "is_valid": True,
-        },
-        {
-            "series_id": "ea_cpi_index",
-            "observation_date": "2025-01-01",
-            "numeric_value": 100.0,
-            "category": "inflation",
-            "region": "EU",
-            "frequency": "monthly",
-            "unit": "index",
-            "provider": "fred",
-            "source_url": "https://fred.stlouisfed.org/series/CP00MI15EA20M086NEST",
-            "is_valid": True,
-        },
-        {
-            "series_id": "ea_cpi_index",
-            "observation_date": "2025-02-01",
-            "numeric_value": 101.0,
-            "category": "inflation",
-            "region": "EU",
-            "frequency": "monthly",
-            "unit": "index",
-            "provider": "fred",
-            "source_url": "https://fred.stlouisfed.org/series/CP00MI15EA20M086NEST",
-            "is_valid": True,
-        },
-        {
-            "series_id": "ea_cpi_index",
-            "observation_date": "2026-01-01",
-            "numeric_value": 102.0,
-            "category": "inflation",
-            "region": "EU",
-            "frequency": "monthly",
-            "unit": "index",
-            "provider": "fred",
-            "source_url": "https://fred.stlouisfed.org/series/CP00MI15EA20M086NEST",
-            "is_valid": True,
-        },
-        {
-            "series_id": "ea_cpi_index",
-            "observation_date": "2026-02-01",
-            "numeric_value": 103.0,
-            "category": "inflation",
-            "region": "EU",
-            "frequency": "monthly",
-            "unit": "index",
-            "provider": "fred",
-            "source_url": "https://fred.stlouisfed.org/series/CP00MI15EA20M086NEST",
-            "is_valid": True,
-        },
-    ]
+def _build_monthly_rows():
+    rows = []
 
-    outputs = build_currency_ppp_outputs(staging_rows)
+    for year in range(2000, 2027):
+        last_month = 4 if year == 2026 else 12
+        for month in range(1, last_month + 1):
+            date = f"{year}-{month:02d}-01"
+            month_index = (year - 2000) * 12 + (month - 1)
+            spot = 0.9 + month_index * 0.001
+            us_cpi = 100 + month_index * 0.2
+            ea_cpi = 98 + month_index * 0.15
+
+            rows.extend(
+                [
+                    {
+                        "series_id": "eurusd_spot_monthly",
+                        "observation_date": date,
+                        "numeric_value": spot,
+                        "category": "fx_spot",
+                        "region": "FX",
+                        "frequency": "monthly",
+                        "unit": "usd_per_eur",
+                        "provider": "ecb",
+                        "source_url": "https://data.ecb.europa.eu/data/datasets/EXR/EXR.M.USD.EUR.SP00.A",
+                        "is_valid": True,
+                    },
+                    {
+                        "series_id": "us_cpi_index",
+                        "observation_date": date,
+                        "numeric_value": us_cpi,
+                        "category": "inflation",
+                        "region": "US",
+                        "frequency": "monthly",
+                        "unit": "index",
+                        "provider": "fred",
+                        "source_url": "https://fred.stlouisfed.org/series/CPIAUCSL",
+                        "is_valid": True,
+                    },
+                    {
+                        "series_id": "ea_cpi_index",
+                        "observation_date": date,
+                        "numeric_value": ea_cpi,
+                        "category": "inflation",
+                        "region": "EU",
+                        "frequency": "monthly",
+                        "unit": "index",
+                        "provider": "fred",
+                        "source_url": "https://fred.stlouisfed.org/series/CP00MI15EA20M086NEST",
+                        "is_valid": True,
+                    },
+                ]
+            )
+
+    return rows
+
+
+def test_build_currency_ppp_outputs_creates_year_window_and_max_anchors():
+    outputs = build_currency_ppp_outputs(_build_monthly_rows())
+
+    snapshots = outputs["snapshot_rows"]
+    paths = outputs["path_rows"]
 
     assert outputs["availability_rows"] == [
         {
@@ -158,87 +70,48 @@ def test_build_currency_ppp_outputs_creates_paths_and_snapshots_for_base_year_av
             "item_key": "relative_ppp",
             "status": "available",
             "detail": "PPP snapshots and paths available.",
-            "as_of_date": "2026-02-01",
+            "as_of_date": "2026-04-01",
         }
     ]
-    assert outputs["snapshot_rows"] == [
-        {
-            "pair_key": "eurusd",
-            "base_month": "2025-01-01",
-            "as_of_month": "2026-02-01",
-            "base_spot": 1.1,
-            "current_spot": 1.4,
-            "implied_ppp": 1.1264,
-            "deviation_pct": 24.29,
-            "trailing_12m_average_gap_pct": 10.17,
-            "spot_series_key": "eurusd_spot_monthly",
-            "spot_source_url": "https://data.ecb.europa.eu/data/datasets/EXR/EXR.M.USD.EUR.SP00.A",
-            "us_cpi_series_key": "us_cpi_index",
-            "us_cpi_source_url": "https://fred.stlouisfed.org/series/CPIAUCSL",
-            "ea_cpi_series_key": "ea_cpi_index",
-            "ea_cpi_source_url": "https://fred.stlouisfed.org/series/CP00MI15EA20M086NEST",
-        },
-        {
-            "pair_key": "eurusd",
-            "base_month": "2026-01-01",
-            "as_of_month": "2026-02-01",
-            "base_spot": 1.35,
-            "current_spot": 1.4,
-            "implied_ppp": 1.3562,
-            "deviation_pct": 3.23,
-            "trailing_12m_average_gap_pct": -0.01,
-            "spot_series_key": "eurusd_spot_monthly",
-            "spot_source_url": "https://data.ecb.europa.eu/data/datasets/EXR/EXR.M.USD.EUR.SP00.A",
-            "us_cpi_series_key": "us_cpi_index",
-            "us_cpi_source_url": "https://fred.stlouisfed.org/series/CPIAUCSL",
-            "ea_cpi_series_key": "ea_cpi_index",
-            "ea_cpi_source_url": "https://fred.stlouisfed.org/series/CP00MI15EA20M086NEST",
-        },
+
+    snapshot_keys = {
+        (
+            row["anchor_kind"],
+            row["anchor_statistic"],
+            row["anchor_window_code"],
+            row["base_year"],
+        )
+        for row in snapshots
+    }
+
+    assert ("window", "average", "20Y", None) in snapshot_keys
+    assert ("window", "median", "20Y", None) in snapshot_keys
+    assert ("window", "average", "MAX", None) in snapshot_keys
+    assert ("window", "median", "MAX", None) in snapshot_keys
+    assert ("year", "average", None, "2025") in snapshot_keys
+    assert ("year", "median", None, "2025") in snapshot_keys
+
+    max_snapshot = next(
+        row
+        for row in snapshots
+        if row["anchor_kind"] == "window"
+        and row["anchor_statistic"] == "average"
+        and row["anchor_window_code"] == "MAX"
+    )
+    assert max_snapshot["anchor_start_month"] == "2000-01-01"
+    assert max_snapshot["anchor_end_month"] == "2026-04-01"
+    assert max_snapshot["anchor_years_covered"] == 26
+    assert max_snapshot["as_of_month"] == "2026-04-01"
+
+    twenty_year_path = [
+        row
+        for row in paths
+        if row["anchor_kind"] == "window"
+        and row["anchor_statistic"] == "average"
+        and row["anchor_window_code"] == "20Y"
     ]
-    assert outputs["path_rows"] == [
-        {
-            "pair_key": "eurusd",
-            "base_month": "2025-01-01",
-            "observation_month": "2025-01-01",
-            "actual_spot": 1.0,
-            "implied_ppp": 1.0946,
-        },
-        {
-            "pair_key": "eurusd",
-            "base_month": "2025-01-01",
-            "observation_month": "2025-02-01",
-            "actual_spot": 1.2,
-            "implied_ppp": 1.1054,
-        },
-        {
-            "pair_key": "eurusd",
-            "base_month": "2025-01-01",
-            "observation_month": "2026-01-01",
-            "actual_spot": 1.3,
-            "implied_ppp": 1.116,
-        },
-        {
-            "pair_key": "eurusd",
-            "base_month": "2025-01-01",
-            "observation_month": "2026-02-01",
-            "actual_spot": 1.4,
-            "implied_ppp": 1.1264,
-        },
-        {
-            "pair_key": "eurusd",
-            "base_month": "2026-01-01",
-            "observation_month": "2026-01-01",
-            "actual_spot": 1.3,
-            "implied_ppp": 1.3437,
-        },
-        {
-            "pair_key": "eurusd",
-            "base_month": "2026-01-01",
-            "observation_month": "2026-02-01",
-            "actual_spot": 1.4,
-            "implied_ppp": 1.3562,
-        },
-    ]
+    assert twenty_year_path[0]["observation_month"] == "2006-05-01"
+    assert twenty_year_path[-1]["observation_month"] == "2026-04-01"
 
 
 def test_build_currency_ppp_outputs_marks_series_unavailable_when_required_inputs_are_missing():

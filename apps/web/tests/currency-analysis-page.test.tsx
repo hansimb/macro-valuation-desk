@@ -21,19 +21,26 @@ vi.mock("next/navigation", async (importOriginal) => {
 const payload = {
   asOf: "2026-05-30",
   ppp: {
-    availableWindowYears: [3, 5, 10, 20],
+    availableWindowOptions: [
+      { code: "3Y", label: "3Y", yearsCovered: 3 },
+      { code: "5Y", label: "5Y", yearsCovered: 5 },
+      { code: "10Y", label: "10Y", yearsCovered: 10 },
+      { code: "20Y", label: "20Y", yearsCovered: 20 },
+      { code: "MAX", label: "MAX", yearsCovered: 26 },
+    ],
     availableBaseYears: ["2025", "2026"],
     selectedAnchorKind: "window",
     selectedAnchorStatistic: "average",
-    selectedWindowYears: 10,
+    selectedWindowCode: "10Y",
     selectedBaseYear: "2025",
     summary: {
       anchorKind: "window",
       anchorStatistic: "average",
       anchorLabel: "10-year average anchor",
+      anchorWindowCode: "10Y",
       anchorStartMonth: "2016-05-01",
       anchorEndMonth: "2026-04-01",
-      anchorYears: 10,
+      anchorYearsCovered: 10,
       baseYear: null,
       asOf: "2026-02-01",
       baseSpot: "1.1000",
@@ -115,7 +122,7 @@ describe("Currency Analysis page", () => {
     );
 
     const page = await CurrencyAnalysisPage({
-      searchParams: Promise.resolve({ anchorKind: "window", anchorStatistic: "average", windowYears: "10", baseYear: "2025" }),
+      searchParams: Promise.resolve({ anchorKind: "window", anchorStatistic: "average", windowCode: "10Y", baseYear: "2025" }),
     });
 
     render(<ThemeProvider>{page}</ThemeProvider>);
@@ -130,12 +137,15 @@ describe("Currency Analysis page", () => {
     expect(screen.getAllByText(/10-year average anchor/i).length).toBeGreaterThan(0);
     expect(screen.getByRole("button", { name: /Average/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Median/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "MAX" })).toBeInTheDocument();
     expect(screen.getByRole("combobox", { name: /Single-year anchor/i })).toBeInTheDocument();
     expect(screen.getAllByText("2025").length).toBeGreaterThan(0);
     expect(screen.getAllByText("1.1109").length).toBeGreaterThan(0);
     expect(screen.getByText(/The latest market spot sits 8.02% above the PPP-implied fair-value anchor/i)).toBeInTheDocument();
     expect(screen.getByText(/These values are computed from the selected long-run anchor and the latest month where spot and both CPI series overlap/i)).toBeInTheDocument();
     expect(screen.getByText(/Each row compares the observed EUR\/USD spot with the PPP-implied level generated from the selected anchor rule/i)).toBeInTheDocument();
+    expect(screen.getByText(/Available windows: 3Y \(3Y covered\), 5Y \(5Y covered\), 10Y \(10Y covered\), 20Y \(20Y covered\), MAX \(26Y covered\)/i)).toBeInTheDocument();
+    expect(screen.getByText(/Active anchor sample: 2016-05-01 to 2026-04-01 \(10 years covered\)/i)).toBeInTheDocument();
     expect(screen.getByText("6.40%")).toBeInTheDocument();
     expect(screen.queryByText("Snapshot")).not.toBeInTheDocument();
     expect(screen.queryByText("Recent Path Excerpt")).not.toBeInTheDocument();

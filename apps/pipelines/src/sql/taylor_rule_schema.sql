@@ -112,6 +112,13 @@ create table if not exists mart.macro_reference_metrics (
 create table if not exists mart.currency_ppp_snapshots (
     pair_key text not null,
     base_month date not null,
+    anchor_kind text not null default 'year',
+    anchor_statistic text not null default 'average',
+    anchor_window_code text,
+    anchor_start_month date,
+    anchor_end_month date,
+    anchor_years_covered integer,
+    base_year text,
     as_of_month date not null,
     base_spot numeric not null,
     current_spot numeric not null,
@@ -124,16 +131,20 @@ create table if not exists mart.currency_ppp_snapshots (
     us_cpi_source_url text not null,
     ea_cpi_series_key text not null,
     ea_cpi_source_url text not null,
-    primary key (pair_key, base_month, as_of_month)
+    primary key (pair_key, base_month, anchor_kind, anchor_statistic, as_of_month)
 );
 
 create table if not exists mart.currency_ppp_paths (
     pair_key text not null,
     base_month date not null,
+    anchor_kind text not null default 'year',
+    anchor_statistic text not null default 'average',
+    anchor_window_code text,
+    base_year text,
     observation_month date not null,
     actual_spot numeric not null,
     implied_ppp numeric not null,
-    primary key (pair_key, base_month, observation_month)
+    primary key (pair_key, base_month, anchor_kind, anchor_statistic, observation_month)
 );
 
 create table if not exists mart.currency_irp_snapshots (
@@ -176,6 +187,51 @@ alter table mart.macro_reference_metrics add column if not exists output_gap_as_
 alter table mart.macro_reference_metrics add column if not exists output_gap_series_key text not null default '';
 alter table mart.macro_reference_metrics add column if not exists output_gap_source_url text not null default '';
 alter table mart.currency_ppp_snapshots add column if not exists trailing_12m_average_gap_pct numeric not null default 0;
+alter table mart.currency_ppp_snapshots add column if not exists anchor_kind text not null default 'year';
+alter table mart.currency_ppp_snapshots add column if not exists anchor_statistic text not null default 'average';
+alter table mart.currency_ppp_snapshots add column if not exists anchor_window_code text;
+alter table mart.currency_ppp_snapshots add column if not exists anchor_start_month date;
+alter table mart.currency_ppp_snapshots add column if not exists anchor_end_month date;
+alter table mart.currency_ppp_snapshots add column if not exists anchor_years_covered integer;
+alter table mart.currency_ppp_snapshots add column if not exists base_year text;
+alter table mart.currency_ppp_paths add column if not exists anchor_kind text not null default 'year';
+alter table mart.currency_ppp_paths add column if not exists anchor_statistic text not null default 'average';
+alter table mart.currency_ppp_paths add column if not exists anchor_window_code text;
+alter table mart.currency_ppp_paths add column if not exists base_year text;
+
+do $$
+begin
+    if exists (
+        select 1
+        from pg_constraint
+        where conname = 'currency_ppp_snapshots_pkey'
+          and conrelid = 'mart.currency_ppp_snapshots'::regclass
+    ) then
+        alter table mart.currency_ppp_snapshots drop constraint currency_ppp_snapshots_pkey;
+    end if;
+end
+$$;
+
+alter table mart.currency_ppp_snapshots
+    add constraint currency_ppp_snapshots_pkey
+    primary key (pair_key, base_month, anchor_kind, anchor_statistic, as_of_month);
+
+do $$
+begin
+    if exists (
+        select 1
+        from pg_constraint
+        where conname = 'currency_ppp_paths_pkey'
+          and conrelid = 'mart.currency_ppp_paths'::regclass
+    ) then
+        alter table mart.currency_ppp_paths drop constraint currency_ppp_paths_pkey;
+    end if;
+end
+$$;
+
+alter table mart.currency_ppp_paths
+    add constraint currency_ppp_paths_pkey
+    primary key (pair_key, base_month, anchor_kind, anchor_statistic, observation_month);
 
 -- Raw retention policy is intentionally deferred in v1.
 -- Cleanup can be added later as scheduled maintenance work.

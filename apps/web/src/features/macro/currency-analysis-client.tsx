@@ -205,11 +205,14 @@ export function CurrencyAnalysisClient({ data }: { data: CurrencyAnalysisPageDat
   const pppInterpretation = pppTakeaway(data);
   const selectedAnchorKind = data.ppp.selectedAnchorKind ?? "window";
   const selectedAnchorStatistic = data.ppp.selectedAnchorStatistic;
-  const selectedWindowYears = data.ppp.selectedWindowYears;
+  const selectedWindowCode = data.ppp.selectedWindowCode;
   const selectedBaseYear = data.ppp.selectedBaseYear ?? "";
   const recentPathRows = data.ppp.path.slice(-12);
   const hasReferences = data.ppp.references.length > 0;
   const referenceNumberByLabel = new Map(data.ppp.references.map((reference, index) => [reference.label, index + 1]));
+  const orderedWindowOptions = ["3Y", "5Y", "10Y", "20Y", "MAX"]
+    .map((code) => data.ppp.availableWindowOptions.find((option) => option.code === code))
+    .filter((option): option is NonNullable<typeof option> => option !== undefined);
 
   if (!pppSummary) {
     return null;
@@ -305,7 +308,7 @@ export function CurrencyAnalysisClient({ data }: { data: CurrencyAnalysisPageDat
                               `/macro/currency-analysis${buildSearch({
                                 anchorKind: selectedAnchorKind,
                                 anchorStatistic: statistic,
-                                windowYears: selectedWindowYears ? String(selectedWindowYears) : null,
+                                windowCode: selectedWindowCode,
                                 baseYear: selectedBaseYear || null,
                               })}`,
                               { scroll: false },
@@ -329,9 +332,10 @@ export function CurrencyAnalysisClient({ data }: { data: CurrencyAnalysisPageDat
                     Long-term anchor window
                   </Text>
                   <Grid gap="2" templateColumns={{ base: "repeat(2, minmax(0, 1fr))", md: "repeat(5, minmax(0, 1fr))" }}>
-                    {[3, 5, 10, 20, 30].map((years) => {
-                      const isAvailable = data.ppp.availableWindowYears.includes(years);
-                      const isActive = selectedAnchorKind === "window" && selectedWindowYears === years;
+                    {["3Y", "5Y", "10Y", "20Y", "MAX"].map((code) => {
+                      const option = data.ppp.availableWindowOptions.find((candidate) => candidate.code === code);
+                      const isAvailable = Boolean(option);
+                      const isActive = selectedAnchorKind === "window" && selectedWindowCode === code;
 
                       return (
                         <Button
@@ -341,9 +345,9 @@ export function CurrencyAnalysisClient({ data }: { data: CurrencyAnalysisPageDat
                           borderWidth="1px"
                           color={isActive ? "canvas" : "text"}
                           disabled={!isAvailable}
-                          key={years}
+                          key={code}
                           onClick={() => {
-                            if (!isAvailable) {
+                            if (!option) {
                               return;
                             }
 
@@ -351,7 +355,7 @@ export function CurrencyAnalysisClient({ data }: { data: CurrencyAnalysisPageDat
                               `/macro/currency-analysis${buildSearch({
                                 anchorKind: "window",
                                 anchorStatistic: selectedAnchorStatistic,
-                                windowYears: String(years),
+                                windowCode: option.code,
                                 baseYear: selectedBaseYear || null,
                               })}`,
                               { scroll: false },
@@ -360,13 +364,19 @@ export function CurrencyAnalysisClient({ data }: { data: CurrencyAnalysisPageDat
                           size="sm"
                           variant="outline"
                         >
-                          {years}Y
+                          {code}
                         </Button>
                       );
                     })}
                   </Grid>
                   <Text color="muted" fontSize="xs">
-                    Each button builds a new PPP base anchor from the latest {`3, 5, 10, 20, or 30`} years of monthly data under the selected average or median rule.
+                    Each button builds a new PPP long-run anchor from the latest {`3, 5, 10, or 20`} years of monthly data, or the full maximum overlapping history, under the selected average or median rule.
+                  </Text>
+                  <Text color="muted" fontSize="xs">
+                    Available windows:{" "}
+                    {orderedWindowOptions.map((option) =>
+                      option.code === "MAX" ? `MAX (${option.yearsCovered}Y covered)` : `${option.code} (${option.yearsCovered}Y covered)`,
+                    ).join(", ")}
                   </Text>
                 </Stack>
 
@@ -386,12 +396,12 @@ export function CurrencyAnalysisClient({ data }: { data: CurrencyAnalysisPageDat
 
                           router.push(
                             `/macro/currency-analysis${buildSearch({
-                              anchorKind: "year",
-                              anchorStatistic: selectedAnchorStatistic,
-                              windowYears: selectedWindowYears ? String(selectedWindowYears) : null,
-                              baseYear: nextYear,
-                            })}`,
-                            { scroll: false },
+                                anchorKind: "year",
+                                anchorStatistic: selectedAnchorStatistic,
+                                windowCode: selectedWindowCode,
+                                baseYear: nextYear,
+                              })}`,
+                              { scroll: false },
                           );
                         }}
                         style={{
@@ -440,7 +450,7 @@ export function CurrencyAnalysisClient({ data }: { data: CurrencyAnalysisPageDat
                       The active PPP baseline is now the selected {pppSummary.anchorLabel}. That anchor supplies the base spot value and the base CPI values used in the relative-PPP formula.
                     </Text>
                     <Text color="muted" fontSize="sm">
-                      {data.ppp.availableBaseYears.length} available single-year anchors and {data.ppp.availableWindowYears.length} available long-run windows in the dataset.
+                      {data.ppp.availableBaseYears.length} available single-year anchors and {data.ppp.availableWindowOptions.length} available long-run windows in the dataset.
                     </Text>
                   </Stack>
                 </SimpleGrid>
@@ -484,6 +494,10 @@ export function CurrencyAnalysisClient({ data }: { data: CurrencyAnalysisPageDat
                   value={`${pppSummary.trailing12mAverageGapPct}%`}
                 />
               </Grid>
+              <Text color="muted" fontSize="sm">
+                Active anchor sample: {pppSummary.anchorStartMonth} to {pppSummary.anchorEndMonth}
+                {pppSummary.anchorYearsCovered ? ` (${pppSummary.anchorYearsCovered} years covered)` : ""}.
+              </Text>
               {pppInterpretation ? (
                 <Stack borderTopWidth="1px" borderColor="edge" gap="2" pt="4">
                   <Text color="accent" fontSize="xs" letterSpacing="0.16em" textTransform="uppercase">

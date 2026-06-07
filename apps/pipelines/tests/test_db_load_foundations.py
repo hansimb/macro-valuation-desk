@@ -103,6 +103,10 @@ def test_bootstrap_taylor_rule_schema_creates_required_schemas_and_tables():
     assert "create table if not exists mart.taylor_rule_inputs" in executed_sql.lower()
     assert "create table if not exists mart.currency_ppp_snapshots" in executed_sql.lower()
     assert "create table if not exists mart.currency_ppp_paths" in executed_sql.lower()
+    assert "alter table mart.currency_ppp_snapshots drop constraint currency_ppp_snapshots_pkey" in executed_sql.lower()
+    assert "primary key (pair_key, base_month, anchor_kind, anchor_statistic, as_of_month)" in executed_sql.lower()
+    assert "alter table mart.currency_ppp_paths drop constraint currency_ppp_paths_pkey" in executed_sql.lower()
+    assert "primary key (pair_key, base_month, anchor_kind, anchor_statistic, observation_month)" in executed_sql.lower()
     assert "create table if not exists mart.currency_irp_snapshots" in executed_sql.lower()
     assert "create table if not exists mart.currency_data_availability" in executed_sql.lower()
 
@@ -166,6 +170,13 @@ def test_upsert_helpers_write_expected_row_shapes():
             {
                 "pair_key": "eurusd",
                 "base_month": "2020-01-01",
+                "anchor_kind": "window",
+                "anchor_statistic": "average",
+                "anchor_window_code": "MAX",
+                "anchor_start_month": "2020-01-01",
+                "anchor_end_month": "2026-04-01",
+                "anchor_years_covered": 6,
+                "base_year": None,
                 "as_of_month": "2026-04-01",
                 "base_spot": 1.1111,
                 "current_spot": 1.145,
@@ -187,6 +198,10 @@ def test_upsert_helpers_write_expected_row_shapes():
             {
                 "pair_key": "eurusd",
                 "base_month": "2020-01-01",
+                "anchor_kind": "window",
+                "anchor_statistic": "average",
+                "anchor_window_code": "MAX",
+                "base_year": None,
                 "observation_month": "2020-02-01",
                 "actual_spot": 1.103,
                 "implied_ppp": 1.109,
