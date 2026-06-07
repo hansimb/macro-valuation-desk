@@ -52,21 +52,21 @@ function pppTakeaway(data: CurrencyAnalysisPageData) {
     return null;
   }
 
-  const anchorLabel = data.ppp.summary.anchorLabel;
   const deviation = Number.parseFloat(data.ppp.summary.deviationPct);
+  const trailingAverageGap = Number.parseFloat(data.ppp.summary.trailing12mAverageGapPct);
   if (Number.isNaN(deviation)) {
     return null;
   }
 
   if (deviation > 0) {
-    return `The latest market spot sits ${data.ppp.summary.deviationPct}% above the PPP-implied fair-value anchor built from the selected ${anchorLabel}, so the euro screens rich against the dollar on this relative-PPP lens.`;
+    return `The latest market spot sits ${data.ppp.summary.deviationPct}% above the PPP-implied fair-value anchor, so the euro screens rich against the dollar on this relative-PPP lens. This means that EUR/USD is currently above its PPP fair value, so on this measure the euro looks somewhat overvalued against the dollar. The current gap is ${!Number.isNaN(trailingAverageGap) && deviation > trailingAverageGap ? "larger" : "close to"} than the average gap over the past 12 months, which suggests the overvaluation has ${!Number.isNaN(trailingAverageGap) && deviation > trailingAverageGap ? "recently widened" : "been fairly stable recently"}.`;
   }
 
   if (deviation < 0) {
-    return `The latest market spot sits ${Math.abs(deviation).toFixed(2)}% below the PPP-implied fair-value anchor built from the selected ${anchorLabel}, so the euro screens cheap against the dollar on this relative-PPP lens.`;
+    return `The latest market spot sits ${Math.abs(deviation).toFixed(2)}% below the PPP-implied fair-value anchor, so the euro screens cheap against the dollar on this relative-PPP lens. This means that EUR/USD is currently below its PPP fair value, so on this measure the euro looks somewhat undervalued against the dollar. The current gap is ${!Number.isNaN(trailingAverageGap) && Math.abs(deviation) > Math.abs(trailingAverageGap) ? "larger" : "close to"} than the average gap over the past 12 months, which suggests the undervaluation has ${!Number.isNaN(trailingAverageGap) && Math.abs(deviation) > Math.abs(trailingAverageGap) ? "recently widened" : "been fairly stable recently"}.`;
   }
 
-  return `The latest market spot is sitting almost exactly on the PPP-implied fair-value anchor built from the selected ${anchorLabel}.`;
+  return "The latest market spot is sitting almost exactly on the PPP-implied fair-value anchor. This means that, on this relative-PPP lens, EUR/USD is trading close to its PPP fair value.";
 }
 
 function currencyAcademicReferenceText(label: string, url?: string) {
