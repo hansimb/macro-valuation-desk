@@ -171,6 +171,7 @@ def test_upsert_helpers_write_expected_row_shapes():
                 "current_spot": 1.145,
                 "implied_ppp": 1.0825,
                 "deviation_pct": 5.78,
+                "trailing_12m_average_gap_pct": 4.12,
                 "spot_series_key": "eurusd_spot_monthly",
                 "spot_source_url": "https://data.ecb.europa.eu/data/datasets/EXR/EXR.M.USD.EUR.SP00.A",
                 "us_cpi_series_key": "us_cpi_index",

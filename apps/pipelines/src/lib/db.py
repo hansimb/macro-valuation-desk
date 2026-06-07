@@ -162,6 +162,35 @@ def upsert_staging_observations(connection, rows: list[dict[str, object]]) -> No
     connection.commit()
 
 
+def read_staging_rows_for_series(connection, series_ids: list[str]) -> list[dict[str, object]]:
+    if not series_ids:
+        return []
+
+    with connection.cursor() as cursor:
+        cursor.execute(
+            """
+            select
+                staging.series_id,
+                staging.observation_date::text,
+                staging.numeric_value,
+                staging.category,
+                staging.region,
+                staging.frequency,
+                staging.unit,
+                staging.provider,
+                metadata.source_url,
+                staging.is_valid
+            from staging.series_observations as staging
+            join core.series_metadata as metadata
+                on metadata.series_id = staging.series_id
+            where staging.series_id = any(%(series_ids)s)
+            order by staging.series_id asc, staging.observation_date asc
+            """,
+            {"series_ids": series_ids},
+        )
+        return list(cursor.fetchall())
+
+
 def replace_taylor_rule_inputs(connection, rows: list[dict[str, object]]) -> None:
     regions = sorted({row["region"] for row in rows})
 
@@ -360,6 +389,7 @@ def replace_currency_ppp_snapshots(connection, rows: list[dict[str, object]]) ->
                 current_spot,
                 implied_ppp,
                 deviation_pct,
+                trailing_12m_average_gap_pct,
                 spot_series_key,
                 spot_source_url,
                 us_cpi_series_key,
@@ -375,6 +405,7 @@ def replace_currency_ppp_snapshots(connection, rows: list[dict[str, object]]) ->
                 %(current_spot)s,
                 %(implied_ppp)s,
                 %(deviation_pct)s,
+                %(trailing_12m_average_gap_pct)s,
                 %(spot_series_key)s,
                 %(spot_source_url)s,
                 %(us_cpi_series_key)s,
@@ -388,6 +419,7 @@ def replace_currency_ppp_snapshots(connection, rows: list[dict[str, object]]) ->
                 current_spot = excluded.current_spot,
                 implied_ppp = excluded.implied_ppp,
                 deviation_pct = excluded.deviation_pct,
+                trailing_12m_average_gap_pct = excluded.trailing_12m_average_gap_pct,
                 spot_series_key = excluded.spot_series_key,
                 spot_source_url = excluded.spot_source_url,
                 us_cpi_series_key = excluded.us_cpi_series_key,

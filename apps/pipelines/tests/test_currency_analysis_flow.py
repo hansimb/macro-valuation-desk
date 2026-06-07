@@ -177,8 +177,8 @@ def test_run_currency_analysis_flow_reports_success_and_writes_checkpoints(monke
 
     assert result["status"] == "success"
     assert result["series_fetched"] == 10
-    assert result["ppp_snapshot_rows"] == 2
-    assert result["ppp_path_rows"] == 3
+    assert result["ppp_snapshot_rows"] == 1
+    assert result["ppp_path_rows"] == 2
     assert result["irp_snapshot_rows"] == 3
     assert result["availability_rows"] == 4
     assert ("eurusd_spot_monthly", "2026-02-01") in written_checkpoints
@@ -341,7 +341,7 @@ def test_run_currency_analysis_flow_tolerates_optional_irp_fetch_failures_when_p
     result = run_currency_analysis_flow()
 
     assert result["status"] == "success"
-    assert result["ppp_snapshot_rows"] == 2
+    assert result["ppp_snapshot_rows"] == 1
     assert result["irp_snapshot_rows"] == 0
     assert result["availability_rows"] == 4
     assert result["fetch_errors"] == [
@@ -350,3 +350,156 @@ def test_run_currency_analysis_flow_tolerates_optional_irp_fetch_failures_when_p
         "eur_12m_rate: blocked",
     ]
     assert ("eur_3m_rate", "2026-05-30") not in written_checkpoints
+
+
+def test_run_currency_analysis_flow_uses_historical_staging_rows_for_ppp_base_years(monkeypatch):
+    fetch_results = [
+        FetchResult.success(
+            _build_series(
+                key="eurusd_spot_monthly",
+                category="fx_spot",
+                region="FX",
+                frequency="monthly",
+                unit="usd_per_eur",
+                provider="ecb",
+                series_id="EXR.M.USD.EUR.SP00.A",
+                source_url="https://data.ecb.europa.eu/data/datasets/EXR/EXR.M.USD.EUR.SP00.A",
+                observations=[("2026-01", "1.30"), ("2026-02", "1.40")],
+            )
+        ),
+        FetchResult.success(
+            _build_series(
+                key="eurusd_spot_daily",
+                category="fx_spot",
+                region="FX",
+                frequency="daily",
+                unit="usd_per_eur",
+                provider="ecb",
+                series_id="EXR.D.USD.EUR.SP00.A",
+                source_url="https://data.ecb.europa.eu/data/datasets/EXR/EXR.D.USD.EUR.SP00.A",
+                observations=[("2026-05-30", "1.14")],
+            )
+        ),
+        FetchResult.success(
+            _build_series(
+                key="us_cpi_index",
+                category="inflation",
+                region="US",
+                frequency="monthly",
+                unit="index",
+                provider="fred",
+                series_id="CPIAUCSL",
+                source_url="https://fred.stlouisfed.org/series/CPIAUCSL",
+                observations=[("2026-01", "104.0"), ("2026-02", "106.0")],
+            )
+        ),
+        FetchResult.success(
+            _build_series(
+                key="ea_cpi_index",
+                category="inflation",
+                region="EU",
+                frequency="monthly",
+                unit="index",
+                provider="fred",
+                series_id="CP00MI15EA20M086NEST",
+                source_url="https://fred.stlouisfed.org/series/CP00MI15EA20M086NEST",
+                observations=[("2026-01", "102.0"), ("2026-02", "103.0")],
+            )
+        ),
+    ]
+
+    historical_staging_rows = [
+        {
+            "series_id": "eurusd_spot_monthly",
+            "observation_date": "2025-01-01",
+            "numeric_value": 1.0,
+            "category": "fx_spot",
+            "region": "FX",
+            "frequency": "monthly",
+            "unit": "usd_per_eur",
+            "provider": "ecb",
+            "source_url": "https://data.ecb.europa.eu/data/datasets/EXR/EXR.M.USD.EUR.SP00.A",
+            "is_valid": True,
+        },
+        {
+            "series_id": "eurusd_spot_monthly",
+            "observation_date": "2025-02-01",
+            "numeric_value": 1.2,
+            "category": "fx_spot",
+            "region": "FX",
+            "frequency": "monthly",
+            "unit": "usd_per_eur",
+            "provider": "ecb",
+            "source_url": "https://data.ecb.europa.eu/data/datasets/EXR/EXR.M.USD.EUR.SP00.A",
+            "is_valid": True,
+        },
+        {
+            "series_id": "us_cpi_index",
+            "observation_date": "2025-01-01",
+            "numeric_value": 100.0,
+            "category": "inflation",
+            "region": "US",
+            "frequency": "monthly",
+            "unit": "index",
+            "provider": "fred",
+            "source_url": "https://fred.stlouisfed.org/series/CPIAUCSL",
+            "is_valid": True,
+        },
+        {
+            "series_id": "us_cpi_index",
+            "observation_date": "2025-02-01",
+            "numeric_value": 102.0,
+            "category": "inflation",
+            "region": "US",
+            "frequency": "monthly",
+            "unit": "index",
+            "provider": "fred",
+            "source_url": "https://fred.stlouisfed.org/series/CPIAUCSL",
+            "is_valid": True,
+        },
+        {
+            "series_id": "ea_cpi_index",
+            "observation_date": "2025-01-01",
+            "numeric_value": 100.0,
+            "category": "inflation",
+            "region": "EU",
+            "frequency": "monthly",
+            "unit": "index",
+            "provider": "fred",
+            "source_url": "https://fred.stlouisfed.org/series/CP00MI15EA20M086NEST",
+            "is_valid": True,
+        },
+        {
+            "series_id": "ea_cpi_index",
+            "observation_date": "2025-02-01",
+            "numeric_value": 101.0,
+            "category": "inflation",
+            "region": "EU",
+            "frequency": "monthly",
+            "unit": "index",
+            "provider": "fred",
+            "source_url": "https://fred.stlouisfed.org/series/CP00MI15EA20M086NEST",
+            "is_valid": True,
+        },
+    ]
+
+    captured = {}
+
+    monkeypatch.setattr("src.flows.currency_analysis_flow.get_connection", lambda: object())
+    monkeypatch.setattr("src.flows.currency_analysis_flow.bootstrap_taylor_rule_schema", lambda _connection: None)
+    monkeypatch.setattr("src.tasks.run_currency_market_etl.run_currency_market_etl", lambda connection=None: fetch_results)
+    monkeypatch.setattr(
+        "src.flows.currency_analysis_flow.read_staging_rows_for_series",
+        lambda _connection, _series_ids: historical_staging_rows,
+        raising=False,
+    )
+    monkeypatch.setattr(
+        "src.tasks.load_currency_analysis_layers.load_currency_analysis_layers",
+        lambda connection, **kwargs: captured.setdefault("ppp_snapshot_rows", kwargs["ppp_snapshot_rows"]) or {},
+    )
+
+    result = run_currency_analysis_flow()
+
+    assert result["status"] == "success"
+    assert result["ppp_snapshot_rows"] == 2
+    assert len(captured["ppp_snapshot_rows"]) == 2

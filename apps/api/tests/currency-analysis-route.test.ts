@@ -31,12 +31,13 @@ describe("currency analysis route", () => {
         rows: [
           {
             pair_key: "eurusd",
-            base_month: "2026-01-01",
+            base_month: "2025-01-01",
             as_of_month: "2026-02-01",
             base_spot: "1.1000",
             current_spot: "1.2000",
             implied_ppp: "1.1109",
             deviation_pct: "8.02",
+            trailing_12m_average_gap_pct: "6.40",
             spot_series_key: "eurusd_spot_monthly",
             spot_source_url: "https://data.ecb.europa.eu/data/datasets/EXR/EXR.M.USD.EUR.SP00.A",
             us_cpi_series_key: "us_cpi_index",
@@ -52,6 +53,7 @@ describe("currency analysis route", () => {
             current_spot: "1.2000",
             implied_ppp: "1.2000",
             deviation_pct: "0.00",
+            trailing_12m_average_gap_pct: "0.00",
             spot_series_key: "eurusd_spot_monthly",
             spot_source_url: "https://data.ecb.europa.eu/data/datasets/EXR/EXR.M.USD.EUR.SP00.A",
             us_cpi_series_key: "us_cpi_index",
@@ -65,7 +67,7 @@ describe("currency analysis route", () => {
         rows: [
           {
             pair_key: "eurusd",
-            base_month: "2026-01-01",
+            base_month: "2025-01-01",
             observation_month: "2026-01-01",
             actual_spot: "1.1000",
             implied_ppp: "1.1000",
@@ -148,21 +150,22 @@ describe("currency analysis route", () => {
         ]
       });
 
-    const response = await app.inject({ method: "GET", url: "/macro/currency-analysis?baseMonth=2026-01-01" });
+    const response = await app.inject({ method: "GET", url: "/macro/currency-analysis?baseYear=2025" });
 
     expect(response.statusCode).toBe(200);
     expect(response.json()).toEqual({
       asOf: "2026-05-30",
       ppp: {
-        availableBaseMonths: ["2026-01-01", "2026-02-01"],
-        selectedBaseMonth: "2026-01-01",
+        availableBaseYears: ["2025", "2026"],
+        selectedBaseYear: "2025",
         summary: {
-          baseMonth: "2026-01-01",
+          baseYear: "2025",
           asOf: "2026-02-01",
           baseSpot: "1.1000",
           currentSpot: "1.2000",
           impliedPpp: "1.1109",
           deviationPct: "8.02",
+          trailing12mAverageGapPct: "6.40",
         },
         path: [
           { observationMonth: "2026-01-01", actualSpot: "1.1000", impliedPpp: "1.1000" },
@@ -243,8 +246,8 @@ describe("currency analysis route", () => {
     expect(response.json()).toEqual({
       asOf: null,
       ppp: {
-        availableBaseMonths: [],
-        selectedBaseMonth: null,
+        availableBaseYears: [],
+        selectedBaseYear: null,
         summary: null,
         path: [],
         references: [],

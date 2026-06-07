@@ -117,6 +117,7 @@ create table if not exists mart.currency_ppp_snapshots (
     current_spot numeric not null,
     implied_ppp numeric not null,
     deviation_pct numeric not null,
+    trailing_12m_average_gap_pct numeric not null default 0,
     spot_series_key text not null,
     spot_source_url text not null,
     us_cpi_series_key text not null,
@@ -174,6 +175,7 @@ alter table mart.macro_reference_metrics add column if not exists output_gap num
 alter table mart.macro_reference_metrics add column if not exists output_gap_as_of_date date not null default date '1970-01-01';
 alter table mart.macro_reference_metrics add column if not exists output_gap_series_key text not null default '';
 alter table mart.macro_reference_metrics add column if not exists output_gap_source_url text not null default '';
+alter table mart.currency_ppp_snapshots add column if not exists trailing_12m_average_gap_pct numeric not null default 0;
 
 -- Raw retention policy is intentionally deferred in v1.
 -- Cleanup can be added later as scheduled maintenance work.

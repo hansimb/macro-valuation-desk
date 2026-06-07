@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from prefect import flow
 
-from src.lib.db import bootstrap_taylor_rule_schema, get_connection
+from src.lib.db import bootstrap_taylor_rule_schema, get_connection, read_staging_rows_for_series
 from src.lib.pipeline.error_handling import collect_fetch_errors
 from src.lib.pipeline.transforms.currency_irp import build_currency_irp_outputs
 from src.lib.pipeline.transforms.currency_ppp import build_currency_ppp_outputs
@@ -16,6 +16,18 @@ def _call_task(task_or_fn, *args, **kwargs):
         return task_or_fn.fn(*args, **kwargs)
 
     return task_or_fn(*args, **kwargs)
+
+
+def _merge_staging_rows(
+    historical_rows: list[dict[str, object]],
+    current_rows: list[dict[str, object]],
+) -> list[dict[str, object]]:
+    merged: dict[tuple[str, str], dict[str, object]] = {}
+
+    for row in historical_rows + current_rows:
+        merged[(str(row["series_id"]), str(row["observation_date"]))] = row
+
+    return list(merged.values())
 
 
 def run_currency_analysis_flow() -> dict[str, object]:
@@ -37,7 +49,18 @@ def run_currency_analysis_flow() -> dict[str, object]:
         if result.ok and result.series is not None
         for row in stage_standardized_series(result.series)
     ]
-    ppp_outputs = build_currency_ppp_outputs(staging_rows)
+    ppp_series_ids = ["eurusd_spot_monthly", "us_cpi_index", "ea_cpi_index"]
+    historical_ppp_rows = (
+        read_staging_rows_for_series(connection, ppp_series_ids)
+        if connection is not None
+        else []
+    )
+    ppp_staging_rows = _merge_staging_rows(
+        historical_ppp_rows,
+        [row for row in staging_rows if row["series_id"] in ppp_series_ids],
+    )
+
+    ppp_outputs = build_currency_ppp_outputs(ppp_staging_rows)
     irp_outputs = build_currency_irp_outputs(staging_rows)
 
     if not ppp_outputs["snapshot_rows"] and not irp_outputs["snapshot_rows"]:

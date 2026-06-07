@@ -5,12 +5,13 @@ export interface CurrencyAnalysisReferenceItem {
 }
 
 export interface CurrencyAnalysisPppSummary {
-  baseMonth: string;
+  baseYear: string;
   asOf: string;
   baseSpot: string;
   currentSpot: string;
   impliedPpp: string;
   deviationPct: string;
+  trailing12mAverageGapPct: string;
 }
 
 export interface CurrencyAnalysisPppPathPoint {
@@ -20,8 +21,8 @@ export interface CurrencyAnalysisPppPathPoint {
 }
 
 export interface CurrencyAnalysisPppBlock {
-  availableBaseMonths: string[];
-  selectedBaseMonth: string | null;
+  availableBaseYears: string[];
+  selectedBaseYear: string | null;
   summary: CurrencyAnalysisPppSummary | null;
   path: CurrencyAnalysisPppPathPoint[];
   references: CurrencyAnalysisReferenceItem[];

@@ -5,8 +5,8 @@ export type CurrencyAnalysisPageData = CurrencyAnalysisResponse;
 export const emptyCurrencyAnalysisPageData: CurrencyAnalysisPageData = {
   asOf: null,
   ppp: {
-    availableBaseMonths: [],
-    selectedBaseMonth: null,
+    availableBaseYears: [],
+    selectedBaseYear: null,
     summary: null,
     path: [],
     references: [],

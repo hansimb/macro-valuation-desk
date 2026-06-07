@@ -9,10 +9,10 @@ import {
 } from "../../../features/macro/currency-analysis-types";
 
 async function getCurrencyAnalysisPageData(
-  baseMonth?: string,
+  baseYear?: string,
 ): Promise<{ data: CurrencyAnalysisPageData; unavailable: boolean }> {
   const apiBaseUrl = process.env.MVD_API_URL ?? process.env.API_BASE_URL ?? "http://127.0.0.1:4000";
-  const search = baseMonth ? `?baseMonth=${encodeURIComponent(baseMonth)}` : "";
+  const search = baseYear ? `?baseYear=${encodeURIComponent(baseYear)}` : "";
 
   try {
     const response = await fetch(`${apiBaseUrl}/macro/currency-analysis${search}`, { cache: "no-store" });
@@ -34,10 +34,10 @@ async function getCurrencyAnalysisPageData(
 export default async function CurrencyAnalysisPage({
   searchParams,
 }: {
-  searchParams?: Promise<{ baseMonth?: string }>;
+  searchParams?: Promise<{ baseYear?: string }>;
 }) {
   const resolvedSearchParams = searchParams ? await searchParams : undefined;
-  const { data, unavailable } = await getCurrencyAnalysisPageData(resolvedSearchParams?.baseMonth);
+  const { data, unavailable } = await getCurrencyAnalysisPageData(resolvedSearchParams?.baseYear);
 
   return (
     <Stack gap={{ base: "8", md: "10" }}>

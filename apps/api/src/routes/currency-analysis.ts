@@ -15,6 +15,7 @@ interface PppSnapshotRow {
   current_spot: string;
   implied_ppp: string;
   deviation_pct: string;
+  trailing_12m_average_gap_pct: string;
   spot_source_url: string;
   us_cpi_source_url: string;
   ea_cpi_source_url: string;
@@ -66,9 +67,9 @@ function tenorRank(tenor: string) {
 
 export async function registerCurrencyAnalysisRoute(app: FastifyInstance) {
   app.get("/macro/currency-analysis", async (request): Promise<CurrencyAnalysisResponse> => {
-    const requestedBaseMonth =
-      typeof (request.query as Record<string, unknown> | undefined)?.baseMonth === "string"
-        ? String((request.query as Record<string, unknown>).baseMonth)
+    const requestedBaseYear =
+      typeof (request.query as Record<string, unknown> | undefined)?.baseYear === "string"
+        ? String((request.query as Record<string, unknown>).baseYear)
         : null;
 
     const pppSnapshotsResult = await getDbPool().query<PppSnapshotRow>(`
@@ -79,6 +80,7 @@ export async function registerCurrencyAnalysisRoute(app: FastifyInstance) {
         current_spot::text,
         implied_ppp::text,
         deviation_pct::text,
+        trailing_12m_average_gap_pct::text,
         spot_source_url,
         us_cpi_source_url,
         ea_cpi_source_url
@@ -87,11 +89,13 @@ export async function registerCurrencyAnalysisRoute(app: FastifyInstance) {
       order by base_month asc
     `);
 
-    const availableBaseMonths = pppSnapshotsResult.rows.map((row) => row.base_month);
-    const selectedBaseMonth =
-      requestedBaseMonth && availableBaseMonths.includes(requestedBaseMonth)
-        ? requestedBaseMonth
-        : availableBaseMonths[0] ?? null;
+    const baseYearToMonth = new Map(pppSnapshotsResult.rows.map((row) => [row.base_month.slice(0, 4), row.base_month]));
+    const availableBaseYears = Array.from(new Set(pppSnapshotsResult.rows.map((row) => row.base_month.slice(0, 4))));
+    const selectedBaseYear =
+      requestedBaseYear && baseYearToMonth.has(requestedBaseYear)
+        ? requestedBaseYear
+        : availableBaseYears[0] ?? null;
+    const selectedBaseMonth = selectedBaseYear ? baseYearToMonth.get(selectedBaseYear) ?? null : null;
 
     const pppPathsResult =
       selectedBaseMonth === null
@@ -199,18 +203,19 @@ export async function registerCurrencyAnalysisRoute(app: FastifyInstance) {
     return {
       asOf: irpSnapshotsResult.rows[0]?.as_of_date ?? pppSummary?.as_of_month ?? null,
       ppp: {
-        availableBaseMonths,
-        selectedBaseMonth,
+        availableBaseYears,
+        selectedBaseYear,
         summary:
           pppSummary === null
             ? null
             : {
-                baseMonth: pppSummary.base_month,
+                baseYear: pppSummary.base_month.slice(0, 4),
                 asOf: pppSummary.as_of_month,
                 baseSpot: pppSummary.base_spot,
                 currentSpot: pppSummary.current_spot,
                 impliedPpp: pppSummary.implied_ppp,
                 deviationPct: pppSummary.deviation_pct,
+                trailing12mAverageGapPct: pppSummary.trailing_12m_average_gap_pct,
               },
         path: pppPathsResult.rows.map((row) => ({
           observationMonth: row.observation_month,
