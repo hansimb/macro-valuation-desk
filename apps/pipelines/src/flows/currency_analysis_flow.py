@@ -6,7 +6,7 @@ from src.lib.db import bootstrap_taylor_rule_schema, get_connection, read_stagin
 from src.lib.pipeline.error_handling import collect_fetch_errors
 from src.lib.pipeline.transforms.currency_irp import build_currency_irp_outputs
 from src.lib.pipeline.transforms.currency_ppp import build_currency_ppp_outputs
-from src.lib.pipeline.transforms.staging import stage_standardized_series
+from src.lib.pipeline.transforms.staging import fill_series_gaps, stage_standardized_series
 from src.tasks import load_currency_analysis_layers as load_currency_analysis_layers_module
 from src.tasks import run_currency_market_etl as run_currency_market_etl_module
 
@@ -49,19 +49,23 @@ def run_currency_analysis_flow() -> dict[str, object]:
         if result.ok and result.series is not None
         for row in stage_standardized_series(result.series)
     ]
-    ppp_series_ids = ["eurusd_spot_monthly", "us_cpi_index", "ea_cpi_index"]
-    historical_ppp_rows = (
-        read_staging_rows_for_series(connection, ppp_series_ids)
+    successful_series_keys = [
+        result.series.key
+        for result in fetch_results
+        if result.ok and result.series is not None
+    ]
+    historical_rows = (
+        read_staging_rows_for_series(connection, successful_series_keys)
         if connection is not None
         else []
     )
-    ppp_staging_rows = _merge_staging_rows(
-        historical_ppp_rows,
-        [row for row in staging_rows if row["series_id"] in ppp_series_ids],
-    )
+    prepared_staging_rows = fill_series_gaps(_merge_staging_rows(historical_rows, staging_rows))
+
+    ppp_series_ids = ["eurusd_spot_monthly", "us_cpi_index", "ea_cpi_index"]
+    ppp_staging_rows = [row for row in prepared_staging_rows if row["series_id"] in ppp_series_ids]
 
     ppp_outputs = build_currency_ppp_outputs(ppp_staging_rows)
-    irp_outputs = build_currency_irp_outputs(staging_rows)
+    irp_outputs = build_currency_irp_outputs(prepared_staging_rows)
 
     if not ppp_outputs["snapshot_rows"] and not irp_outputs["snapshot_rows"]:
         return {
@@ -74,7 +78,7 @@ def run_currency_analysis_flow() -> dict[str, object]:
         load_currency_analysis_layers_module.load_currency_analysis_layers,
         connection,
         fetch_results=fetch_results,
-        staging_rows=staging_rows,
+        staging_rows=prepared_staging_rows,
         ppp_snapshot_rows=ppp_outputs["snapshot_rows"],
         ppp_path_rows=ppp_outputs["path_rows"],
         irp_snapshot_rows=irp_outputs["snapshot_rows"],
@@ -84,7 +88,7 @@ def run_currency_analysis_flow() -> dict[str, object]:
     return {
         "status": "success",
         "series_fetched": len(fetch_results),
-        "staging_rows": len(staging_rows),
+        "staging_rows": len(prepared_staging_rows),
         "ppp_snapshot_rows": len(ppp_outputs["snapshot_rows"]),
         "ppp_path_rows": len(ppp_outputs["path_rows"]),
         "irp_snapshot_rows": len(irp_outputs["snapshot_rows"]),

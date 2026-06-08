@@ -140,6 +140,10 @@ def test_upsert_helpers_write_expected_row_shapes():
                 "unit": "percent",
                 "provider": "fred",
                 "is_valid": True,
+                "is_imputed": False,
+                "imputation_method": None,
+                "imputation_note": None,
+                "imputation_source_window": None,
             }
         ],
     )
@@ -205,6 +209,8 @@ def test_upsert_helpers_write_expected_row_shapes():
                 "observation_month": "2020-02-01",
                 "actual_spot": 1.103,
                 "implied_ppp": 1.109,
+                "has_imputed_inputs": True,
+                "imputation_note": "Filled using +/- 6 month median assumption.",
             }
         ],
     )

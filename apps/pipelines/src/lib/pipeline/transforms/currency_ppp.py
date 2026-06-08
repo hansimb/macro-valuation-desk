@@ -170,6 +170,15 @@ def build_currency_ppp_outputs(staging_rows: list[dict[str, object]]) -> dict[st
             current_us_cpi = float(us_cpi_rows[observation_month]["numeric_value"])
             current_ea_cpi = float(ea_cpi_rows[observation_month]["numeric_value"])
             implied_ppp = base_spot * (current_us_cpi / base_us_cpi) / (current_ea_cpi / base_ea_cpi)
+            imputed_notes = [
+                str(row["imputation_note"])
+                for row in (
+                    spot_rows[observation_month],
+                    us_cpi_rows[observation_month],
+                    ea_cpi_rows[observation_month],
+                )
+                if bool(row.get("is_imputed")) and row.get("imputation_note")
+            ]
             path_row = {
                 "pair_key": PAIR_KEY,
                 "base_month": base_month,
@@ -180,6 +189,8 @@ def build_currency_ppp_outputs(staging_rows: list[dict[str, object]]) -> dict[st
                 "observation_month": observation_month,
                 "actual_spot": _round_price(float(spot_rows[observation_month]["numeric_value"])),
                 "implied_ppp": _round_price(implied_ppp),
+                "has_imputed_inputs": bool(imputed_notes),
+                "imputation_note": imputed_notes[0] if imputed_notes else None,
             }
             path_rows.append(path_row)
             anchor_path_rows.append(path_row)

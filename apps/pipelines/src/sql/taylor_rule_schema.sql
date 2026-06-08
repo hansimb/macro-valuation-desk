@@ -53,6 +53,10 @@ create table if not exists staging.series_observations (
     unit text not null,
     provider text not null,
     is_valid boolean not null default true,
+    is_imputed boolean not null default false,
+    imputation_method text,
+    imputation_note text,
+    imputation_source_window text,
     primary key (series_id, observation_date)
 );
 
@@ -195,10 +199,16 @@ alter table mart.currency_ppp_snapshots add column if not exists anchor_start_mo
 alter table mart.currency_ppp_snapshots add column if not exists anchor_end_month date;
 alter table mart.currency_ppp_snapshots add column if not exists anchor_years_covered integer;
 alter table mart.currency_ppp_snapshots add column if not exists base_year text;
+alter table staging.series_observations add column if not exists is_imputed boolean not null default false;
+alter table staging.series_observations add column if not exists imputation_method text;
+alter table staging.series_observations add column if not exists imputation_note text;
+alter table staging.series_observations add column if not exists imputation_source_window text;
 alter table mart.currency_ppp_paths add column if not exists anchor_kind text not null default 'year';
 alter table mart.currency_ppp_paths add column if not exists anchor_statistic text not null default 'average';
 alter table mart.currency_ppp_paths add column if not exists anchor_window_code text;
 alter table mart.currency_ppp_paths add column if not exists base_year text;
+alter table mart.currency_ppp_paths add column if not exists has_imputed_inputs boolean not null default false;
+alter table mart.currency_ppp_paths add column if not exists imputation_note text;
 
 do $$
 begin

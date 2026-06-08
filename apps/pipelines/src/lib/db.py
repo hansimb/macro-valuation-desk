@@ -134,7 +134,11 @@ def upsert_staging_observations(connection, rows: list[dict[str, object]]) -> No
                 frequency,
                 unit,
                 provider,
-                is_valid
+                is_valid,
+                is_imputed,
+                imputation_method,
+                imputation_note,
+                imputation_source_window
             )
             values (
                 %(series_id)s,
@@ -145,7 +149,11 @@ def upsert_staging_observations(connection, rows: list[dict[str, object]]) -> No
                 %(frequency)s,
                 %(unit)s,
                 %(provider)s,
-                %(is_valid)s
+                %(is_valid)s,
+                %(is_imputed)s,
+                %(imputation_method)s,
+                %(imputation_note)s,
+                %(imputation_source_window)s
             )
             on conflict (series_id, observation_date) do update
             set
@@ -155,7 +163,11 @@ def upsert_staging_observations(connection, rows: list[dict[str, object]]) -> No
                 frequency = excluded.frequency,
                 unit = excluded.unit,
                 provider = excluded.provider,
-                is_valid = excluded.is_valid
+                is_valid = excluded.is_valid,
+                is_imputed = excluded.is_imputed,
+                imputation_method = excluded.imputation_method,
+                imputation_note = excluded.imputation_note,
+                imputation_source_window = excluded.imputation_source_window
             """,
             rows,
         )
@@ -179,7 +191,11 @@ def read_staging_rows_for_series(connection, series_ids: list[str]) -> list[dict
                 staging.unit,
                 staging.provider,
                 metadata.source_url,
-                staging.is_valid
+                staging.is_valid,
+                staging.is_imputed,
+                staging.imputation_method,
+                staging.imputation_note,
+                staging.imputation_source_window
             from staging.series_observations as staging
             join core.series_metadata as metadata
                 on metadata.series_id = staging.series_id
@@ -471,7 +487,9 @@ def replace_currency_ppp_paths(connection, rows: list[dict[str, object]]) -> Non
                 base_year,
                 observation_month,
                 actual_spot,
-                implied_ppp
+                implied_ppp,
+                has_imputed_inputs,
+                imputation_note
             )
             values (
                 %(pair_key)s,
@@ -482,14 +500,18 @@ def replace_currency_ppp_paths(connection, rows: list[dict[str, object]]) -> Non
                 %(base_year)s,
                 %(observation_month)s,
                 %(actual_spot)s,
-                %(implied_ppp)s
+                %(implied_ppp)s,
+                %(has_imputed_inputs)s,
+                %(imputation_note)s
             )
             on conflict (pair_key, base_month, anchor_kind, anchor_statistic, observation_month) do update
             set
                 anchor_window_code = excluded.anchor_window_code,
                 base_year = excluded.base_year,
                 actual_spot = excluded.actual_spot,
-                implied_ppp = excluded.implied_ppp
+                implied_ppp = excluded.implied_ppp,
+                has_imputed_inputs = excluded.has_imputed_inputs,
+                imputation_note = excluded.imputation_note
             """,
             rows,
         )

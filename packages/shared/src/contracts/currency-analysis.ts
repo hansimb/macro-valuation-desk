@@ -35,6 +35,8 @@ export interface CurrencyAnalysisPppPathPoint {
   observationMonth: string;
   actualSpot: string;
   impliedPpp: string;
+  hasImputedInputs: boolean;
+  imputationNote?: string;
 }
 
 export interface CurrencyAnalysisPppBlock {

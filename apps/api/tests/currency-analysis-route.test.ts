@@ -118,6 +118,8 @@ describe("currency analysis route", () => {
             observation_month: "2026-03-01",
             actual_spot: "1.1800",
             implied_ppp: "1.0850",
+            has_imputed_inputs: false,
+            imputation_note: null,
           },
           {
             anchor_kind: "window",
@@ -128,6 +130,8 @@ describe("currency analysis route", () => {
             observation_month: "2026-04-01",
             actual_spot: "1.2000",
             implied_ppp: "1.0900",
+            has_imputed_inputs: true,
+            imputation_note: "Filled using +/- 6 month median assumption.",
           },
         ],
       })
@@ -201,8 +205,14 @@ describe("currency analysis route", () => {
           trailing12mAverageGapPct: "7.10",
         },
         path: [
-          { observationMonth: "2026-03-01", actualSpot: "1.1800", impliedPpp: "1.0850" },
-          { observationMonth: "2026-04-01", actualSpot: "1.2000", impliedPpp: "1.0900" },
+          { observationMonth: "2026-03-01", actualSpot: "1.1800", impliedPpp: "1.0850", hasImputedInputs: false },
+          {
+            observationMonth: "2026-04-01",
+            actualSpot: "1.2000",
+            impliedPpp: "1.0900",
+            hasImputedInputs: true,
+            imputationNote: "Filled using +/- 6 month median assumption.",
+          },
         ],
         references: [
           { label: "EUR/USD spot", url: "https://data.ecb.europa.eu/data/datasets/EXR/EXR.M.USD.EUR.SP00.A" },

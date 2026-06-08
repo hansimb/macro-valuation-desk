@@ -177,8 +177,8 @@ def test_run_currency_analysis_flow_reports_success_and_writes_checkpoints(monke
 
     assert result["status"] == "success"
     assert result["series_fetched"] == 10
-    assert result["ppp_snapshot_rows"] == 1
-    assert result["ppp_path_rows"] == 2
+    assert result["ppp_snapshot_rows"] == 2
+    assert result["ppp_path_rows"] == 4
     assert result["irp_snapshot_rows"] == 3
     assert result["availability_rows"] == 4
     assert ("eurusd_spot_monthly", "2026-02-01") in written_checkpoints
@@ -341,7 +341,7 @@ def test_run_currency_analysis_flow_tolerates_optional_irp_fetch_failures_when_p
     result = run_currency_analysis_flow()
 
     assert result["status"] == "success"
-    assert result["ppp_snapshot_rows"] == 1
+    assert result["ppp_snapshot_rows"] == 2
     assert result["irp_snapshot_rows"] == 0
     assert result["availability_rows"] == 4
     assert result["fetch_errors"] == [
@@ -420,6 +420,10 @@ def test_run_currency_analysis_flow_uses_historical_staging_rows_for_ppp_base_ye
             "provider": "ecb",
             "source_url": "https://data.ecb.europa.eu/data/datasets/EXR/EXR.M.USD.EUR.SP00.A",
             "is_valid": True,
+            "is_imputed": False,
+            "imputation_method": None,
+            "imputation_note": None,
+            "imputation_source_window": None,
         },
         {
             "series_id": "eurusd_spot_monthly",
@@ -432,6 +436,10 @@ def test_run_currency_analysis_flow_uses_historical_staging_rows_for_ppp_base_ye
             "provider": "ecb",
             "source_url": "https://data.ecb.europa.eu/data/datasets/EXR/EXR.M.USD.EUR.SP00.A",
             "is_valid": True,
+            "is_imputed": False,
+            "imputation_method": None,
+            "imputation_note": None,
+            "imputation_source_window": None,
         },
         {
             "series_id": "us_cpi_index",
@@ -444,6 +452,10 @@ def test_run_currency_analysis_flow_uses_historical_staging_rows_for_ppp_base_ye
             "provider": "fred",
             "source_url": "https://fred.stlouisfed.org/series/CPIAUCSL",
             "is_valid": True,
+            "is_imputed": False,
+            "imputation_method": None,
+            "imputation_note": None,
+            "imputation_source_window": None,
         },
         {
             "series_id": "us_cpi_index",
@@ -456,6 +468,10 @@ def test_run_currency_analysis_flow_uses_historical_staging_rows_for_ppp_base_ye
             "provider": "fred",
             "source_url": "https://fred.stlouisfed.org/series/CPIAUCSL",
             "is_valid": True,
+            "is_imputed": False,
+            "imputation_method": None,
+            "imputation_note": None,
+            "imputation_source_window": None,
         },
         {
             "series_id": "ea_cpi_index",
@@ -468,6 +484,10 @@ def test_run_currency_analysis_flow_uses_historical_staging_rows_for_ppp_base_ye
             "provider": "fred",
             "source_url": "https://fred.stlouisfed.org/series/CP00MI15EA20M086NEST",
             "is_valid": True,
+            "is_imputed": False,
+            "imputation_method": None,
+            "imputation_note": None,
+            "imputation_source_window": None,
         },
         {
             "series_id": "ea_cpi_index",
@@ -480,6 +500,10 @@ def test_run_currency_analysis_flow_uses_historical_staging_rows_for_ppp_base_ye
             "provider": "fred",
             "source_url": "https://fred.stlouisfed.org/series/CP00MI15EA20M086NEST",
             "is_valid": True,
+            "is_imputed": False,
+            "imputation_method": None,
+            "imputation_note": None,
+            "imputation_source_window": None,
         },
     ]
 
@@ -501,5 +525,5 @@ def test_run_currency_analysis_flow_uses_historical_staging_rows_for_ppp_base_ye
     result = run_currency_analysis_flow()
 
     assert result["status"] == "success"
-    assert result["ppp_snapshot_rows"] == 2
-    assert len(captured["ppp_snapshot_rows"]) == 2
+    assert result["ppp_snapshot_rows"] == 4
+    assert len(captured["ppp_snapshot_rows"]) == 4

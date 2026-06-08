@@ -40,6 +40,8 @@ interface PppPathRow {
   observation_month: string;
   actual_spot: string;
   implied_ppp: string;
+  has_imputed_inputs: boolean;
+  imputation_note: string | null;
 }
 
 interface IrpSnapshotRow {
@@ -165,7 +167,9 @@ export async function registerCurrencyAnalysisRoute(app: FastifyInstance) {
           base_month::text,
           observation_month::text,
           actual_spot::text,
-          implied_ppp::text
+          implied_ppp::text,
+          has_imputed_inputs,
+          imputation_note
         from mart.currency_ppp_paths
         where pair_key = 'eurusd'
         order by observation_month asc, anchor_kind asc, anchor_statistic asc, coalesce(anchor_window_code, ''), coalesce(base_year, '')
@@ -239,6 +243,8 @@ export async function registerCurrencyAnalysisRoute(app: FastifyInstance) {
           observationMonth: row.observation_month,
           actualSpot: row.actual_spot,
           impliedPpp: row.implied_ppp,
+          hasImputedInputs: row.has_imputed_inputs,
+          ...(row.imputation_note ? { imputationNote: row.imputation_note } : {}),
         }));
 
       pppSummary = {

@@ -50,8 +50,14 @@ const payload = {
       trailing12mAverageGapPct: "6.40",
     },
     path: [
-      { observationMonth: "2026-01-01", actualSpot: "1.1000", impliedPpp: "1.1000" },
-      { observationMonth: "2026-02-01", actualSpot: "1.2000", impliedPpp: "1.1109" },
+      { observationMonth: "2026-01-01", actualSpot: "1.1000", impliedPpp: "1.1000", hasImputedInputs: false },
+      {
+        observationMonth: "2026-02-01",
+        actualSpot: "1.2000",
+        impliedPpp: "1.1109",
+        hasImputedInputs: true,
+        imputationNote: "Filled using +/- 6 month median assumption.",
+      },
     ],
     references: [
       { label: "EUR/USD spot", url: "https://data.ecb.europa.eu/data/datasets/EXR/EXR.M.USD.EUR.SP00.A" },
@@ -144,6 +150,8 @@ describe("Currency Analysis page", () => {
     expect(screen.getByText(/The latest market spot sits 8.02% above the PPP-implied fair-value anchor/i)).toBeInTheDocument();
     expect(screen.getByText(/These values are computed from the selected long-run anchor and the latest month where spot and both CPI series overlap/i)).toBeInTheDocument();
     expect(screen.getByText(/Each row compares the observed EUR\/USD spot with the PPP-implied level generated from the selected anchor rule/i)).toBeInTheDocument();
+    expect(screen.getByText(/Rows marked with \* use at least one filled observation based on a \+\/- 6 month median assumption/i)).toBeInTheDocument();
+    expect(screen.getByText("2026-02-01*")).toBeInTheDocument();
     expect(screen.getByText(/Available windows: 3Y \(3Y covered\), 5Y \(5Y covered\), 10Y \(10Y covered\), 20Y \(20Y covered\), MAX \(26Y covered\)/i)).toBeInTheDocument();
     expect(screen.getByText(/Active anchor sample: 2016-05-01 to 2026-04-01 \(10 years covered\)/i)).toBeInTheDocument();
     expect(screen.getByText("6.40%")).toBeInTheDocument();
