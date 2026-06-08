@@ -61,11 +61,11 @@ function pppTakeaway(data: CurrencyAnalysisPageData) {
   }
 
   if (deviation > 0) {
-    return `The latest market spot sits ${data.ppp.summary.deviationPct}% above the PPP-implied fair-value anchor, so the euro screens rich against the dollar on this relative-PPP lens. This means that EUR/USD is currently above its PPP fair value, so on this measure the euro looks somewhat overvalued against the dollar. The current gap is ${!Number.isNaN(trailingAverageGap) && deviation > trailingAverageGap ? "larger" : "close to"} than the average gap over the past 12 months, which suggests the overvaluation has ${!Number.isNaN(trailingAverageGap) && deviation > trailingAverageGap ? "recently widened" : "been fairly stable recently"}.`;
+    return `The latest market spot sits ${data.ppp.summary.deviationPct}% above the PPP-implied fair-value anchor, so the euro screens rich against the dollar on this relative-PPP lens. This means that EUR/USD is currently above its PPP fair value, so on this measure the euro looks somewhat overvalued against the dollar. The current gap is ${!Number.isNaN(trailingAverageGap) && deviation > trailingAverageGap ? "larger" : "close to"} than the average gap over the past 12 months, which means the current overvaluation looks ${!Number.isNaN(trailingAverageGap) && deviation > trailingAverageGap ? "more stretched than" : "broadly similar to"} the recent 12-month average.`;
   }
 
   if (deviation < 0) {
-    return `The latest market spot sits ${Math.abs(deviation).toFixed(2)}% below the PPP-implied fair-value anchor, so the euro screens cheap against the dollar on this relative-PPP lens. This means that EUR/USD is currently below its PPP fair value, so on this measure the euro looks somewhat undervalued against the dollar. The current gap is ${!Number.isNaN(trailingAverageGap) && Math.abs(deviation) > Math.abs(trailingAverageGap) ? "larger" : "close to"} than the average gap over the past 12 months, which suggests the undervaluation has ${!Number.isNaN(trailingAverageGap) && Math.abs(deviation) > Math.abs(trailingAverageGap) ? "recently widened" : "been fairly stable recently"}.`;
+    return `The latest market spot sits ${Math.abs(deviation).toFixed(2)}% below the PPP-implied fair-value anchor, so the euro screens cheap against the dollar on this relative-PPP lens. This means that EUR/USD is currently below its PPP fair value, so on this measure the euro looks somewhat undervalued against the dollar. The current gap is ${!Number.isNaN(trailingAverageGap) && Math.abs(deviation) > Math.abs(trailingAverageGap) ? "larger" : "close to"} than the average gap over the past 12 months, which means the current undervaluation looks ${!Number.isNaN(trailingAverageGap) && Math.abs(deviation) > Math.abs(trailingAverageGap) ? "more stretched than" : "broadly similar to"} the recent 12-month average.`;
   }
 
   return "The latest market spot is sitting almost exactly on the PPP-implied fair-value anchor. This means that, on this relative-PPP lens, EUR/USD is trading close to its PPP fair value.";
@@ -228,6 +228,10 @@ export function CurrencyAnalysisClient({ data }: { data: CurrencyAnalysisPageDat
     return {
       ...point,
       gapLabel: gap === null ? "N/A" : `${gap.toFixed(2)}%`,
+      monthLabel: point.hasImputedInputs ? `${point.observationMonth}*` : point.observationMonth,
+      actualSpotLabel: point.hasImputedInputs ? `${point.actualSpot}*` : point.actualSpot,
+      impliedPppLabel: point.hasImputedInputs ? `${point.impliedPpp}*` : point.impliedPpp,
+      gapDisplayLabel: point.hasImputedInputs && gap !== null ? `${gap.toFixed(2)}%*` : gap === null ? "N/A" : `${gap.toFixed(2)}%`,
     };
   });
 
@@ -523,6 +527,9 @@ export function CurrencyAnalysisClient({ data }: { data: CurrencyAnalysisPageDat
               <Text color="muted" fontSize="sm">
                 Each row compares the observed EUR/USD spot with the PPP-implied level generated from the selected anchor rule.
               </Text>
+              <Text color="muted" fontSize="xs">
+                Rows marked with * use at least one filled observation based on a +/- 6 month median assumption.
+              </Text>
               <Table.Root size="sm" variant="outline">
                 <Table.Header>
                   <Table.Row>
@@ -535,10 +542,10 @@ export function CurrencyAnalysisClient({ data }: { data: CurrencyAnalysisPageDat
                 <Table.Body>
                   {pathRowsWithGap.map((point) => (
                     <Table.Row key={`${point.observationMonth}-${point.impliedPpp}`}>
-                      <Table.Cell>{point.observationMonth}</Table.Cell>
-                      <Table.Cell>{point.actualSpot}</Table.Cell>
-                      <Table.Cell>{point.impliedPpp}</Table.Cell>
-                      <Table.Cell>{point.gapLabel}</Table.Cell>
+                      <Table.Cell>{point.monthLabel}</Table.Cell>
+                      <Table.Cell>{point.actualSpotLabel}</Table.Cell>
+                      <Table.Cell>{point.impliedPppLabel}</Table.Cell>
+                      <Table.Cell>{point.gapDisplayLabel}</Table.Cell>
                     </Table.Row>
                   ))}
                 </Table.Body>
