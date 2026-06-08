@@ -240,6 +240,23 @@ function mergePersistedAssumptions(
   }, {});
 }
 
+function readPersistedAssumptions() {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  try {
+    const persisted = window.localStorage.getItem(ASSUMPTIONS_STORAGE_KEY);
+    return persisted ? JSON.parse(persisted) : null;
+  } catch {
+    return null;
+  }
+}
+
+function buildClientInitialAssumptions(regions: TaylorRuleRegionComparison[]) {
+  return mergePersistedAssumptions(regions, readPersistedAssumptions());
+}
+
 function academicReferenceText(label: string, url?: string) {
   if (url?.includes("data.ecb.europa.eu")) {
     return `European Central Bank, Data Portal, "${label}"`;
@@ -380,15 +397,33 @@ function InflationMeasureSwitch({
 
 export function TaylorRuleClient({ data }: { data: TaylorRulePageData }) {
   const [assumptionsByRegion, setAssumptionsByRegion] = useState<Record<string, RegionAssumptions>>(
-    buildInitialAssumptions(data.regions)
+    () => buildClientInitialAssumptions(data.regions)
   );
   const referenceRegions = data.regions.filter((region) => region.referenceMetrics);
   const hasRegionData = data.regions.length > 0;
   const hasReferences = data.references.length > 0;
   const referenceNumberByLabel = new Map(data.references.map((reference, index) => [reference.label, index + 1]));
 
+  function persistAssumptions(nextAssumptions: Record<string, RegionAssumptions>) {
+    try {
+      window.localStorage.setItem(ASSUMPTIONS_STORAGE_KEY, JSON.stringify(nextAssumptions));
+    } catch {
+      // Ignore storage failures and keep the UI state usable.
+    }
+  }
+
+  function setRegionAssumptionsAndPersist(
+    updater: (current: Record<string, RegionAssumptions>) => Record<string, RegionAssumptions>
+  ) {
+    setAssumptionsByRegion((current) => {
+      const next = updater(current);
+      persistAssumptions(next);
+      return next;
+    });
+  }
+
   function updateRegionAssumption(regionKey: string, field: keyof RegionAssumptions, delta: number) {
-    setAssumptionsByRegion((current) => ({
+    setRegionAssumptionsAndPersist((current) => ({
       ...current,
       [regionKey]: {
         ...current[regionKey],
@@ -398,21 +433,8 @@ export function TaylorRuleClient({ data }: { data: TaylorRulePageData }) {
   }
 
   useEffect(() => {
-    try {
-      const persisted = window.localStorage.getItem(ASSUMPTIONS_STORAGE_KEY);
-      if (!persisted) {
-        return;
-      }
-
-      setAssumptionsByRegion(mergePersistedAssumptions(data.regions, JSON.parse(persisted)));
-    } catch {
-      setAssumptionsByRegion(buildInitialAssumptions(data.regions));
-    }
+    setAssumptionsByRegion(mergePersistedAssumptions(data.regions, readPersistedAssumptions()));
   }, [data.regions]);
-
-  useEffect(() => {
-    window.localStorage.setItem(ASSUMPTIONS_STORAGE_KEY, JSON.stringify(assumptionsByRegion));
-  }, [assumptionsByRegion]);
 
   return (
     <Stack gap={{ base: "8", md: "10" }}>
@@ -619,7 +641,7 @@ export function TaylorRuleClient({ data }: { data: TaylorRulePageData }) {
                         </Text>
                         <InflationMeasureSwitch
                           onChange={(inflationMeasure) =>
-                            setAssumptionsByRegion((current) => ({
+                            setRegionAssumptionsAndPersist((current) => ({
                               ...current,
                               [region.region]: {
                                 ...current[region.region],

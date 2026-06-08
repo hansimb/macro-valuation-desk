@@ -232,11 +232,13 @@ describe("Taylor Rule page", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Increase EU neutral rate" }));
     fireEvent.click(screen.getByRole("switch", { name: "EU inflation input" }));
+    fireEvent.click(screen.getByRole("button", { name: "Decrease EU slack proxy" }));
+    fireEvent.click(screen.getByRole("button", { name: "Decrease EU slack proxy" }));
 
     expect(JSON.parse(window.localStorage.getItem("taylor-rule-assumptions-v1") ?? "{}")).toMatchObject({
       EU: {
         neutralRate: "0.25",
-        slackProxy: "0.00",
+        slackProxy: "-0.50",
         inflationMeasure: "core"
       }
     });
@@ -247,7 +249,8 @@ describe("Taylor Rule page", () => {
     render(<ThemeProvider>{secondPage}</ThemeProvider>);
 
     expect(screen.getAllByText("0.25").length).toBeGreaterThan(0);
-    expect(screen.getByText(/Interpretation: EU screens easier than the rule benchmark by 0.45 percentage points\./)).toBeInTheDocument();
+    expect(screen.getAllByText("-0.50").length).toBeGreaterThan(0);
+    expect(screen.getByText(/Interpretation: EU screens easier than the rule benchmark by 0.20 percentage points\./)).toBeInTheDocument();
   });
 
   it("shows an explicit unavailable-data notice instead of rendering fallback numbers when the API fetch fails", async () => {
