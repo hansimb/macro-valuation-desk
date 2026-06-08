@@ -527,9 +527,6 @@ export function CurrencyAnalysisClient({ data }: { data: CurrencyAnalysisPageDat
               <Text color="muted" fontSize="sm">
                 Each row compares the observed EUR/USD spot with the PPP-implied level generated from the selected anchor rule.
               </Text>
-              <Text color="muted" fontSize="xs">
-                Rows marked with * use at least one filled observation based on a +/- 6 month median assumption.
-              </Text>
               <Table.Root size="sm" variant="outline">
                 <Table.Header>
                   <Table.Row>
@@ -550,6 +547,9 @@ export function CurrencyAnalysisClient({ data }: { data: CurrencyAnalysisPageDat
                   ))}
                 </Table.Body>
               </Table.Root>
+              <Text color="muted" fontSize="xs">
+                Rows marked with * use at least one filled observation based on a +/- 6 month median assumption.
+              </Text>
             </Stack>
           </Box>
 
