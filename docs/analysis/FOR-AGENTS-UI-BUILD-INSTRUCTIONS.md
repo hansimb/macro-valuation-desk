@@ -275,6 +275,22 @@ Example:
 
 Without the gap column, the table often becomes much less useful.
 
+### 11.2 Imputed Values Must Be Marked
+
+If a displayed value depends on a pipeline-filled observation rather than a directly observed one:
+
+- mark it visibly with `*`
+- explain the marker in plain language immediately around the table or chart
+- do not silently blend imputed rows into observed rows
+
+Default wording should explicitly say that the row was filled using a `+/- 6 period median assumption`, adjusted to the relevant cadence when needed.
+
+This wording assumes the pipeline actually used that rule for the relevant series.
+
+Do not imply that `+/- 6 period median` is a universal rule for all data types.
+
+If the pipeline used a different imputation policy for a more market-sensitive series, the UI must describe that actual policy instead.
+
 ## 12. References Must Match The Taylor Style
 
 References are not raw link dumps.

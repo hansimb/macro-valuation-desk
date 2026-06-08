@@ -161,6 +161,38 @@ Staging transform should make data technically consistent and trustworthy.
 
 It should not yet introduce analysis-specific business meaning.
 
+### Shared Gap Fill Guidance
+
+Pipeline gap filling should be handled in the pipeline layer rather than improvised separately inside each analysis.
+
+However, this does **not** mean every series in the system must always use the same imputation rule.
+
+The right policy depends on the data type and analytical purpose.
+
+For `macro/reference` time series, a reasonable default v1 rule is:
+
+- detect internal gaps after frequency normalization
+- fill the missing period with a `median +/- 6 periods` assumption
+- persist explicit metadata that the row was imputed
+- carry that metadata forward so API and UI layers can disclose the assumption
+
+This is a good default for slow-moving macro series such as `CPI` and similar reference datasets because it is simple, explicit, and usually less distortionary than ad hoc point guesses.
+
+For `market-sensitive` series such as `FX`, rates, or other fast-moving market observations, the pipeline may need a different policy or no automatic imputation at all.
+
+So the architecture rule is:
+
+- centralize imputation policy in the pipeline layer
+- choose the policy by series type and methodological fit
+- disclose imputation honestly downstream
+
+Important constraints:
+
+- raw data remains untouched
+- the filled value lives in `staging` and downstream prepared layers
+- imputed rows must keep fields such as `is_imputed`, `imputation_method`, and a human-readable note
+- frontends must visibly mark values that depend on imputed rows rather than silently presenting them as fully observed data
+
 ## 3. Analytical Transform
 
 Analytical transform is responsible for turning technically clean data into analysis-ready datasets.

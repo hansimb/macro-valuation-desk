@@ -133,6 +133,25 @@ If an ideal variable is not available, a proxy can be used, but it must be state
 
 Do not hide substitutions.
 
+### 6.5. Honest Gap Filling
+
+If a displayed time series value is filled by pipeline gap handling rather than directly observed, that assumption must be disclosed.
+
+Default rule for `macro/reference` series:
+
+- shared pipeline gap filling may use a `median +/- 6 periods` assumption
+- imputed status and method must be stored in data layers, not guessed in the UI
+- frontend tables and charts must visibly mark imputed values
+- the explanation for the marker must be written on the page in plain language
+
+This is a reasonable default for slow-moving macro datasets such as inflation and other reference series.
+
+Do not overgeneralize this into a universal rule for every series type.
+
+`Market-sensitive` series such as FX and rates may require a different policy or no automatic imputation, depending on methodology.
+
+Do not silently present imputed values as if they were fully observed raw data.
+
 ### 7. Keep Pages Narrow
 
 Each analysis page should answer one clear question.
