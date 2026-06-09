@@ -58,6 +58,13 @@ def _aggregate(values: list[float], statistic: str) -> float:
     return _median(values) if statistic == "median" else _average(values)
 
 
+def _first_imputation_note(rows: list[dict[str, object]]) -> str | None:
+    for row in rows:
+        if bool(row.get("is_imputed")) and row.get("imputation_note"):
+            return str(row["imputation_note"])
+    return None
+
+
 def _add_month(value: str, months: int) -> str:
     year = int(value[:4])
     month = int(value[5:7])
@@ -162,23 +169,39 @@ def build_currency_ppp_outputs(staging_rows: list[dict[str, object]]) -> dict[st
         anchor_years_covered = max(1, round(len(anchor_months) / 12))
 
         base_spot = _aggregate([float(spot_rows[month]["numeric_value"]) for month in anchor_months], anchor_statistic)
-        base_us_cpi = _aggregate([float(us_cpi_rows[month]["numeric_value"]) for month in anchor_months], anchor_statistic)
-        base_ea_cpi = _aggregate([float(ea_cpi_rows[month]["numeric_value"]) for month in anchor_months], anchor_statistic)
 
         anchor_path_rows: list[dict[str, object]] = []
         for observation_month in [month for month in common_months if month >= anchor_start_month]:
+            eligible_base_months = [month for month in anchor_months if month <= observation_month]
+            if not eligible_base_months:
+                continue
+
             current_us_cpi = float(us_cpi_rows[observation_month]["numeric_value"])
             current_ea_cpi = float(ea_cpi_rows[observation_month]["numeric_value"])
-            implied_ppp = base_spot * (current_us_cpi / base_us_cpi) / (current_ea_cpi / base_ea_cpi)
-            imputed_notes = [
-                str(row["imputation_note"])
-                for row in (
-                    spot_rows[observation_month],
-                    us_cpi_rows[observation_month],
-                    ea_cpi_rows[observation_month],
-                )
-                if bool(row.get("is_imputed")) and row.get("imputation_note")
+
+            per_base_month_ppp_values = []
+            rows_used_for_note: list[dict[str, object]] = [
+                spot_rows[observation_month],
+                us_cpi_rows[observation_month],
+                ea_cpi_rows[observation_month],
             ]
+            for eligible_base_month in eligible_base_months:
+                base_spot_for_month = float(spot_rows[eligible_base_month]["numeric_value"])
+                base_us_cpi = float(us_cpi_rows[eligible_base_month]["numeric_value"])
+                base_ea_cpi = float(ea_cpi_rows[eligible_base_month]["numeric_value"])
+                per_base_month_ppp_values.append(
+                    base_spot_for_month * (current_us_cpi / base_us_cpi) / (current_ea_cpi / base_ea_cpi)
+                )
+                rows_used_for_note.extend(
+                    [
+                        spot_rows[eligible_base_month],
+                        us_cpi_rows[eligible_base_month],
+                        ea_cpi_rows[eligible_base_month],
+                    ]
+                )
+
+            implied_ppp = _aggregate(per_base_month_ppp_values, anchor_statistic)
+            imputation_note = _first_imputation_note(rows_used_for_note)
             path_row = {
                 "pair_key": PAIR_KEY,
                 "base_month": base_month,
@@ -189,8 +212,8 @@ def build_currency_ppp_outputs(staging_rows: list[dict[str, object]]) -> dict[st
                 "observation_month": observation_month,
                 "actual_spot": _round_price(float(spot_rows[observation_month]["numeric_value"])),
                 "implied_ppp": _round_price(implied_ppp),
-                "has_imputed_inputs": bool(imputed_notes),
-                "imputation_note": imputed_notes[0] if imputed_notes else None,
+                "has_imputed_inputs": imputation_note is not None,
+                "imputation_note": imputation_note,
             }
             path_rows.append(path_row)
             anchor_path_rows.append(path_row)

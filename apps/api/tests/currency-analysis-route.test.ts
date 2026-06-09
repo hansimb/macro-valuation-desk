@@ -285,4 +285,57 @@ describe("currency analysis route", () => {
       availability: [],
     });
   });
+
+  it("labels yearly median anchors correctly", async () => {
+    queryMock
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            anchor_kind: "year",
+            anchor_statistic: "median",
+            anchor_window_code: null,
+            anchor_start_month: "2025-01-01",
+            anchor_end_month: "2025-12-01",
+            anchor_years_covered: 1,
+            base_year: "2025",
+            base_month: "2025-01-01",
+            as_of_month: "2026-04-01",
+            base_spot: "1.1200",
+            current_spot: "1.2000",
+            implied_ppp: "1.1150",
+            deviation_pct: "7.62",
+            trailing_12m_average_gap_pct: "5.90",
+            spot_source_url: "https://data.ecb.europa.eu/data/datasets/EXR/EXR.M.USD.EUR.SP00.A",
+            us_cpi_source_url: "https://fred.stlouisfed.org/series/CPIAUCSL",
+            ea_cpi_source_url: "https://fred.stlouisfed.org/series/CP00MI15EA20M086NEST",
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            anchor_kind: "year",
+            anchor_statistic: "median",
+            anchor_window_code: null,
+            base_year: "2025",
+            base_month: "2025-01-01",
+            observation_month: "2026-04-01",
+            actual_spot: "1.2000",
+            implied_ppp: "1.1150",
+            has_imputed_inputs: false,
+            imputation_note: null,
+          },
+        ],
+      })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [] });
+
+    const response = await app.inject({
+      method: "GET",
+      url: "/macro/currency-analysis?anchorKind=year&anchorStatistic=median&baseYear=2025",
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json().ppp.summary.anchorLabel).toBe("2025 median base-year anchor");
+  });
 });

@@ -155,7 +155,7 @@ export function CurrencyAnalysisClient({ data }: { data: CurrencyAnalysisPageDat
             selectedAnchorStatistic={selectedAnchorStatistic}
             selectedBaseYear={selectedBaseYear}
             selectedWindowCode={selectedWindowCode}
-            selectionLogicLabel={`The active PPP baseline is now the selected ${pppSummary.anchorLabel}. That anchor supplies the base spot value and the base CPI values used in the relative-PPP formula.`}
+            selectionLogicLabel={`The active PPP baseline is now the selected ${pppSummary.anchorLabel}. For window anchors, the model evaluates the relative-PPP formula across all eligible base months in that sample and aggregates the resulting current fair values.`}
             pppInflationSources={[
               ...(usCpiRef ? [{ label: "U.S. CPI index", ref: usCpiRef }] : []),
               ...(euroAreaCpiRef ? [{ label: "Euro area CPI index", ref: euroAreaCpiRef }] : []),

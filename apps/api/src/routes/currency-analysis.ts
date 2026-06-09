@@ -117,7 +117,7 @@ function buildAnchorLabel(
   }
 
   if (anchorKind === "year" && selectedBaseYear !== null) {
-    return `${selectedBaseYear} ${statistic} base-year-average anchor`;
+    return `${selectedBaseYear} ${statistic} base-year anchor`;
   }
 
   return `${statistic} PPP anchor`;

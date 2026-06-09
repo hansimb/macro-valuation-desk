@@ -191,7 +191,7 @@ export function CurrencyPppDataInputsBlock({
               ) : (
                 " EUR/USD spot source unavailable."
               )}
-              {" "}(
+              {" "}Observed base-month spot inputs (
               <Box as="span" fontStyle="italic">
                 S
               </Box>
@@ -207,7 +207,7 @@ export function CurrencyPppDataInputsBlock({
                   {" "}
                   {pppInflationSources[0].label}
                   <AnalysisCitationLinks refs={[pppInflationSources[0].ref]} />{" "}
-                  (
+                  observed base and latest U.S. CPI terms (
                   <Box as="span" fontStyle="italic">
                     P
                   </Box>
@@ -229,7 +229,7 @@ export function CurrencyPppDataInputsBlock({
                   {pppInflationSources[0] ? ", " : " "}
                   {pppInflationSources[1].label}
                   <AnalysisCitationLinks refs={[pppInflationSources[1].ref]} />{" "}
-                  (
+                  observed base and latest euro-area CPI terms (
                   <Box as="span" fontStyle="italic">
                     P
                   </Box>
@@ -248,7 +248,7 @@ export function CurrencyPppDataInputsBlock({
               ) : null}
             </Text>
             <Text color="muted" fontSize="xs">
-              Active output: (
+              Window anchors calculate one current fair value per eligible base month and then aggregate those completed outputs into the active result (
               <Box as="span" fontStyle="italic">
                 PPP
               </Box>

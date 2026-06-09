@@ -57,6 +57,59 @@ def _build_monthly_rows():
     return rows
 
 
+def _build_small_window_rows():
+    months = [
+        ("2026-01-01", 1.0, 100.0, 100.0),
+        ("2026-02-01", 2.0, 200.0, 100.0),
+        ("2026-03-01", 3.0, 400.0, 100.0),
+    ]
+
+    rows = []
+    for date, spot, us_cpi, ea_cpi in months:
+        rows.extend(
+            [
+                {
+                    "series_id": "eurusd_spot_monthly",
+                    "observation_date": date,
+                    "numeric_value": spot,
+                    "category": "fx_spot",
+                    "region": "FX",
+                    "frequency": "monthly",
+                    "unit": "usd_per_eur",
+                    "provider": "ecb",
+                    "source_url": "https://data.ecb.europa.eu/data/datasets/EXR/EXR.M.USD.EUR.SP00.A",
+                    "is_valid": True,
+                },
+                {
+                    "series_id": "us_cpi_index",
+                    "observation_date": date,
+                    "numeric_value": us_cpi,
+                    "category": "inflation",
+                    "region": "US",
+                    "frequency": "monthly",
+                    "unit": "index",
+                    "provider": "fred",
+                    "source_url": "https://fred.stlouisfed.org/series/CPIAUCSL",
+                    "is_valid": True,
+                },
+                {
+                    "series_id": "ea_cpi_index",
+                    "observation_date": date,
+                    "numeric_value": ea_cpi,
+                    "category": "inflation",
+                    "region": "EU",
+                    "frequency": "monthly",
+                    "unit": "index",
+                    "provider": "fred",
+                    "source_url": "https://fred.stlouisfed.org/series/CP00MI15EA20M086NEST",
+                    "is_valid": True,
+                },
+            ]
+        )
+
+    return rows
+
+
 def test_build_currency_ppp_outputs_creates_year_window_and_max_anchors():
     outputs = build_currency_ppp_outputs(_build_monthly_rows())
 
@@ -290,3 +343,84 @@ def test_build_currency_ppp_outputs_requires_consecutive_months_for_window_and_y
     )
     assert three_year_snapshot["anchor_start_month"] == "2022-10-01"
     assert three_year_snapshot["anchor_end_month"] == "2025-09-01"
+
+
+def test_build_currency_ppp_outputs_aggregates_completed_ppp_outputs_for_window_anchor():
+    outputs = build_currency_ppp_outputs(_build_small_window_rows())
+
+    average_snapshot = next(
+        row
+        for row in outputs["snapshot_rows"]
+        if row["anchor_kind"] == "window"
+        and row["anchor_statistic"] == "average"
+        and row["anchor_window_code"] == "MAX"
+    )
+    median_snapshot = next(
+        row
+        for row in outputs["snapshot_rows"]
+        if row["anchor_kind"] == "window"
+        and row["anchor_statistic"] == "median"
+        and row["anchor_window_code"] == "MAX"
+    )
+    average_path = [
+        row
+        for row in outputs["path_rows"]
+        if row["anchor_kind"] == "window"
+        and row["anchor_statistic"] == "average"
+        and row["anchor_window_code"] == "MAX"
+    ]
+
+    # Per-base-month PPP_t values at 2026-03:
+    # 2026-01 base -> 1.0 * (400 / 100) / (100 / 100) = 4.0
+    # 2026-02 base -> 2.0 * (400 / 200) / (100 / 100) = 4.0
+    # 2026-03 base -> 3.0 * (400 / 400) / (100 / 100) = 3.0
+    # average = 3.6667, median = 4.0
+    assert average_snapshot["implied_ppp"] == 3.6667
+    assert average_snapshot["deviation_pct"] == -18.18
+    assert median_snapshot["implied_ppp"] == 4.0
+    assert average_path == [
+        {
+            "pair_key": "eurusd",
+            "base_month": "2026-01-01",
+            "anchor_kind": "window",
+            "anchor_statistic": "average",
+            "anchor_window_code": "MAX",
+            "base_year": None,
+            "observation_month": "2026-01-01",
+            "actual_spot": 1.0,
+            "implied_ppp": 1.0,
+            "has_imputed_inputs": False,
+            "imputation_note": None,
+        },
+        {
+            "pair_key": "eurusd",
+            "base_month": "2026-01-01",
+            "anchor_kind": "window",
+            "anchor_statistic": "average",
+            "anchor_window_code": "MAX",
+            "base_year": None,
+            "observation_month": "2026-02-01",
+            "actual_spot": 2.0,
+            "implied_ppp": 2.0,
+            "has_imputed_inputs": False,
+            "imputation_note": None,
+        },
+        {
+            "pair_key": "eurusd",
+            "base_month": "2026-01-01",
+            "anchor_kind": "window",
+            "anchor_statistic": "average",
+            "anchor_window_code": "MAX",
+            "base_year": None,
+            "observation_month": "2026-03-01",
+            "actual_spot": 3.0,
+            "implied_ppp": 3.6667,
+            "has_imputed_inputs": False,
+            "imputation_note": None,
+        },
+    ]
+
+    # Old wrong behavior would average CPI base levels first:
+    # avg spot = 2.0, avg US CPI = 233.333..., avg EA CPI = 100
+    # implied PPP = 2.0 * (400 / 233.333...) = 3.4286
+    assert average_snapshot["implied_ppp"] != 3.4286

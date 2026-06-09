@@ -53,7 +53,7 @@ export function CurrencyPppReadoutBlock({
             label="Selected anchor spot"
             note={
               <>
-                Calculated spot anchor under the selected {selectedAnchorLabel} rule (
+                Calculated {selectedAnchorLabel} spot summary (
                 <Box as="span" fontStyle="italic">
                   S
                 </Box>
@@ -80,7 +80,7 @@ export function CurrencyPppReadoutBlock({
             label="Latest PPP-implied fair value"
             note={
               <>
-                Calculated (
+                Calculated aggregated fair value (
                 <Box as="span" fontStyle="italic">
                   PPP
                 </Box>
@@ -97,7 +97,7 @@ export function CurrencyPppReadoutBlock({
             label="Current valuation gap"
             note={
               <>
-                Calculated from latest observed spot and (
+                Calculated spot-versus-fair-value gap (
                 <Box as="span" fontStyle="italic">
                   PPP
                 </Box>
@@ -115,7 +115,7 @@ export function CurrencyPppReadoutBlock({
             note={
               trailing12mAverageGapPct ? (
                 <>
-                  Calculated average of the last 12 monthly gaps versus (
+                  Calculated 12M average gap versus (
                   <Box as="span" fontStyle="italic">
                     PPP
                   </Box>
