@@ -424,3 +424,29 @@ def test_build_currency_ppp_outputs_aggregates_completed_ppp_outputs_for_window_
     # avg spot = 2.0, avg US CPI = 233.333..., avg EA CPI = 100
     # implied PPP = 2.0 * (400 / 233.333...) = 3.4286
     assert average_snapshot["implied_ppp"] != 3.4286
+
+
+def test_build_currency_ppp_outputs_does_not_spread_base_month_imputation_to_later_path_rows():
+    rows = _build_monthly_rows()
+    note = "Filled using +/- 6 month median assumption."
+    for row in rows:
+        if row["series_id"] == "us_cpi_index" and row["observation_date"] == "2025-10-01":
+            row["is_imputed"] = True
+            row["imputation_note"] = note
+
+    outputs = build_currency_ppp_outputs(rows)
+
+    max_path_by_month = {
+        row["observation_month"]: row
+        for row in outputs["path_rows"]
+        if row["anchor_kind"] == "window"
+        and row["anchor_statistic"] == "average"
+        and row["anchor_window_code"] == "MAX"
+    }
+
+    assert max_path_by_month["2025-10-01"]["has_imputed_inputs"] is True
+    assert max_path_by_month["2025-10-01"]["imputation_note"] == note
+    assert max_path_by_month["2025-11-01"]["has_imputed_inputs"] is False
+    assert max_path_by_month["2025-11-01"]["imputation_note"] is None
+    assert max_path_by_month["2026-04-01"]["has_imputed_inputs"] is False
+    assert max_path_by_month["2026-04-01"]["imputation_note"] is None

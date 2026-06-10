@@ -180,7 +180,7 @@ def build_currency_ppp_outputs(staging_rows: list[dict[str, object]]) -> dict[st
             current_ea_cpi = float(ea_cpi_rows[observation_month]["numeric_value"])
 
             per_base_month_ppp_values = []
-            rows_used_for_note: list[dict[str, object]] = [
+            current_rows_used_for_note: list[dict[str, object]] = [
                 spot_rows[observation_month],
                 us_cpi_rows[observation_month],
                 ea_cpi_rows[observation_month],
@@ -192,16 +192,9 @@ def build_currency_ppp_outputs(staging_rows: list[dict[str, object]]) -> dict[st
                 per_base_month_ppp_values.append(
                     base_spot_for_month * (current_us_cpi / base_us_cpi) / (current_ea_cpi / base_ea_cpi)
                 )
-                rows_used_for_note.extend(
-                    [
-                        spot_rows[eligible_base_month],
-                        us_cpi_rows[eligible_base_month],
-                        ea_cpi_rows[eligible_base_month],
-                    ]
-                )
 
             implied_ppp = _aggregate(per_base_month_ppp_values, anchor_statistic)
-            imputation_note = _first_imputation_note(rows_used_for_note)
+            imputation_note = _first_imputation_note(current_rows_used_for_note)
             path_row = {
                 "pair_key": PAIR_KEY,
                 "base_month": base_month,
