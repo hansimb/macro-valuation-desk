@@ -39,6 +39,11 @@ export interface CurrencyAnalysisPppPathPoint {
   imputationNote?: string;
 }
 
+export interface CurrencyAnalysisPppSpotHistoryPoint {
+  observationMonth: string;
+  actualSpot: string;
+}
+
 export interface CurrencyAnalysisPppBlock {
   availableWindowOptions: CurrencyAnalysisPppWindowOption[];
   availableBaseYears: string[];
@@ -48,6 +53,7 @@ export interface CurrencyAnalysisPppBlock {
   selectedBaseYear: string | null;
   summary: CurrencyAnalysisPppSummary | null;
   path: CurrencyAnalysisPppPathPoint[];
+  spotHistory: CurrencyAnalysisPppSpotHistoryPoint[];
   references: CurrencyAnalysisReferenceItem[];
 }
 

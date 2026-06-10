@@ -214,6 +214,10 @@ describe("currency analysis route", () => {
             imputationNote: "Filled using +/- 6 month median assumption.",
           },
         ],
+        spotHistory: [
+          { observationMonth: "2026-03-01", actualSpot: "1.1800" },
+          { observationMonth: "2026-04-01", actualSpot: "1.2000" },
+        ],
         references: [
           { label: "EUR/USD spot", url: "https://data.ecb.europa.eu/data/datasets/EXR/EXR.M.USD.EUR.SP00.A" },
           { label: "US CPI index", url: "https://fred.stlouisfed.org/series/CPIAUCSL" },
@@ -275,6 +279,7 @@ describe("currency analysis route", () => {
         selectedBaseYear: null,
         summary: null,
         path: [],
+        spotHistory: [],
         references: [],
       },
       irp: {
@@ -337,5 +342,6 @@ describe("currency analysis route", () => {
 
     expect(response.statusCode).toBe(200);
     expect(response.json().ppp.summary.anchorLabel).toBe("2025 median base-year anchor");
+    expect(response.json().ppp.spotHistory).toEqual([{ observationMonth: "2026-04-01", actualSpot: "1.2000" }]);
   });
 });

@@ -7,6 +7,7 @@ import { Box, Heading, Stack, Text } from "@chakra-ui/react";
 import { AnalysisReferencesBlock } from "./components/analysis-references-block";
 import { CurrencyPppDataInputsBlock } from "./components/currency-ppp-data-inputs-block";
 import { CurrencyPppFormulaBlock } from "./components/currency-ppp-formula-block";
+import { CurrencyPppHistoricalSpotContextBlock } from "./components/currency-ppp-historical-spot-context-block";
 import { CurrencyPppPathTableBlock } from "./components/currency-ppp-path-table-block";
 import { CurrencyPppReadoutBlock } from "./components/currency-ppp-readout-block";
 import type { CurrencyAnalysisPageData } from "./currency-analysis-types";
@@ -70,6 +71,7 @@ export function CurrencyAnalysisClient({ data }: { data: CurrencyAnalysisPageDat
   const selectedWindowCode = data.ppp.selectedWindowCode;
   const selectedBaseYear = data.ppp.selectedBaseYear ?? "";
   const recentPathRows = data.ppp.path.slice(-12);
+  const fullPathRows = data.ppp.path;
   const referenceNumberByLabel = new Map(data.ppp.references.map((reference, index) => [reference.label, index + 1]));
   const spotReference = data.ppp.references.find((reference) => reference.label === "EUR/USD spot");
   const usCpiReference = data.ppp.references.find((reference) => reference.label === "US CPI index");
@@ -113,6 +115,19 @@ export function CurrencyAnalysisClient({ data }: { data: CurrencyAnalysisPageDat
           </Stack>
 
           <CurrencyPppFormulaBlock />
+
+          <CurrencyPppHistoricalSpotContextBlock
+            anchorLabel={pppSummary.anchorLabel}
+            baseSpot={pppSummary.baseSpot}
+            currentSpot={pppSummary.currentSpot}
+            latestMonth={pppSummary.asOf}
+            rows={data.ppp.spotHistory.map((point) => ({
+              actualSpot: point.actualSpot,
+              monthLabel: point.observationMonth,
+              observationMonth: point.observationMonth,
+            }))}
+            spotRef={spotRef}
+          />
 
           <CurrencyPppDataInputsBlock
             anchorSource={spotRef ? { label: "EUR/USD spot", ref: spotRef } : undefined}

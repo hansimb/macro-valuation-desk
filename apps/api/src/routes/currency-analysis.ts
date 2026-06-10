@@ -44,6 +44,11 @@ interface PppPathRow {
   imputation_note: string | null;
 }
 
+interface PppSpotHistoryRow {
+  observationMonth: string;
+  actualSpot: string;
+}
+
 interface IrpSnapshotRow {
   as_of_date: string;
   tenor: string;
@@ -220,6 +225,20 @@ export async function registerCurrencyAnalysisRoute(app: FastifyInstance) {
 
     let pppSummary: CurrencyAnalysisResponse["ppp"]["summary"] = null;
     let pppPath: CurrencyAnalysisResponse["ppp"]["path"] = [];
+    const pppSpotHistory = Array.from(
+      pathRows.reduce((history, row) => {
+        if (!history.has(row.observation_month)) {
+          history.set(row.observation_month, {
+            observationMonth: row.observation_month,
+            actualSpot: row.actual_spot,
+          });
+        }
+        return history;
+      }, new Map<string, PppSpotHistoryRow>()),
+    ).map(([, row]) => ({
+      observationMonth: row.observationMonth,
+      actualSpot: row.actualSpot,
+    }));
     let pppReferences: CurrencyAnalysisReferenceItem[] = [];
 
     let selectedSnapshot: PppSnapshotRow | undefined;
@@ -360,6 +379,7 @@ export async function registerCurrencyAnalysisRoute(app: FastifyInstance) {
         selectedBaseYear,
         summary: pppSummary,
         path: pppPath,
+        spotHistory: pppSpotHistory,
         references: pppReferences,
       },
       irp: {

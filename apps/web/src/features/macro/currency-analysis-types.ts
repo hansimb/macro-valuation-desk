@@ -13,6 +13,7 @@ export const emptyCurrencyAnalysisPageData: CurrencyAnalysisPageData = {
     selectedBaseYear: null,
     summary: null,
     path: [],
+    spotHistory: [],
     references: [],
   },
   irp: {

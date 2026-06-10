@@ -59,6 +59,19 @@ const payload = {
         imputationNote: "Filled using +/- 6 month median assumption.",
       },
     ],
+    spotHistory: [
+      { observationMonth: "2016-01-01", actualSpot: "1.0500" },
+      { observationMonth: "2017-01-01", actualSpot: "1.0600" },
+      { observationMonth: "2018-01-01", actualSpot: "1.0700" },
+      { observationMonth: "2019-01-01", actualSpot: "1.0800" },
+      { observationMonth: "2020-01-01", actualSpot: "1.0900" },
+      { observationMonth: "2021-01-01", actualSpot: "1.1000" },
+      { observationMonth: "2022-01-01", actualSpot: "1.1100" },
+      { observationMonth: "2023-01-01", actualSpot: "1.1200" },
+      { observationMonth: "2024-01-01", actualSpot: "1.1300" },
+      { observationMonth: "2025-01-01", actualSpot: "1.1400" },
+      { observationMonth: "2026-01-01", actualSpot: "1.1500" },
+    ],
     references: [
       { label: "EUR/USD spot", url: "https://data.ecb.europa.eu/data/datasets/EXR/EXR.M.USD.EUR.SP00.A" },
       { label: "US CPI index", url: "https://fred.stlouisfed.org/series/CPIAUCSL" },
@@ -143,12 +156,20 @@ describe("Currency Analysis page", () => {
     expect(screen.getAllByText(/10-year average anchor/i).length).toBeGreaterThan(0);
     expect(screen.getByRole("button", { name: /Average/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Median/i })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "MAX" })).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: "MAX" }).length).toBeGreaterThan(0);
     expect(screen.getByRole("combobox", { name: /Single-year anchor/i })).toBeInTheDocument();
     expect(screen.getAllByText("2025").length).toBeGreaterThan(0);
     expect(screen.getAllByText("1.1109").length).toBeGreaterThan(0);
     expect(screen.getByText(/The latest market spot sits 8.02% above the PPP-implied fair-value anchor/i)).toBeInTheDocument();
     expect(screen.getByText(/These values are computed from the selected long-run anchor and the latest month where spot and both CPI series overlap/i)).toBeInTheDocument();
+    expect(screen.getByText(/Historical Spot Context/i)).toBeInTheDocument();
+    expect(screen.getByText(/Observed EUR\/USD spot history with the selected long-run anchor spot shown as a reference line/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/Historical EUR\/USD spot context/i)).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: "10Y" }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("button", { name: "20Y" }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("button", { name: "MAX" }).length).toBeGreaterThan(1);
+    expect(screen.getByText(/X-axis: yearly marks. Y-axis: observed EUR\/USD spot/i)).toBeInTheDocument();
+    expect(screen.getByText(/Hover the line to inspect month and spot/i)).toBeInTheDocument();
     expect(screen.getByText(/Each row compares the observed EUR\/USD spot with the PPP-implied level generated from the selected anchor rule/i)).toBeInTheDocument();
     expect(screen.getByText(/Rows marked with \* use at least one filled observation based on a \+\/- 6 month median assumption/i)).toBeInTheDocument();
     expect(screen.getByText("2026-02-01*")).toBeInTheDocument();
