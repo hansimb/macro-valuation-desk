@@ -106,10 +106,10 @@ export function CurrencyAnalysisClient({ data }: { data: CurrencyAnalysisPageDat
       <Box as="section">
         <Stack gap="5">
           <Stack gap="3" maxW="4xl">
-            <Heading as="h2" fontSize={{ base: "2xl", md: "3xl" }} lineHeight="1.05">
+            <Heading as="h2" textStyle="title">
               1.0 Relative Purchasing Power Parity
             </Heading>
-            <Text color="muted">
+            <Text color="muted" textStyle="body">
               Relative PPP treats EUR/USD as a long-run valuation relationship: if U.S. prices and euro-area prices move differently over time, the exchange rate should eventually reflect that inflation differential.
             </Text>
           </Stack>

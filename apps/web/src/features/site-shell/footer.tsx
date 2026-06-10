@@ -10,17 +10,17 @@ export function SiteFooter() {
       borderTopWidth="1px"
       borderColor="edge"
       color="muted"
-      fontSize="sm"
       gap={4}
       justify="space-between"
       pt={4}
+      textStyle="caption"
       wrap={{ base: "wrap", md: "nowrap" }}
     >
       <Stack gap={2} maxW="2xl">
         <Text color="text">
           Macro context and broad-market valuation framing.
         </Text>
-        <Flex align="center" color="muted" fontSize="sm" gap={4} wrap="wrap">
+        <Flex align="center" color="muted" gap={4} textStyle="caption" wrap="wrap">
           {siteNavigationItems.map((item) => (
             <Link
               asChild

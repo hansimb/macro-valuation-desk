@@ -24,26 +24,26 @@ export default async function EquityMarketDetailPage({
     <Stack gap={{ base: "8", md: "10" }}>
       <Stack gap="4" maxW="4xl">
         <BackLink href="/equity-markets" label="Back to Equity Markets" />
-        <Text color="accent" fontSize="xs" letterSpacing="0.16em" textTransform="uppercase">
+        <Text color="accent" textStyle="eyebrow">
           {current.eyebrow}
         </Text>
-        <Heading as="h1" fontSize={{ base: "4xl", md: "5xl" }} lineHeight="0.98">
+        <Heading as="h1" textStyle="hero">
           {current.market}
         </Heading>
-        <Text color="muted" fontSize={{ base: "lg", md: "xl" }} maxW="4xl">
+        <Text color="muted" maxW="4xl" textStyle="subtitle">
           {current.summary}
         </Text>
       </Stack>
 
       <Box bg="surface" borderColor="edge" borderWidth="1px" p={{ base: "6", md: "7" }} rounded="panel">
         <Stack gap="3">
-          <Text color="accent" fontSize="xs" letterSpacing="0.16em" textTransform="uppercase">
+          <Text color="accent" textStyle="eyebrow">
             Analysis
           </Text>
-          <Text color="muted">
+          <Text color="muted" textStyle="body">
             {current.flagEmoji} {current.region} | {current.ticker}
           </Text>
-          <Text color="muted">{current.methodologyNote}</Text>
+          <Text color="muted" textStyle="body">{current.methodologyNote}</Text>
         </Stack>
       </Box>
     </Stack>

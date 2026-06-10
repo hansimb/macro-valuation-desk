@@ -93,9 +93,9 @@ export function MobileNav() {
                         border="0"
                         color={isActive ? "accent" : "text"}
                         css={{ WebkitTapHighlightColor: "transparent" }}
-                        fontSize="sm"
                         key={item.href}
                         onClick={() => setOpen(false)}
+                        textStyle="body"
                         textDecoration="none"
                         _active={{ borderColor: "transparent", boxShadow: "none", color: "accent", outline: "none" }}
                         _focus={{ borderColor: "transparent", boxShadow: "none", outline: "none" }}
@@ -109,10 +109,10 @@ export function MobileNav() {
                 </Stack>
                 <Flex borderTopWidth="1px" borderColor="edge" pt="4">
                   <Stack gap="1">
-                    <Link asChild color="muted" fontSize="sm" textDecoration="none" _hover={{ color: "accent" }}>
+                    <Link asChild color="muted" textDecoration="none" textStyle="caption" _hover={{ color: "accent" }}>
                       <NextLink href="/macro">Research workspace</NextLink>
                     </Link>
-                    <Link asChild color="muted" fontSize="sm" textDecoration="none" _hover={{ color: "accent" }}>
+                    <Link asChild color="muted" textDecoration="none" textStyle="caption" _hover={{ color: "accent" }}>
                       <NextLink href="/equity-markets">Method-first market framing</NextLink>
                     </Link>
                   </Stack>

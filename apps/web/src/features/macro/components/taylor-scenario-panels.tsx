@@ -46,32 +46,32 @@ export function TaylorScenarioPanels({
         return (
           <Box key={region.region} bg="surface" borderColor="edge" borderWidth="1px" p={{ base: "6", md: "7" }} rounded="panel">
             <Stack gap="4">
-              <Text color="accent" fontSize="xs" letterSpacing="0.16em" textTransform="uppercase">
+              <Text color="accent" textStyle="eyebrow">
                 {region.region}
               </Text>
-              <Heading as="h3" fontSize={{ base: "2xl", md: "3xl" }}>
+              <Heading as="h3" textStyle="title">
                 {regionReferenceHeading(region.region)}
               </Heading>
               <SimpleGrid columns={2} gap="3">
-                <Text color="muted">
+                <Text color="muted" textStyle="body">
                   Policy rate
                   {refs.policy ? <AnalysisCitationLinks refs={[refs.policy]} /> : null}
                 </Text>
-                <Text>{region.policyRate}%</Text>
-                <Text color="muted">
+                <Text textStyle="body">{region.policyRate}%</Text>
+                <Text color="muted" textStyle="body">
                   {assumptions.inflationMeasure === "core" ? "Core CPI" : "Headline CPI"}
                   {assumptions.inflationMeasure === "core" && refs.core ? <AnalysisCitationLinks refs={[refs.core]} /> : null}
                   {assumptions.inflationMeasure === "headline" && refs.headline ? <AnalysisCitationLinks refs={[refs.headline]} /> : null}
                 </Text>
-                <Text>{getSelectedInflationValue(region, assumptions.inflationMeasure)}%</Text>
-                <Text color="muted">Target</Text>
-                <Text>{region.target}%</Text>
-                <Text color="muted">Scenario implied</Text>
-                <Text>{scenario.impliedRate}%</Text>
-                <Text color="muted">Scenario gap</Text>
-                <Text>{scenario.policyGap}%</Text>
+                <Text textStyle="body">{getSelectedInflationValue(region, assumptions.inflationMeasure)}%</Text>
+                <Text color="muted" textStyle="body">Target</Text>
+                <Text textStyle="body">{region.target}%</Text>
+                <Text color="muted" textStyle="body">Scenario implied</Text>
+                <Text textStyle="body">{scenario.impliedRate}%</Text>
+                <Text color="muted" textStyle="body">Scenario gap</Text>
+                <Text textStyle="body">{scenario.policyGap}%</Text>
               </SimpleGrid>
-              <Text color="muted" fontSize="sm">
+              <Text color="muted" textStyle="body">
                 Interpretation: {interpretation}
               </Text>
             </Stack>

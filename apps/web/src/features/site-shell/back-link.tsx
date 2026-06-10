@@ -13,8 +13,8 @@ export function BackLink({ href, label }: BackLinkProps) {
       asChild
       alignSelf="flex-start"
       color="muted"
-      fontSize="sm"
       gap="2"
+      textStyle="caption"
       textDecoration="none"
       transition="color 0.2s ease"
       _hover={{ color: "text", textDecoration: "none" }}

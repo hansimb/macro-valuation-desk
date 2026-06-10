@@ -62,10 +62,10 @@ export function LayoutShell({ children }: PropsWithChildren) {
             color="text"
             css={{ WebkitTapHighlightColor: "transparent" }}
             flex="1 1 auto"
-            fontSize="sm"
             fontWeight="700"
             letterSpacing="0"
             minW={0}
+            textStyle="body"
             textDecoration="none"
             _active={{ borderColor: "transparent", boxShadow: "none", color: "text", outline: "none" }}
             _focus={{ borderColor: "transparent", boxShadow: "none", outline: "none" }}
@@ -74,7 +74,7 @@ export function LayoutShell({ children }: PropsWithChildren) {
             <NextLink href="/">
               <Stack gap="0" maxW="100%">
                 <Text lineHeight="1.15">Macro Valuation Desk</Text>
-                <Text color="muted" fontSize={{ base: "10px", md: "xs" }} fontWeight="400">
+                <Text color="muted" fontWeight="400" textStyle="caption">
                   Macro analysis, equity valuation, and data pipeline work
                 </Text>
               </Stack>

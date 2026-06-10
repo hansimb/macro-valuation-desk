@@ -53,10 +53,10 @@ function InflationMeasureSwitch({
         width="calc(50% - 0.25rem)"
       />
       <HStack justify="space-between" position="relative" px="2" w="100%">
-        <Text color={isCore ? "muted" : "text"} flex="1" fontSize="sm" fontWeight={isCore ? "medium" : "semibold"} textAlign="center">
+        <Text color={isCore ? "muted" : "text"} flex="1" fontWeight={isCore ? "medium" : "semibold"} textAlign="center" textStyle="body">
           Headline CPI
         </Text>
-        <Text color={isCore ? "text" : "muted"} flex="1" fontSize="sm" fontWeight={isCore ? "semibold" : "medium"} textAlign="center">
+        <Text color={isCore ? "text" : "muted"} flex="1" fontWeight={isCore ? "semibold" : "medium"} textAlign="center" textStyle="body">
           Core CPI
         </Text>
       </HStack>
@@ -83,12 +83,12 @@ export function TaylorAssumptionsPanels({
         return (
           <Box key={`${region.region}-assumptions`} bg="surface" borderColor="edge" borderWidth="1px" p={{ base: "6", md: "7" }} rounded="panel">
             <Stack gap="4">
-              <Heading as="h3" fontSize={{ base: "xl", md: "2xl" }}>
+              <Heading as="h3" textStyle="subheading">
                 {regionReferenceHeading(region.region)} assumptions
               </Heading>
               <Stack gap="4">
                 <Stack gap="2">
-                  <Text color="muted" fontSize="sm">
+                  <Text color="muted" textStyle="body">
                     Inflation input
                   </Text>
                   <InflationMeasureSwitch
@@ -98,14 +98,14 @@ export function TaylorAssumptionsPanels({
                   />
                 </Stack>
                 <Stack gap="2">
-                  <Text color="muted" fontSize="sm">
+                  <Text color="muted" textStyle="body">
                     Neutral rate
                   </Text>
                   <HStack justify="space-between">
                     <Button aria-label={`Decrease ${regionReferenceHeading(region.region)} neutral rate`} bg="transparent" borderColor="edge" borderWidth="1px" onClick={() => onAdjust(region.region, "neutralRate", -0.25)}>
                       Decrease
                     </Button>
-                    <Text fontSize="lg" fontWeight="semibold" minW="4.5rem" textAlign="center">
+                    <Text fontWeight="semibold" minW="4.5rem" textAlign="center" textStyle="subheading">
                       {assumptions.neutralRate}
                     </Text>
                     <Button aria-label={`Increase ${regionReferenceHeading(region.region)} neutral rate`} bg="transparent" borderColor="edge" borderWidth="1px" onClick={() => onAdjust(region.region, "neutralRate", 0.25)}>
@@ -114,14 +114,14 @@ export function TaylorAssumptionsPanels({
                   </HStack>
                 </Stack>
                 <Stack gap="2">
-                  <Text color="muted" fontSize="sm">
+                  <Text color="muted" textStyle="body">
                     Slack proxy
                   </Text>
                   <HStack justify="space-between">
                     <Button aria-label={`Decrease ${regionReferenceHeading(region.region)} slack proxy`} bg="transparent" borderColor="edge" borderWidth="1px" onClick={() => onAdjust(region.region, "slackProxy", -0.25)}>
                       Decrease
                     </Button>
-                    <Text fontSize="lg" fontWeight="semibold" minW="4.5rem" textAlign="center">
+                    <Text fontWeight="semibold" minW="4.5rem" textAlign="center" textStyle="subheading">
                       {assumptions.slackProxy}
                     </Text>
                     <Button aria-label={`Increase ${regionReferenceHeading(region.region)} slack proxy`} bg="transparent" borderColor="edge" borderWidth="1px" onClick={() => onAdjust(region.region, "slackProxy", 0.25)}>

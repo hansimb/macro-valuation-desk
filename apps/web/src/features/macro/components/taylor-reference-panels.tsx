@@ -22,13 +22,13 @@ function ReferenceMetric({
 }) {
   return (
     <Stack gap="1">
-      <Text color="muted" fontSize="xs" letterSpacing="0.08em" textTransform="uppercase">
+      <Text color="muted" textStyle="eyebrow">
         {label}
       </Text>
-      <Text fontSize="lg" fontWeight="semibold" lineHeight="1.1">
+      <Text fontWeight="semibold" textStyle="subheading">
         {value}
       </Text>
-      <Text color="muted" fontSize="xs" lineHeight="1.3">
+      <Text color="muted" textStyle="caption">
         {meta}
       </Text>
     </Stack>
@@ -92,7 +92,7 @@ export function TaylorReferencePanels({
             rounded="panel"
           >
             <Stack gap="4">
-              <Heading as="h3" fontSize={{ base: "xl", md: "2xl" }}>
+              <Heading as="h3" textStyle="subheading">
                 {regionReferenceHeading(region.region)}
               </Heading>
               <SimpleGrid columns={2} gap={{ base: "4", md: "5" }}>

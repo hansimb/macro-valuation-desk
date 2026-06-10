@@ -103,10 +103,10 @@ function HistoricalSpotTooltip({
       px="3"
       py="2.5"
     >
-      <Text color="white" fontSize="xs" fontWeight="semibold">
+      <Text color="white" fontWeight="semibold" textStyle="caption">
         {point.observationMonth}
       </Text>
-      <Text color="gray.300" fontSize="xs" mt="1">
+      <Text color="gray.300" mt="1" textStyle="caption">
         Spot {formatSpotValue(point.spotValue)}
       </Text>
     </Box>
@@ -185,13 +185,11 @@ export function CurrencyPppHistoricalSpotContextBlock({
           <Stack gap="2">
             <Text
               color="accent"
-              fontSize="xs"
-              letterSpacing="0.16em"
-              textTransform="uppercase"
+              textStyle="eyebrow"
             >
               Historical Spot Context
             </Text>
-            <Text color="muted" fontSize="sm">
+            <Text color="muted" textStyle="body">
               Observed EUR/USD spot history with the selected long-run anchor
               spot shown as a reference line.
               {spotRef ? <AnalysisCitationLinks refs={[spotRef]} /> : null}
@@ -214,10 +212,10 @@ export function CurrencyPppHistoricalSpotContextBlock({
         </HStack>
 
         <HStack align="start" justify="space-between" gap="4" wrap="wrap">
-          <Text color="muted" fontSize="xs">
+          <Text color="muted" textStyle="caption">
             X-axis: yearly marks. Y-axis: observed EUR/USD spot.
           </Text>
-          <Text color="muted" fontSize="xs">
+          <Text color="muted" textStyle="caption">
             Hover the line to inspect month and spot.
           </Text>
         </HStack>
@@ -325,8 +323,8 @@ export function CurrencyPppHistoricalSpotContextBlock({
           align="start"
           color="muted"
           flexWrap="wrap"
-          fontSize="xs"
           gap="5"
+          textStyle="caption"
         >
           <Text>Observed line: selected spot history.</Text>
           <Text>Dashed line: selected {anchorLabel} spot reference.</Text>

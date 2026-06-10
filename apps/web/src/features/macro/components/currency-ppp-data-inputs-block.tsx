@@ -45,12 +45,12 @@ export function CurrencyPppDataInputsBlock({
   return (
     <Box bg="surface" borderColor="edge" borderWidth="1px" p={{ base: "6", md: "7" }} rounded="panel">
       <Stack gap="4">
-        <Text color="accent" fontSize="xs" letterSpacing="0.16em" textTransform="uppercase">
+        <Text color="accent" textStyle="eyebrow">
           Model Inputs And Anchor Method
         </Text>
         <Stack gap="5">
           <Stack gap="2">
-            <Text color="muted" fontSize="sm">
+            <Text color="muted" textStyle="body">
               Anchor statistic
             </Text>
             <Grid gap="2" templateColumns={{ base: "repeat(2, minmax(0, 1fr))", md: "repeat(2, minmax(0, 12rem))" }}>
@@ -73,13 +73,13 @@ export function CurrencyPppDataInputsBlock({
                 );
               })}
             </Grid>
-            <Text color="muted" fontSize="xs">
+            <Text color="muted" textStyle="caption">
               This setting controls whether the long-run anchor uses the arithmetic average or the median of the selected anchor sample.
             </Text>
           </Stack>
 
           <Stack gap="2">
-            <Text color="muted" fontSize="sm">
+            <Text color="muted" textStyle="body">
               Long-term anchor window
             </Text>
             <Grid gap="2" templateColumns={{ base: "repeat(2, minmax(0, 1fr))", md: "repeat(5, minmax(0, 1fr))" }}>
@@ -110,10 +110,10 @@ export function CurrencyPppDataInputsBlock({
                 );
               })}
             </Grid>
-            <Text color="muted" fontSize="xs">
+            <Text color="muted" textStyle="caption">
               Each button builds a new PPP long-run anchor from the latest 3, 5, 10, or 20 years of monthly data, or the full maximum overlapping history, under the selected average or median rule.
             </Text>
-            <Text color="muted" fontSize="xs">
+            <Text color="muted" textStyle="caption">
               Available windows:{" "}
               {orderedWindowOptions.map((option) =>
                 option.code === "MAX" ? `MAX (${option.yearsCovered}Y covered)` : `${option.code} (${option.yearsCovered}Y covered)`,
@@ -123,7 +123,7 @@ export function CurrencyPppDataInputsBlock({
 
           <SimpleGrid columns={{ base: 1, md: 2 }} gap="5">
             <Stack gap="2">
-              <Text color="muted" fontSize="sm">
+              <Text color="muted" textStyle="body">
                 Single-year anchor
               </Text>
               <Box position="relative">
@@ -141,7 +141,7 @@ export function CurrencyPppDataInputsBlock({
                     border: "1px solid #7e91a8",
                     borderRadius: "0.875rem",
                     color: "#d9e8ff",
-                    fontSize: "1rem",
+                    fontSize: "var(--chakra-font-sizes-body)",
                     lineHeight: "1.2",
                     minHeight: "3rem",
                     paddingInlineEnd: "3rem",
@@ -160,27 +160,27 @@ export function CurrencyPppDataInputsBlock({
                   v
                 </Box>
               </Box>
-            <Text color="muted" fontSize="xs">
+            <Text color="muted" textStyle="caption">
               This is the alternative one-year anchor mode. It uses the selected year&apos;s own monthly sample under the same average or median rule.
             </Text>
             </Stack>
 
             <Stack gap="2">
-              <Text color="muted" fontSize="sm">
+              <Text color="muted" textStyle="body">
                 Selection logic
               </Text>
-              <Text>{selectionLogicLabel}</Text>
-              <Text color="muted" fontSize="sm">
+              <Text textStyle="body">{selectionLogicLabel}</Text>
+              <Text color="muted" textStyle="body">
                 {availableBaseYears.length} available single-year anchors and {availableWindowOptions.length} available long-run windows in the dataset.
               </Text>
             </Stack>
           </SimpleGrid>
 
           <Stack borderColor="edge" borderTopWidth="1px" gap="2" pt="4">
-            <Text color="muted" fontSize="xs" letterSpacing="0.08em" textTransform="uppercase">
+            <Text color="muted" textStyle="eyebrow">
               Source And Calculation Chain
             </Text>
-            <Text color="muted" fontSize="xs">
+            <Text color="muted" textStyle="caption">
               Anchor spot source:
               {anchorSource ? (
                 <>
@@ -200,7 +200,7 @@ export function CurrencyPppDataInputsBlock({
               </Box>
               )
             </Text>
-            <Text color="muted" fontSize="xs">
+            <Text color="muted" textStyle="caption">
               PPP inflation inputs:
               {pppInflationSources[0] ? (
                 <>
@@ -247,7 +247,7 @@ export function CurrencyPppDataInputsBlock({
                 </>
               ) : null}
             </Text>
-            <Text color="muted" fontSize="xs">
+            <Text color="muted" textStyle="caption">
               Window anchors calculate one current fair value per eligible base month and then aggregate those completed outputs into the active result (
               <Box as="span" fontStyle="italic">
                 PPP

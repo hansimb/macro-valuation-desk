@@ -160,9 +160,7 @@ export function CurrencyPppFormulaBlock() {
       <Stack gap="4">
         <Text
           color="accent"
-          fontSize="xs"
-          letterSpacing="0.16em"
-          textTransform="uppercase"
+          textStyle="eyebrow"
         >
           Formula
         </Text>
@@ -178,10 +176,8 @@ export function CurrencyPppFormulaBlock() {
             PPP_t = S_0 * (P_h_t / P_h_0) / (P_f_t / P_f_0)
           </VisuallyHidden>
           <Text
-            fontFamily="heading"
-            fontSize={{ base: "xl", md: "2xl" }}
-            lineHeight="1.4"
             textAlign={{ base: "left", md: "center" }}
+            textStyle="formula"
             whiteSpace="nowrap"
           >
             <MathToken symbol="PPP_t" /> = <MathToken symbol="S_0" /> * (
@@ -198,21 +194,19 @@ export function CurrencyPppFormulaBlock() {
         <Stack borderColor="edge" borderTopWidth="1px" gap="2" pt="4">
           <Text
             color="accent"
-            fontSize="xs"
-            letterSpacing="0.16em"
-            textTransform="uppercase"
+            textStyle="eyebrow"
           >
             Methodology
           </Text>
-          <Text color="muted" fontSize="sm">
+          <Text color="muted" textStyle="body">
             1. For each eligible base month in the selected anchor sample, the
             model uses that month&apos;s own observed spot and CPI base values.
           </Text>
-          <Text color="muted" fontSize="sm">
+          <Text color="muted" textStyle="body">
             2. It calculates one current PPP-implied fair value from each of
             those base months using the relative-PPP formula above.
           </Text>
-          <Text color="muted" fontSize="sm">
+          <Text color="muted" textStyle="body">
             3. It aggregates those completed current fair values with the
             selected `average` or `median` rule, and then compares the latest
             observed spot with that aggregated fair value.

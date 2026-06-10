@@ -24,10 +24,10 @@ export function AnalysisFormulaTerms({
     >
       {items.map((item, index) => (
         <React.Fragment key={index}>
-          <Text color="text" fontFamily="heading" fontSize="sm" whiteSpace="nowrap">
+          <Text color="text" fontFamily="heading" textStyle="body" whiteSpace="nowrap">
             {item.symbol}
           </Text>
-          <Text color="muted" fontSize="sm">
+          <Text color="muted" textStyle="body">
             {item.meaning}
           </Text>
         </React.Fragment>

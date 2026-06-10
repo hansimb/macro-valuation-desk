@@ -61,16 +61,16 @@ export default async function CurrencyAnalysisPage({
     <Stack gap={{ base: "8", md: "10" }}>
       <Stack gap="4" maxW="4xl">
         <BackLink href="/macro" label="Back to Macro" />
-        <Text color="accent" fontSize="xs" letterSpacing="0.16em" textTransform="uppercase">
+        <Text color="accent" textStyle="eyebrow">
           Macro FX
         </Text>
-        <Heading as="h1" fontSize={{ base: "4xl", md: "5xl" }} lineHeight="0.98">
+        <Heading as="h1" textStyle="hero">
           Currency Analysis
         </Heading>
-        <Text color="muted" fontSize={{ base: "lg", md: "xl" }} maxW="3xl">
+        <Text color="muted" maxW="3xl" textStyle="subtitle">
           Open-methodology EUR/USD analysis through relative purchasing power parity.
         </Text>
-        <Text color="muted" fontSize="sm">
+        <Text color="muted" textStyle="caption">
           As of {data.asOf ?? "latest available update"}
         </Text>
       </Stack>
@@ -78,8 +78,8 @@ export default async function CurrencyAnalysisPage({
       {unavailable ? (
         <Box bg="surface" borderColor="edge" borderWidth="1px" p={{ base: "5", md: "6" }} rounded="panel">
           <Stack gap="2">
-            <Text fontWeight="semibold">Live currency analysis data is unavailable right now.</Text>
-            <Text color="muted">
+            <Text fontWeight="semibold" textStyle="body">Live currency analysis data is unavailable right now.</Text>
+            <Text color="muted" textStyle="body">
               Start the API and run the currency analysis pipeline to populate current values.
             </Text>
           </Stack>

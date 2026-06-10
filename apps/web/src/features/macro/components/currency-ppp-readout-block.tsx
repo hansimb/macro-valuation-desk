@@ -42,10 +42,10 @@ export function CurrencyPppReadoutBlock({
   return (
     <Box bg="surface" borderColor="edge" borderWidth="1px" p={{ base: "6", md: "7" }} rounded="panel">
       <Stack gap="4">
-        <Text color="accent" fontSize="xs" letterSpacing="0.16em" textTransform="uppercase">
+        <Text color="accent" textStyle="eyebrow">
           Current PPP Valuation Readout
         </Text>
-        <Text color="muted" fontSize="sm">
+        <Text color="muted" textStyle="body">
           These values are computed from the selected long-run anchor and the latest month where spot and both CPI series overlap.
         </Text>
         <Grid gap="4" templateColumns={{ base: "1fr", md: "repeat(2, minmax(0, 1fr))", xl: "repeat(5, minmax(0, 1fr))" }}>
@@ -132,16 +132,16 @@ export function CurrencyPppReadoutBlock({
             value={trailing12mAverageGapPct ? `${trailing12mAverageGapPct}%` : "N/A"}
           />
         </Grid>
-        <Text color="muted" fontSize="sm">
+        <Text color="muted" textStyle="body">
           Active anchor sample: {anchorStartMonth} to {anchorEndMonth}
           {anchorYearsCovered ? ` (${anchorYearsCovered} years covered)` : ""}.
         </Text>
         {interpretation ? (
           <Stack borderColor="edge" borderTopWidth="1px" gap="2" pt="4">
-            <Text color="accent" fontSize="xs" letterSpacing="0.16em" textTransform="uppercase">
+            <Text color="accent" textStyle="eyebrow">
               Analysis Takeaway
             </Text>
-            <Text color="muted">{interpretation}</Text>
+            <Text color="muted" textStyle="body">{interpretation}</Text>
           </Stack>
         ) : null}
       </Stack>

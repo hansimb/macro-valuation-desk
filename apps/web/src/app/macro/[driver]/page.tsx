@@ -24,24 +24,24 @@ export default async function MacroDriverPage({
     <Stack gap={{ base: "8", md: "10" }}>
       <Stack gap="4" maxW="4xl">
         <BackLink href="/macro" label="Back to Macro" />
-        <Text color="accent" fontSize="xs" letterSpacing="0.16em" textTransform="uppercase">
+        <Text color="accent" textStyle="eyebrow">
           {current.eyebrow}
         </Text>
-        <Heading as="h1" fontSize={{ base: "4xl", md: "5xl" }} lineHeight="0.98">
+        <Heading as="h1" textStyle="hero">
           {current.title}
         </Heading>
-        <Text color="muted" fontSize={{ base: "lg", md: "xl" }} maxW="3xl">
+        <Text color="muted" maxW="3xl" textStyle="subtitle">
           {current.summary}
         </Text>
       </Stack>
 
       <Box bg="surface" borderColor="edge" borderWidth="1px" p={{ base: "6", md: "7" }} rounded="panel">
         <Stack gap="3">
-          <Text color="accent" fontSize="xs" letterSpacing="0.16em" textTransform="uppercase">
+          <Text color="accent" textStyle="eyebrow">
             Current read
           </Text>
-          <Text color="muted">{current.cue}</Text>
-          <Text color="muted">
+          <Text color="muted" textStyle="body">{current.cue}</Text>
+          <Text color="muted" textStyle="body">
             This page is reserved for the deeper charts, interpretation, and methodology behind this
             macro driver.
           </Text>

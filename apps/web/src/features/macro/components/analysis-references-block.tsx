@@ -22,7 +22,7 @@ export function AnalysisReferencesBlock({
   return (
     <Box bg="surface" borderColor="edge" borderWidth="1px" p={{ base: "6", md: "7" }} rounded="panel">
       <Stack gap="4">
-        <Text color="accent" fontSize="xs" letterSpacing="0.16em" textTransform="uppercase">
+        <Text color="accent" textStyle="eyebrow">
           References
         </Text>
         {items.map((item) => (
@@ -35,7 +35,7 @@ export function AnalysisReferencesBlock({
               <Text>{item.text}</Text>
             )}
             {item.note ? (
-              <Text color="muted" fontSize="sm">
+              <Text color="muted" textStyle="caption">
                 {item.note}
               </Text>
             ) : null}

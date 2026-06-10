@@ -66,15 +66,13 @@ export function TaylorFormulaBlock() {
   return (
     <Box bg="surface" borderColor="edge" borderWidth="1px" p={{ base: "6", md: "7" }} rounded="panel">
       <Stack gap="4">
-        <Text color="accent" fontSize="xs" letterSpacing="0.16em" textTransform="uppercase">
+        <Text color="accent" textStyle="eyebrow">
           Formula
         </Text>
         <Box bg="canvas" borderColor="edge" borderWidth="1px" overflowX="auto" p={{ base: "5", md: "6" }} rounded="panel">
           <Text
-            fontFamily="heading"
-            fontSize={{ base: "2xl", md: "3xl" }}
-            lineHeight="1.3"
             textAlign={{ base: "left", md: "center" }}
+            textStyle="formula"
             whiteSpace="nowrap"
           >
             <MathSymbol symbol="i_t" /> = <MathSymbol symbol="pi_t" /> + <MathSymbol symbol="r_t_star" /> + 0.5(
@@ -87,7 +85,7 @@ export function TaylorFormulaBlock() {
             meaning: item.meaning,
           }))}
         />
-        <Text color="muted">
+        <Text color="muted" textStyle="body">
           Policy rate and inflation come from source data. In this view, the assumptions are adjusted separately for the euro area and the United States.
         </Text>
       </Stack>

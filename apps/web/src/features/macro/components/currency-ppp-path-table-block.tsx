@@ -25,10 +25,10 @@ export function CurrencyPppPathTableBlock({
   return (
     <Box bg="surface" borderColor="edge" borderWidth="1px" p={{ base: "6", md: "7" }} rounded="panel">
       <Stack gap="4">
-        <Text color="accent" fontSize="xs" letterSpacing="0.16em" textTransform="uppercase">
+        <Text color="accent" textStyle="eyebrow">
           Selected PPP Path
         </Text>
-        <Text color="muted" fontSize="sm">
+        <Text color="muted" textStyle="body">
           Each row compares the observed EUR/USD spot with the PPP-implied level generated from the selected anchor rule.
         </Text>
         <Table.Root size="sm" variant="outline">
@@ -57,7 +57,7 @@ export function CurrencyPppPathTableBlock({
             ))}
           </Table.Body>
         </Table.Root>
-        <Text color="muted" fontSize="xs">
+        <Text color="muted" textStyle="caption">
           Rows marked with * use at least one filled observation based on a +/- 6 month median assumption.
         </Text>
       </Stack>

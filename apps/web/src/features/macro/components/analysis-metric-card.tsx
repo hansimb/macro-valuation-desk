@@ -17,10 +17,9 @@ export function AnalysisMetricCard({
       <Stack align="stretch" gap="3" h="100%">
         <Text
           color="muted"
-          fontSize="xs"
           letterSpacing="0.08em"
           h="2.5rem"
-          textTransform="uppercase"
+          textStyle="eyebrow"
         >
           {label}
         </Text>
@@ -30,10 +29,9 @@ export function AnalysisMetricCard({
           display="flex"
           alignItems="center"
           justifyContent="center"
-          fontSize={{ base: "xl", md: "1.75rem" }}
           fontWeight="semibold"
-          lineHeight="1"
           textAlign="center"
+          textStyle="metric"
         >
           {value}
         </Text>
@@ -43,7 +41,7 @@ export function AnalysisMetricCard({
           alignItems="flex-start"
           justifyContent="center"
         >
-          <Text color="muted" fontSize="xs" lineHeight="1.35" textAlign="center">
+          <Text color="muted" textAlign="center" textStyle="caption">
             {note ?? ""}
           </Text>
         </Box>

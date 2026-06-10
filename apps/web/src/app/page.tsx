@@ -26,25 +26,23 @@ export default function HomePage() {
           borderWidth="1px"
           borderColor="accent"
           color="accent"
-          fontSize="xs"
-          letterSpacing="0.16em"
+          textStyle="eyebrow"
           px="3"
           py="1"
-          textTransform="uppercase"
         >
           Market valuation analysis
         </Text>
-        <Heading as="h1" fontSize={{ base: "4xl", md: "6xl" }} lineHeight="0.98" maxW="5xl">
+        <Heading as="h1" maxW="5xl" textStyle="hero">
           Insights from macroeconomics and equity market valuations
         </Heading>
-        <Text color="muted" fontSize={{ base: "lg", md: "xl" }} lineHeight="1.5" maxW="3xl">
+        <Text color="muted" maxW="3xl" textStyle="subtitle">
           Philosophy: analysis guided by the Pareto principle, focusing on the most important
           factors, supported by economic reasoning, statistical thinking, and real data.
         </Text>
       </Stack>
 
       <Stack gap="5">
-        <Text color="muted" fontSize="xs" letterSpacing="0.16em" textTransform="uppercase">
+        <Text color="muted" textStyle="eyebrow">
           Featured analysis
         </Text>
         <Stack
@@ -57,17 +55,17 @@ export default function HomePage() {
           p={{ base: "6", md: "7" }}
           rounded="panel"
         >
-          <Heading as="h2" fontSize={{ base: "2xl", md: "3xl" }} lineHeight="1.05">
+          <Heading as="h2" textStyle="title">
             No featured analysis yet.
           </Heading>
-          <Text color="muted" maxW="2xl">
+          <Text color="muted" maxW="2xl" textStyle="body">
             Published analyses will appear here once the first macro or market work is ready to be highlighted on the front page.
           </Text>
         </Stack>
       </Stack>
 
       <Stack gap="5">
-        <Text color="muted" fontSize="xs" letterSpacing="0.16em" textTransform="uppercase">
+        <Text color="muted" textStyle="eyebrow">
           Sections
         </Text>
         <SimpleGrid columns={{ base: 1, xl: 2 }} gap="6">
@@ -97,14 +95,14 @@ export default function HomePage() {
                   }}
                 >
                   <Stack gap="4">
-                    <Text color="accent" fontSize="xs" letterSpacing="0.16em" textTransform="uppercase">
+                    <Text color="accent" textStyle="eyebrow">
                       {entry.label}
                     </Text>
-                    <Heading as="h2" fontSize={{ base: "2xl", md: "3xl" }} lineHeight="1.05">
+                    <Heading as="h2" textStyle="title">
                       {entry.title}
                     </Heading>
                     {entry.description ? (
-                      <Text color="muted" maxW="2xl">
+                      <Text color="muted" maxW="2xl" textStyle="body">
                         {entry.description}
                       </Text>
                     ) : null}
