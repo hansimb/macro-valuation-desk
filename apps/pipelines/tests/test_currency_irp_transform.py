@@ -220,3 +220,86 @@ def test_build_currency_irp_outputs_omits_tenor_rows_when_required_inputs_are_mi
             "as_of_date": None,
         },
     ]
+
+
+def test_build_currency_irp_outputs_includes_observed_forward_when_staged_forward_exists():
+    staging_rows = [
+        {
+            "series_id": "eurusd_spot_daily",
+            "observation_date": "2026-05-30",
+            "numeric_value": 1.14,
+            "category": "fx_spot",
+            "region": "FX",
+            "frequency": "daily",
+            "unit": "usd_per_eur",
+            "provider": "ecb",
+            "source_url": "https://data.ecb.europa.eu/data/datasets/EXR/EXR.D.USD.EUR.SP00.A",
+            "is_valid": True,
+        },
+        {
+            "series_id": "eur_3m_rate",
+            "observation_date": "2026-05-30",
+            "numeric_value": 2.0,
+            "category": "market_rate",
+            "region": "EU",
+            "frequency": "daily",
+            "unit": "percent",
+            "provider": "ecb",
+            "source_url": "https://data.ecb.europa.eu/data/datasets/EST/EST.B.EU000A2QQF32.CR",
+            "is_valid": True,
+        },
+        {
+            "series_id": "usd_3m_rate",
+            "observation_date": "2026-05-30",
+            "numeric_value": 4.0,
+            "category": "market_rate",
+            "region": "US",
+            "frequency": "daily",
+            "unit": "percent",
+            "provider": "fred",
+            "source_url": "https://fred.stlouisfed.org/series/DTB3",
+            "is_valid": True,
+        },
+        {
+            "series_id": "eurusd_forward_3m",
+            "observation_date": "2026-05-30",
+            "numeric_value": 1.1330,
+            "category": "fx_forward",
+            "region": "FX",
+            "frequency": "daily",
+            "unit": "usd_per_eur",
+            "provider": "verified-provider",
+            "source_url": "https://example.com/verified-forward-source",
+            "is_valid": True,
+        },
+    ]
+
+    outputs = build_currency_irp_outputs(staging_rows)
+
+    assert outputs["snapshot_rows"] == [
+        {
+            "pair_key": "eurusd",
+            "as_of_date": "2026-05-30",
+            "tenor": "3M",
+            "spot": 1.14,
+            "eur_rate": 2.0,
+            "usd_rate": 4.0,
+            "rate_spread": -2.0,
+            "cip_implied_forward": 1.1344,
+            "observed_forward": 1.133,
+            "cip_basis_bps": -11.9,
+            "uip_implied_move_pct": -0.5,
+            "uip_implied_spot": 1.1343,
+            "spot_series_key": "eurusd_spot_daily",
+            "spot_source_url": "https://data.ecb.europa.eu/data/datasets/EXR/EXR.D.USD.EUR.SP00.A",
+            "eur_rate_series_key": "eur_3m_rate",
+            "eur_rate_source_url": "https://data.ecb.europa.eu/data/datasets/EST/EST.B.EU000A2QQF32.CR",
+            "usd_rate_series_key": "usd_3m_rate",
+            "usd_rate_source_url": "https://fred.stlouisfed.org/series/DTB3",
+            "forward_series_key": "eurusd_forward_3m",
+            "forward_source_url": "https://example.com/verified-forward-source",
+            "has_observed_forward": True,
+        }
+    ]
+    assert outputs["availability_rows"][0]["status"] == "available"
+    assert outputs["availability_rows"][0]["detail"] == "Observed forward comparison available."
