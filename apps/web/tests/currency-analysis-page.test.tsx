@@ -181,6 +181,8 @@ describe("Currency Analysis page", () => {
     expect(screen.getAllByText(/\[1\] European Central Bank, Data Portal, "EUR\/USD spot"\. \[Online\]\. Available:/).length).toBeGreaterThan(0);
     expect(screen.getByRole("heading", { name: /2.0 Interest Rate Parity/i })).toBeInTheDocument();
     expect(screen.getByText(/Covered interest parity links spot, tenor-matched interest rates, and forwards/i)).toBeInTheDocument();
+    expect(screen.getByText("CIP exact")).toBeInTheDocument();
+    expect(screen.getByText("Carry approximation")).toBeInTheDocument();
     expect(screen.getByText(/F = S x \(\(1 \+ r_EUR x T\) \/ \(1 \+ r_USD x T\)\)/i)).toBeInTheDocument();
     expect(screen.getByText(/CIP-implied forward/i)).toBeInTheDocument();
     expect(screen.getAllByText("3M").length).toBeGreaterThan(0);
@@ -235,7 +237,15 @@ describe("Currency Analysis page", () => {
             uip: {
               rows: [],
             },
-            references: [],
+            references: [
+              { label: "EUR/USD spot", url: "https://data.ecb.europa.eu/data/datasets/EXR/EXR.D.USD.EUR.SP00.A" },
+              { label: "EUR 3M rate", url: "https://data.ecb.europa.eu/data/datasets/EST/EST.B.EU000A2QQF32.CR" },
+              { label: "EUR 6M rate", url: "https://data.ecb.europa.eu/data/datasets/EST/EST.B.EU000A2QQF40.CR" },
+              { label: "EUR 12M rate", url: "https://data.ecb.europa.eu/data/datasets/EST/EST.B.EU000A2QQF57.CR" },
+              { label: "USD 3M rate", url: "https://fred.stlouisfed.org/series/DTB3" },
+              { label: "USD 6M rate", url: "https://fred.stlouisfed.org/series/DTB6" },
+              { label: "USD 12M rate", url: "https://fred.stlouisfed.org/series/DTB1YR" },
+            ],
           },
           availability: [
             ...payload.availability,
@@ -270,9 +280,26 @@ describe("Currency Analysis page", () => {
     render(<ThemeProvider>{page}</ThemeProvider>);
 
     expect(screen.getByRole("heading", { name: /2.0 Interest Rate Parity/i })).toBeInTheDocument();
+    expect(screen.getByText("CIP exact")).toBeInTheDocument();
+    expect(screen.getByText("Carry approximation")).toBeInTheDocument();
     expect(screen.getByText(/IRP tenor outputs are unavailable/i)).toBeInTheDocument();
     expect(screen.getByText(/3M, 6M, 12M/i)).toBeInTheDocument();
     expect(screen.getByText(/Required spot or tenor rate inputs are unavailable/i)).toBeInTheDocument();
+    expect(screen.getByText(/EUR rates use compounded euro short-term average rate tenor proxies/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/EUR 3M rate/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/USD 12M rate/i).length).toBeGreaterThan(0);
+    expect(
+      screen
+        .getAllByRole("link", { name: /\[2\]/i })
+        .some((link) => link.getAttribute("href") === "https://data.ecb.europa.eu/data/datasets/EST/EST.B.EU000A2QQF32.CR"),
+    ).toBe(true);
+    expect(
+      screen
+        .getAllByRole("link", { name: /\[7\]/i })
+        .some((link) => link.getAttribute("href") === "https://fred.stlouisfed.org/series/DTB1YR"),
+    ).toBe(true);
+    expect(screen.getByRole("link", { name: /\[2\] European Central Bank, Data Portal, "EUR 3M rate"/i })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /\[7\] Federal Reserve Bank of St\. Louis, FRED, "USD 12M rate"/i })).toBeInTheDocument();
     expect(screen.queryByText("Live currency analysis data is unavailable right now.")).not.toBeInTheDocument();
   });
 

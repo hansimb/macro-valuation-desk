@@ -291,6 +291,51 @@ describe("currency analysis route", () => {
     });
   });
 
+  it("returns IRP proxy source references when availability exists but IRP rows are unavailable", async () => {
+    queryMock
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            section_key: "irp",
+            item_key: "3M",
+            status: "unavailable",
+            detail: "Required spot or tenor rate inputs are unavailable.",
+            as_of_date: null,
+          },
+          {
+            section_key: "irp",
+            item_key: "6M",
+            status: "unavailable",
+            detail: "Required spot or tenor rate inputs are unavailable.",
+            as_of_date: null,
+          },
+          {
+            section_key: "irp",
+            item_key: "12M",
+            status: "unavailable",
+            detail: "Required spot or tenor rate inputs are unavailable.",
+            as_of_date: null,
+          },
+        ],
+      });
+
+    const response = await app.inject({ method: "GET", url: "/macro/currency-analysis" });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json().irp.references).toEqual([
+      { label: "EUR/USD spot", url: "https://data.ecb.europa.eu/data/datasets/EXR/EXR.D.USD.EUR.SP00.A" },
+      { label: "EUR 3M rate", url: "https://data.ecb.europa.eu/data/datasets/EST/EST.B.EU000A2QQF32.CR" },
+      { label: "EUR 6M rate", url: "https://data.ecb.europa.eu/data/datasets/EST/EST.B.EU000A2QQF40.CR" },
+      { label: "EUR 12M rate", url: "https://data.ecb.europa.eu/data/datasets/EST/EST.B.EU000A2QQF57.CR" },
+      { label: "USD 3M rate", url: "https://fred.stlouisfed.org/series/DTB3" },
+      { label: "USD 6M rate", url: "https://fred.stlouisfed.org/series/DTB6" },
+      { label: "USD 12M rate", url: "https://fred.stlouisfed.org/series/DTB1YR" },
+    ]);
+  });
+
   it("returns IRP rows and UIP rows in matching tenor order", async () => {
     queryMock
       .mockResolvedValueOnce({ rows: [] })

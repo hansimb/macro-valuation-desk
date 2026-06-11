@@ -78,6 +78,16 @@ interface AvailabilityRow {
 
 const WINDOW_CODE_ORDER: CurrencyAnalysisPppWindowCode[] = ["3Y", "5Y", "10Y", "20Y", "MAX"];
 
+const IRP_PROXY_REFERENCES: CurrencyAnalysisReferenceItem[] = [
+  { label: "EUR/USD spot", url: "https://data.ecb.europa.eu/data/datasets/EXR/EXR.D.USD.EUR.SP00.A" },
+  { label: "EUR 3M rate", url: "https://data.ecb.europa.eu/data/datasets/EST/EST.B.EU000A2QQF32.CR" },
+  { label: "EUR 6M rate", url: "https://data.ecb.europa.eu/data/datasets/EST/EST.B.EU000A2QQF40.CR" },
+  { label: "EUR 12M rate", url: "https://data.ecb.europa.eu/data/datasets/EST/EST.B.EU000A2QQF57.CR" },
+  { label: "USD 3M rate", url: "https://fred.stlouisfed.org/series/DTB3" },
+  { label: "USD 6M rate", url: "https://fred.stlouisfed.org/series/DTB6" },
+  { label: "USD 12M rate", url: "https://fred.stlouisfed.org/series/DTB1YR" },
+];
+
 function uniqueReferences(references: CurrencyAnalysisReferenceItem[]) {
   return references.filter(
     (reference, index, collection) =>
@@ -354,8 +364,8 @@ export async function registerCurrencyAnalysisRoute(app: FastifyInstance) {
       asOfDate: row.as_of_date,
     }));
 
-    const irpReferences = uniqueReferences(
-      irpSnapshotsResult.rows.flatMap((row) => {
+    const irpReferencesFromRows = uniqueReferences(
+      sortedIrpRows.flatMap((row) => {
         const items: CurrencyAnalysisReferenceItem[] = [
           { label: "EUR/USD spot", url: row.spot_source_url },
           { label: `EUR ${row.tenor} rate`, url: row.eur_rate_source_url },
@@ -367,6 +377,9 @@ export async function registerCurrencyAnalysisRoute(app: FastifyInstance) {
         return items;
       }),
     );
+    const hasIrpAvailability = availability.some((item) => item.sectionKey === "irp");
+    const irpReferences =
+      irpReferencesFromRows.length > 0 ? irpReferencesFromRows : hasIrpAvailability ? IRP_PROXY_REFERENCES : [];
 
     return {
       asOf: irpSnapshotsResult.rows[0]?.as_of_date ?? pppSummary?.asOf ?? null,
