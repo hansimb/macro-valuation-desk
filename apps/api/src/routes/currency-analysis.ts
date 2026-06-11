@@ -331,20 +331,20 @@ export async function registerCurrencyAnalysisRoute(app: FastifyInstance) {
       order by section_key asc, item_key asc
     `);
 
-    const cipRows: CurrencyAnalysisIrpCipRow[] = [...irpSnapshotsResult.rows]
-      .sort((left, right) => tenorRank(left.tenor) - tenorRank(right.tenor))
-      .map((row) => ({
-        tenor: row.tenor,
-        asOf: row.as_of_date,
-        spot: row.spot,
-        eurRate: row.eur_rate,
-        usdRate: row.usd_rate,
-        rateSpread: row.rate_spread,
-        cipImpliedForward: row.cip_implied_forward,
-        ...(row.observed_forward ? { observedForward: row.observed_forward } : {}),
-        ...(row.cip_basis_bps ? { cipBasisBps: row.cip_basis_bps } : {}),
-        hasObservedForward: row.has_observed_forward,
-      }));
+    const sortedIrpRows = [...irpSnapshotsResult.rows].sort((left, right) => tenorRank(left.tenor) - tenorRank(right.tenor));
+
+    const cipRows: CurrencyAnalysisIrpCipRow[] = sortedIrpRows.map((row) => ({
+      tenor: row.tenor,
+      asOf: row.as_of_date,
+      spot: row.spot,
+      eurRate: row.eur_rate,
+      usdRate: row.usd_rate,
+      rateSpread: row.rate_spread,
+      cipImpliedForward: row.cip_implied_forward,
+      ...(row.observed_forward ? { observedForward: row.observed_forward } : {}),
+      ...(row.cip_basis_bps ? { cipBasisBps: row.cip_basis_bps } : {}),
+      hasObservedForward: row.has_observed_forward,
+    }));
 
     const availability: CurrencyAnalysisAvailabilityItem[] = availabilityResult.rows.map((row) => ({
       sectionKey: row.section_key,
@@ -385,10 +385,10 @@ export async function registerCurrencyAnalysisRoute(app: FastifyInstance) {
       irp: {
         cipRows,
         uip: {
-          rows: cipRows.map((row, index) => ({
+          rows: sortedIrpRows.map((row) => ({
             tenor: row.tenor,
-            impliedMovePct: irpSnapshotsResult.rows[index]?.uip_implied_move_pct ?? "",
-            impliedSpot: irpSnapshotsResult.rows[index]?.uip_implied_spot ?? "",
+            impliedMovePct: row.uip_implied_move_pct,
+            impliedSpot: row.uip_implied_spot,
           })),
         },
         references: irpReferences,
