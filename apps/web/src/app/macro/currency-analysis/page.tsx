@@ -42,7 +42,7 @@ async function getCurrencyAnalysisPageData(
     const data = (await response.json()) as CurrencyAnalysisPageData;
     return {
       data,
-      unavailable: data.ppp.summary === null,
+      unavailable: data.ppp.summary === null && data.irp.cipRows.length === 0 && data.irp.uip.rows.length === 0,
     };
   } catch {
     return { data: emptyCurrencyAnalysisPageData, unavailable: true };
@@ -68,7 +68,7 @@ export default async function CurrencyAnalysisPage({
           Currency Analysis
         </Heading>
         <Text color="muted" maxW="3xl" textStyle="subtitle">
-          Open-methodology EUR/USD analysis through relative purchasing power parity.
+          Open-methodology EUR/USD analysis through relative purchasing power parity and interest rate parity.
         </Text>
         <Text color="muted" textStyle="caption">
           As of {data.asOf ?? "latest available update"}

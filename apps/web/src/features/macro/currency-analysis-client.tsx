@@ -5,6 +5,10 @@ import { useRouter } from "next/navigation";
 import { Box, Heading, Stack, Text } from "@chakra-ui/react";
 
 import { AnalysisReferencesBlock } from "./components/analysis-references-block";
+import { CurrencyIrpDataInputsBlock } from "./components/currency-irp-data-inputs-block";
+import { CurrencyIrpFormulaBlock } from "./components/currency-irp-formula-block";
+import { CurrencyIrpTenorTableBlock } from "./components/currency-irp-tenor-table-block";
+import { CurrencyIrpUipBlock } from "./components/currency-irp-uip-block";
 import { CurrencyPppDataInputsBlock } from "./components/currency-ppp-data-inputs-block";
 import { CurrencyPppFormulaBlock } from "./components/currency-ppp-formula-block";
 import { CurrencyPppHistoricalSpotContextBlock } from "./components/currency-ppp-historical-spot-context-block";
@@ -82,8 +86,18 @@ export function CurrencyAnalysisClient({ data }: { data: CurrencyAnalysisPageDat
   const spotRef = spotReferenceNumber ? { number: spotReferenceNumber, href: spotReference?.url } : undefined;
   const usCpiRef = usCpiReferenceNumber ? { number: usCpiReferenceNumber, href: usCpiReference?.url } : undefined;
   const euroAreaCpiRef = euroAreaCpiReferenceNumber ? { number: euroAreaCpiReferenceNumber, href: euroAreaCpiReference?.url } : undefined;
+  const irpReferenceNumberByLabel = new Map(data.irp.references.map((reference, index) => [reference.label, index + 1]));
+  const irpRefs = data.irp.references.map((reference) => ({
+    label: reference.label,
+    ref: {
+      number: irpReferenceNumberByLabel.get(reference.label) ?? 0,
+      href: reference.url,
+    },
+  }));
+  const hasPpp = Boolean(pppSummary);
+  const hasIrp = data.irp.cipRows.length > 0 || data.irp.uip.rows.length > 0;
 
-  if (!pppSummary) {
+  if (!hasPpp && !hasIrp) {
     return null;
   }
 
@@ -103,6 +117,7 @@ export function CurrencyAnalysisClient({ data }: { data: CurrencyAnalysisPageDat
 
   return (
     <Stack gap={{ base: "8", md: "10" }}>
+      {pppSummary ? (
       <Box as="section">
         <Stack gap="5">
           <Stack gap="3" maxW="4xl">
@@ -214,6 +229,38 @@ export function CurrencyAnalysisClient({ data }: { data: CurrencyAnalysisPageDat
           />
         </Stack>
       </Box>
+      ) : null}
+
+      {hasIrp ? (
+        <Box as="section">
+          <Stack gap="5">
+            <Stack gap="3" maxW="4xl">
+              <Heading as="h2" textStyle="title">
+                2.0 Interest Rate Parity
+              </Heading>
+              <Text color="muted" textStyle="body">
+                Covered interest parity links spot, tenor-matched interest rates, and forwards. Here it is used as the main market-pricing anchor, while UIP is shown separately as a theoretical expected-spot framing.
+              </Text>
+            </Stack>
+
+            <CurrencyIrpFormulaBlock />
+            <CurrencyIrpDataInputsBlock asOf={data.asOf} inputs={irpRefs} />
+            <CurrencyIrpTenorTableBlock rows={data.irp.cipRows} />
+            <CurrencyIrpUipBlock rows={data.irp.uip.rows} />
+
+            <AnalysisReferencesBlock
+              items={data.irp.references.map((reference) => {
+                const index = irpReferenceNumberByLabel.get(reference.label) ?? 0;
+                return {
+                  href: reference.url,
+                  key: `irp-${reference.label}-${reference.url}`,
+                  text: currencyIeeeReferenceText(index, reference),
+                };
+              })}
+            />
+          </Stack>
+        </Box>
+      ) : null}
     </Stack>
   );
 }

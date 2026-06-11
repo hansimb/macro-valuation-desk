@@ -178,9 +178,48 @@ describe("Currency Analysis page", () => {
     expect(screen.getByText("6.40%")).toBeInTheDocument();
     expect(screen.queryByText("Snapshot")).not.toBeInTheDocument();
     expect(screen.queryByText("Recent Path Excerpt")).not.toBeInTheDocument();
-    expect(screen.getByText(/\[1\] European Central Bank, Data Portal, "EUR\/USD spot"\. \[Online\]\. Available:/)).toBeInTheDocument();
-    expect(screen.queryByRole("heading", { name: /Interest Rate Parity/i })).not.toBeInTheDocument();
-    expect(screen.queryByText("UIP Subsection")).not.toBeInTheDocument();
+    expect(screen.getAllByText(/\[1\] European Central Bank, Data Portal, "EUR\/USD spot"\. \[Online\]\. Available:/).length).toBeGreaterThan(0);
+    expect(screen.getByRole("heading", { name: /2.0 Interest Rate Parity/i })).toBeInTheDocument();
+    expect(screen.getByText(/Covered interest parity links spot, tenor-matched interest rates, and forwards/i)).toBeInTheDocument();
+    expect(screen.getByText(/F = S x \(\(1 \+ r_EUR x T\) \/ \(1 \+ r_USD x T\)\)/i)).toBeInTheDocument();
+    expect(screen.getByText(/CIP-implied forward/i)).toBeInTheDocument();
+    expect(screen.getAllByText("3M").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("6M").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Not available").length).toBeGreaterThan(0);
+    expect(screen.getByText(/UIP is shown as a theoretical expected-spot framing/i)).toBeInTheDocument();
+    expect(screen.getByText(/Observed forwards are shown only when a reliable forward series is present/i)).toBeInTheDocument();
+    expect(screen.queryByText("Live currency analysis data is unavailable right now.")).not.toBeInTheDocument();
+  });
+
+  it("renders IRP when PPP data is unavailable but IRP mart rows exist", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          ...payload,
+          ppp: {
+            ...payload.ppp,
+            availableWindowOptions: [],
+            availableBaseYears: [],
+            selectedAnchorKind: null,
+            selectedWindowCode: null,
+            selectedBaseYear: null,
+            summary: null,
+            path: [],
+            spotHistory: [],
+            references: [],
+          },
+        }),
+      }),
+    );
+
+    const page = await CurrencyAnalysisPage({});
+
+    render(<ThemeProvider>{page}</ThemeProvider>);
+
+    expect(screen.getByRole("heading", { name: /2.0 Interest Rate Parity/i })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: /1.0 Relative Purchasing Power Parity/i })).not.toBeInTheDocument();
     expect(screen.queryByText("Live currency analysis data is unavailable right now.")).not.toBeInTheDocument();
   });
 
