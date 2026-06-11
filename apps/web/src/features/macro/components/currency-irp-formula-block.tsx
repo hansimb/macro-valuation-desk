@@ -1,7 +1,9 @@
 "use client";
 
 import React from "react";
-import { Box, SimpleGrid, Stack, Text, VisuallyHidden } from "@chakra-ui/react";
+import { Box, Stack, Text, VisuallyHidden } from "@chakra-ui/react";
+
+import { AnalysisFormulaTerms } from "./analysis-formula-terms";
 
 type IrpSymbolKey = "F" | "S" | "r_EUR" | "r_USD" | "T" | "E_S_T";
 
@@ -68,27 +70,6 @@ function MathToken({ symbol }: { symbol: IrpSymbolKey }) {
   );
 }
 
-function FormulaLine({
-  children,
-  label,
-}: {
-  children: React.ReactNode;
-  label: string;
-}) {
-  return (
-    <Box bg="canvas" borderColor="edge" borderWidth="1px" p={{ base: "4", md: "5" }} rounded="panel">
-      <Stack gap="2">
-        <Text color="accent" textStyle="eyebrow">
-          {label}
-        </Text>
-        <Text textStyle="formula" whiteSpace="nowrap">
-          {children}
-        </Text>
-      </Stack>
-    </Box>
-  );
-}
-
 export function CurrencyIrpFormulaBlock() {
   return (
     <Box bg="surface" borderColor="edge" borderWidth="1px" p={{ base: "6", md: "7" }} rounded="panel">
@@ -100,35 +81,29 @@ export function CurrencyIrpFormulaBlock() {
           <VisuallyHidden>
             F = S x ((1 + r_EUR x T) / (1 + r_USD x T))
           </VisuallyHidden>
-          <Stack gap="3" minW="42rem">
-            <FormulaLine label="CIP exact">
+          <Stack gap="3">
+            <Text textAlign={{ base: "left", md: "center" }} textStyle="formula" whiteSpace="nowrap">
               <MathToken symbol="F" /> = <MathToken symbol="S" /> x ((1 + <MathToken symbol="r_EUR" /> x{" "}
               <MathToken symbol="T" />) / (1 + <MathToken symbol="r_USD" /> x <MathToken symbol="T" />))
-            </FormulaLine>
-            <FormulaLine label="Carry approximation">
+            </Text>
+            <Text color="muted" textAlign={{ base: "left", md: "center" }} textStyle="body" whiteSpace="nowrap">
               (<MathToken symbol="F" /> - <MathToken symbol="S" />) / <MathToken symbol="S" /> ~={" "}
               <MathToken symbol="r_EUR" /> - <MathToken symbol="r_USD" />
-            </FormulaLine>
-            <FormulaLine label="UIP framing">
+            </Text>
+            <Text color="muted" textAlign={{ base: "left", md: "center" }} textStyle="body" whiteSpace="nowrap">
+              UIP framing:{" "}
               <MathToken symbol="E_S_T" /> = <MathToken symbol="S" /> x (1 + (<MathToken symbol="r_EUR" /> -{" "}
               <MathToken symbol="r_USD" />) x <MathToken symbol="T" />)
-            </FormulaLine>
+            </Text>
           </Stack>
         </Box>
-        <SimpleGrid columns={{ base: 1, md: 2 }} gap="3">
-          {irpSymbolGuide.map((item) => (
-            <Box bg="canvas" borderColor="edge" borderWidth="1px" key={item.symbol} p="4" rounded="panel">
-              <Stack gap="1.5">
-                <Text color="text" fontFamily="heading" textStyle="body">
-                  <MathToken symbol={item.symbol} />
-                </Text>
-                <Text color="muted" textStyle="body">
-                  {item.meaning}
-                </Text>
-              </Stack>
-            </Box>
-          ))}
-        </SimpleGrid>
+        <AnalysisFormulaTerms
+          items={irpSymbolGuide.map((item) => ({
+            symbol: <MathToken symbol={item.symbol} />,
+            meaning: item.meaning,
+          }))}
+          symbolColumnWidth={{ base: "4.25rem", md: "5rem" }}
+        />
         <Text color="muted" textStyle="body">
           CIP translates spot and tenor-matched rate proxies into an implied forward. UIP uses the same rate spread as a theoretical expected-spot framing, not as a mechanical forecast.
         </Text>
