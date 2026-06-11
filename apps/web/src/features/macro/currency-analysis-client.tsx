@@ -94,8 +94,10 @@ export function CurrencyAnalysisClient({ data }: { data: CurrencyAnalysisPageDat
       href: reference.url,
     },
   }));
+  const irpAvailability = data.availability.filter((item) => item.sectionKey === "irp");
+  const hasIrpAvailability = irpAvailability.length > 0;
   const hasPpp = Boolean(pppSummary);
-  const hasIrp = data.irp.cipRows.length > 0 || data.irp.uip.rows.length > 0;
+  const hasIrp = data.irp.cipRows.length > 0 || data.irp.uip.rows.length > 0 || hasIrpAvailability;
 
   if (!hasPpp && !hasIrp) {
     return null;
@@ -245,19 +247,21 @@ export function CurrencyAnalysisClient({ data }: { data: CurrencyAnalysisPageDat
 
             <CurrencyIrpFormulaBlock />
             <CurrencyIrpDataInputsBlock asOf={data.asOf} inputs={irpRefs} />
-            <CurrencyIrpTenorTableBlock rows={data.irp.cipRows} />
+            <CurrencyIrpTenorTableBlock unavailableItems={irpAvailability} rows={data.irp.cipRows} />
             <CurrencyIrpUipBlock rows={data.irp.uip.rows} />
 
-            <AnalysisReferencesBlock
-              items={data.irp.references.map((reference) => {
-                const index = irpReferenceNumberByLabel.get(reference.label) ?? 0;
-                return {
-                  href: reference.url,
-                  key: `irp-${reference.label}-${reference.url}`,
-                  text: currencyIeeeReferenceText(index, reference),
-                };
-              })}
-            />
+            {data.irp.references.length > 0 ? (
+              <AnalysisReferencesBlock
+                items={data.irp.references.map((reference) => {
+                  const index = irpReferenceNumberByLabel.get(reference.label) ?? 0;
+                  return {
+                    href: reference.url,
+                    key: `irp-${reference.label}-${reference.url}`,
+                    text: currencyIeeeReferenceText(index, reference),
+                  };
+                })}
+              />
+            ) : null}
           </Stack>
         </Box>
       ) : null}

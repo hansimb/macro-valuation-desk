@@ -16,9 +16,17 @@ type CurrencyIrpTenorRow = {
   hasObservedForward: boolean;
 };
 
+type CurrencyIrpAvailabilityItem = {
+  itemKey: string;
+  status: string;
+  detail: string;
+};
+
 export function CurrencyIrpTenorTableBlock({
+  unavailableItems = [],
   rows,
 }: {
+  unavailableItems?: CurrencyIrpAvailabilityItem[];
   rows: CurrencyIrpTenorRow[];
 }) {
   const primaryRow = rows[0];
@@ -28,7 +36,31 @@ export function CurrencyIrpTenorTableBlock({
       : "The tenor-rate spread determines whether CIP-implied forwards sit above or below spot. This is a forward-pricing relationship, not a standalone spot forecast.";
 
   if (rows.length === 0) {
-    return null;
+    const missingTenors = unavailableItems.map((item) => item.itemKey).join(", ");
+    const details = Array.from(new Set(unavailableItems.map((item) => item.detail))).join(" ");
+
+    return (
+      <Box bg="surface" borderColor="edge" borderWidth="1px" p={{ base: "6", md: "7" }} rounded="panel">
+        <Stack gap="4">
+          <Text color="accent" textStyle="eyebrow">
+            CIP Tenor Comparison
+          </Text>
+          <Text color="muted" textStyle="body">
+            IRP tenor outputs are unavailable because the required tenor-matched inputs did not load. No CIP-implied forwards, observed forwards, CIP gaps, or UIP spot framings are shown until those inputs exist in the pipeline output.
+          </Text>
+          {missingTenors ? (
+            <Text color="muted" textStyle="body">
+              Affected tenors: {missingTenors}.
+            </Text>
+          ) : null}
+          {details ? (
+            <Text color="muted" textStyle="body">
+              Pipeline detail: {details}
+            </Text>
+          ) : null}
+        </Stack>
+      </Box>
+    );
   }
 
   return (

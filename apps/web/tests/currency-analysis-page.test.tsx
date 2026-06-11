@@ -223,6 +223,59 @@ describe("Currency Analysis page", () => {
     expect(screen.queryByText("Live currency analysis data is unavailable right now.")).not.toBeInTheDocument();
   });
 
+  it("renders the IRP section with an unavailable-data notice when tenor inputs are missing", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          ...payload,
+          irp: {
+            cipRows: [],
+            uip: {
+              rows: [],
+            },
+            references: [],
+          },
+          availability: [
+            ...payload.availability,
+            {
+              sectionKey: "irp",
+              itemKey: "3M",
+              status: "unavailable",
+              detail: "Required spot or tenor rate inputs are unavailable.",
+              asOfDate: null,
+            },
+            {
+              sectionKey: "irp",
+              itemKey: "6M",
+              status: "unavailable",
+              detail: "Required spot or tenor rate inputs are unavailable.",
+              asOfDate: null,
+            },
+            {
+              sectionKey: "irp",
+              itemKey: "12M",
+              status: "unavailable",
+              detail: "Required spot or tenor rate inputs are unavailable.",
+              asOfDate: null,
+            },
+          ],
+        }),
+      }),
+    );
+
+    const page = await CurrencyAnalysisPage({});
+
+    render(<ThemeProvider>{page}</ThemeProvider>);
+
+    expect(screen.getByRole("heading", { name: /2.0 Interest Rate Parity/i })).toBeInTheDocument();
+    expect(screen.getByText(/IRP tenor outputs are unavailable/i)).toBeInTheDocument();
+    expect(screen.getByText(/3M, 6M, 12M/i)).toBeInTheDocument();
+    expect(screen.getByText(/Required spot or tenor rate inputs are unavailable/i)).toBeInTheDocument();
+    expect(screen.queryByText("Live currency analysis data is unavailable right now.")).not.toBeInTheDocument();
+  });
+
   it("shows an explicit unavailable-data notice instead of rendering fallback numbers when the API fetch fails", async () => {
     vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("offline")));
 

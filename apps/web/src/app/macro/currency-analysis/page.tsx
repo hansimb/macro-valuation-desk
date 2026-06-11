@@ -40,9 +40,14 @@ async function getCurrencyAnalysisPageData(
     }
 
     const data = (await response.json()) as CurrencyAnalysisPageData;
+    const hasIrpAvailability = data.availability.some((item) => item.sectionKey === "irp");
     return {
       data,
-      unavailable: data.ppp.summary === null && data.irp.cipRows.length === 0 && data.irp.uip.rows.length === 0,
+      unavailable:
+        data.ppp.summary === null &&
+        data.irp.cipRows.length === 0 &&
+        data.irp.uip.rows.length === 0 &&
+        !hasIrpAvailability,
     };
   } catch {
     return { data: emptyCurrencyAnalysisPageData, unavailable: true };
