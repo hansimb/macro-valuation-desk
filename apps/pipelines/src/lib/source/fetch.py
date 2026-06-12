@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import sys
+
 from src.lib.source.adapters.base import SourceAdapter
 from src.lib.source.adapters.dbnomics import DbnomicsAdapter
 from src.lib.source.adapters.ecb import EcbAdapter
@@ -39,6 +41,15 @@ def fetch_registered_series(
     fallback_result = fallback_adapter.fetch_series(fallback_definition, fetch_options)
 
     if fallback_result.ok:
+        primary_error = result.error.message if result.error else "unknown primary error"
+        print(
+            "WARNING: "
+            f"{series_definition.key} primary provider {series_definition.provider} failed; "
+            f"using fallback provider {fallback_definition.provider} "
+            f"({fallback_definition.external_series_id}). "
+            f"Primary error: {primary_error}",
+            file=sys.stderr,
+        )
         return fallback_result
 
     primary_error = result.error.message if result.error else "unknown primary error"

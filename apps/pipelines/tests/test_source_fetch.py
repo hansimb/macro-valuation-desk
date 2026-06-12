@@ -3,7 +3,7 @@ from src.lib.source.registry import get_series_definition
 from src.lib.source.types import FetchOptions, FetchResult, StandardizedSeries, Observation
 
 
-def test_fetch_registered_series_uses_fallback_source_when_primary_fails(monkeypatch):
+def test_fetch_registered_series_uses_fallback_source_when_primary_fails(monkeypatch, capsys):
     series_definition = get_series_definition("eu_hicp_core")
     calls: list[str] = []
 
@@ -44,6 +44,12 @@ def test_fetch_registered_series_uses_fallback_source_when_primary_fails(monkeyp
     assert result.series.series_id == "00XEFDEZCCM086NEST"
     assert result.series.source_url == "https://fred.stlouisfed.org/series/00XEFDEZCCM086NEST"
     assert calls == ["ecb", "fred"]
+    warning = capsys.readouterr().err
+    assert "WARNING:" in warning
+    assert "eu_hicp_core" in warning
+    assert "primary provider ecb failed" in warning
+    assert "using fallback provider fred" in warning
+    assert "blocked" in warning
 
 
 def test_fetch_registered_series_reports_both_primary_and_fallback_failures(monkeypatch):
