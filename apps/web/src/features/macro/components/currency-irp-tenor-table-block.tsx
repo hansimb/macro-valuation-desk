@@ -63,8 +63,8 @@ export function CurrencyIrpTenorTableBlock({
                   <Table.Cell>{row.usdRate}%</Table.Cell>
                   <Table.Cell>{row.rateSpread}%</Table.Cell>
                   <Table.Cell>{row.cipImpliedForward}</Table.Cell>
-                  <Table.Cell>{row.observedForward ?? "Not available"}</Table.Cell>
-                  <Table.Cell>{row.cipBasisBps ? `${row.cipBasisBps} bps` : "Not shown"}</Table.Cell>
+                  <Table.Cell>{row.hasObservedForward ? row.observedForward : ""}</Table.Cell>
+                  <Table.Cell>{row.hasObservedForward && row.cipBasisBps ? `${row.cipBasisBps} bps` : ""}</Table.Cell>
                 </Table.Row>
               ))}
             </Table.Body>

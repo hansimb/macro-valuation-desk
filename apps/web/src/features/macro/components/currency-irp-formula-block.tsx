@@ -81,21 +81,10 @@ export function CurrencyIrpFormulaBlock() {
           <VisuallyHidden>
             F = S x ((1 + r_EUR x T) / (1 + r_USD x T))
           </VisuallyHidden>
-          <Stack gap="3">
-            <Text textAlign={{ base: "left", md: "center" }} textStyle="formula" whiteSpace="nowrap">
-              <MathToken symbol="F" /> = <MathToken symbol="S" /> x ((1 + <MathToken symbol="r_EUR" /> x{" "}
-              <MathToken symbol="T" />) / (1 + <MathToken symbol="r_USD" /> x <MathToken symbol="T" />))
-            </Text>
-            <Text color="muted" textAlign={{ base: "left", md: "center" }} textStyle="body" whiteSpace="nowrap">
-              (<MathToken symbol="F" /> - <MathToken symbol="S" />) / <MathToken symbol="S" /> ~={" "}
-              <MathToken symbol="r_EUR" /> - <MathToken symbol="r_USD" />
-            </Text>
-            <Text color="muted" textAlign={{ base: "left", md: "center" }} textStyle="body" whiteSpace="nowrap">
-              UIP framing:{" "}
-              <MathToken symbol="E_S_T" /> = <MathToken symbol="S" /> x (1 + (<MathToken symbol="r_EUR" /> -{" "}
-              <MathToken symbol="r_USD" />) x <MathToken symbol="T" />)
-            </Text>
-          </Stack>
+          <Text textAlign={{ base: "left", md: "center" }} textStyle="formula" whiteSpace="nowrap">
+            <MathToken symbol="F" /> = <MathToken symbol="S" /> x ((1 + <MathToken symbol="r_EUR" /> x{" "}
+            <MathToken symbol="T" />) / (1 + <MathToken symbol="r_USD" /> x <MathToken symbol="T" />))
+          </Text>
         </Box>
         <AnalysisFormulaTerms
           items={irpSymbolGuide.map((item) => ({
@@ -104,9 +93,21 @@ export function CurrencyIrpFormulaBlock() {
           }))}
           symbolColumnWidth={{ base: "4.25rem", md: "5rem" }}
         />
-        <Text color="muted" textStyle="body">
-          CIP translates spot and tenor-matched rate proxies into an implied forward. UIP uses the same rate spread as a theoretical expected-spot framing, not as a mechanical forecast.
-        </Text>
+        <Stack borderColor="edge" borderTopWidth="1px" gap="3" pt="4">
+          <Text color="accent" textStyle="eyebrow">
+            Derived Relationships
+          </Text>
+          <Text color="muted" textStyle="body">
+            For short tenors, the forward premium is often approximated as the EUR rate minus the USD rate:{" "}
+            (<MathToken symbol="F" /> - <MathToken symbol="S" />) / <MathToken symbol="S" /> ~={" "}
+            <MathToken symbol="r_EUR" /> - <MathToken symbol="r_USD" />.
+          </Text>
+          <Text color="muted" textStyle="body">
+            UIP reuses the rate spread as a theoretical expected-spot framing: <MathToken symbol="E_S_T" /> ={" "}
+            <MathToken symbol="S" /> x (1 + (<MathToken symbol="r_EUR" /> - <MathToken symbol="r_USD" />) x{" "}
+            <MathToken symbol="T" />). It is not a mechanical spot forecast.
+          </Text>
+        </Stack>
       </Stack>
     </Box>
   );

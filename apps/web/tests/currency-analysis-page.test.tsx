@@ -187,7 +187,11 @@ describe("Currency Analysis page", () => {
     expect(screen.getByText(/CIP-implied forward/i)).toBeInTheDocument();
     expect(screen.getAllByText("3M").length).toBeGreaterThan(0);
     expect(screen.getAllByText("6M").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("Not available").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("1.1400").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("2.00%").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("4.00%").length).toBeGreaterThan(0);
+    expect(screen.queryByText("Not available")).not.toBeInTheDocument();
+    expect(screen.queryByText("Not shown")).not.toBeInTheDocument();
     expect(screen.getByText(/UIP is shown as a theoretical expected-spot framing/i)).toBeInTheDocument();
     expect(screen.getByText(/Observed forwards are shown only when a reliable forward series is present/i)).toBeInTheDocument();
     expect(screen.queryByText("Live currency analysis data is unavailable right now.")).not.toBeInTheDocument();
@@ -277,6 +281,58 @@ describe("Currency Analysis page", () => {
     expect(screen.queryByText(/EUR 3M rate/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/USD 12M rate/i)).not.toBeInTheDocument();
     expect(screen.queryByText("Live currency analysis data is unavailable right now.")).not.toBeInTheDocument();
+  });
+
+  it("does not render the IRP analysis section when IRP rows contain invalid zero-valued market data", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          ...payload,
+          ppp: {
+            ...payload.ppp,
+            availableWindowOptions: [],
+            availableBaseYears: [],
+            selectedAnchorKind: null,
+            selectedWindowCode: null,
+            selectedBaseYear: null,
+            summary: null,
+            path: [],
+            spotHistory: [],
+            references: [],
+          },
+          irp: {
+            ...payload.irp,
+            cipRows: [
+              {
+                tenor: "3M",
+                asOf: "2026-05-30",
+                spot: "0.0000",
+                eurRate: "0.00",
+                usdRate: "0.00",
+                rateSpread: "0.00",
+                cipImpliedForward: "0.0000",
+                hasObservedForward: false,
+              },
+            ],
+            uip: {
+              rows: [],
+            },
+          },
+        }),
+      }),
+    );
+
+    const page = await CurrencyAnalysisPage({});
+
+    render(<ThemeProvider>{page}</ThemeProvider>);
+
+    expect(screen.queryByRole("heading", { name: /2.0 Interest Rate Parity/i })).not.toBeInTheDocument();
+    expect(screen.queryByText("0.0000")).not.toBeInTheDocument();
+    expect(screen.queryByText("0.00%")).not.toBeInTheDocument();
+    expect(screen.queryByText("Not available")).not.toBeInTheDocument();
+    expect(screen.queryByText("Not shown")).not.toBeInTheDocument();
   });
 
   it("shows an explicit unavailable-data notice instead of rendering fallback numbers when the API fetch fails", async () => {

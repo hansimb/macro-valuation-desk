@@ -66,6 +66,27 @@ function buildSearch(params: Record<string, string | null | undefined>) {
   return query ? `?${query}` : "";
 }
 
+function isNonZeroNumber(value: string | null | undefined) {
+  if (!value) {
+    return false;
+  }
+
+  const parsed = Number.parseFloat(value);
+  return Number.isFinite(parsed) && parsed !== 0;
+}
+
+function isValidCipRow(row: CurrencyAnalysisPageData["irp"]["cipRows"][number]) {
+  return Boolean(row.tenor && row.asOf) &&
+    isNonZeroNumber(row.spot) &&
+    isNonZeroNumber(row.eurRate) &&
+    isNonZeroNumber(row.usdRate) &&
+    isNonZeroNumber(row.cipImpliedForward);
+}
+
+function isValidUipRow(row: CurrencyAnalysisPageData["irp"]["uip"]["rows"][number]) {
+  return Boolean(row.tenor) && isNonZeroNumber(row.impliedMovePct) && isNonZeroNumber(row.impliedSpot);
+}
+
 export function CurrencyAnalysisClient({ data }: { data: CurrencyAnalysisPageData }) {
   const router = useRouter();
   const pppSummary = data.ppp.summary;
@@ -87,6 +108,8 @@ export function CurrencyAnalysisClient({ data }: { data: CurrencyAnalysisPageDat
   const usCpiRef = usCpiReferenceNumber ? { number: usCpiReferenceNumber, href: usCpiReference?.url } : undefined;
   const euroAreaCpiRef = euroAreaCpiReferenceNumber ? { number: euroAreaCpiReferenceNumber, href: euroAreaCpiReference?.url } : undefined;
   const irpReferenceNumberByLabel = new Map(data.irp.references.map((reference, index) => [reference.label, index + 1]));
+  const validIrpCipRows = data.irp.cipRows.filter(isValidCipRow);
+  const validIrpUipRows = data.irp.uip.rows.filter(isValidUipRow);
   const irpRefs = data.irp.references.map((reference) => ({
     label: reference.label,
     ref: {
@@ -95,7 +118,7 @@ export function CurrencyAnalysisClient({ data }: { data: CurrencyAnalysisPageDat
     },
   }));
   const hasPpp = Boolean(pppSummary);
-  const hasIrp = data.irp.cipRows.length > 0 || data.irp.uip.rows.length > 0;
+  const hasIrp = validIrpCipRows.length > 0 || validIrpUipRows.length > 0;
 
   if (!hasPpp && !hasIrp) {
     return null;
@@ -244,9 +267,11 @@ export function CurrencyAnalysisClient({ data }: { data: CurrencyAnalysisPageDat
             </Stack>
 
             <CurrencyIrpFormulaBlock />
-            <CurrencyIrpDataInputsBlock asOf={data.asOf} inputs={irpRefs} />
-            <CurrencyIrpTenorTableBlock rows={data.irp.cipRows} />
-            <CurrencyIrpUipBlock rows={data.irp.uip.rows} />
+            {validIrpCipRows.length > 0 ? (
+              <CurrencyIrpDataInputsBlock asOf={data.asOf} inputs={irpRefs} rows={validIrpCipRows} />
+            ) : null}
+            <CurrencyIrpTenorTableBlock rows={validIrpCipRows} />
+            <CurrencyIrpUipBlock rows={validIrpUipRows} />
 
             {data.irp.references.length > 0 ? (
               <AnalysisReferencesBlock
