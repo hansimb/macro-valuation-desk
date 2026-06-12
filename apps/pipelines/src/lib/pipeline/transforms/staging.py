@@ -6,7 +6,7 @@ from statistics import median
 from src.lib.source.types import StandardizedSeries
 
 
-def _normalize_observation_date(raw_date: str, frequency: str) -> str:
+def normalize_observation_date(raw_date: str, frequency: str) -> str:
     if len(raw_date) == 7 and raw_date[4] == "-" and raw_date[5] == "Q":
         quarter = int(raw_date[-1])
         month = {1: "01", 2: "04", 3: "07", 4: "10"}[quarter]
@@ -114,7 +114,7 @@ def stage_standardized_series(series: StandardizedSeries) -> list[dict[str, obje
         except (TypeError, ValueError):
             continue
 
-        observation_date = _normalize_observation_date(observation.date, series.frequency)
+        observation_date = normalize_observation_date(observation.date, series.frequency)
         staged_map[observation_date] = {
             "series_id": series.key,
             "observation_date": observation_date,

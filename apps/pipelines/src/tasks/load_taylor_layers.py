@@ -11,8 +11,16 @@ from src.lib.db import (
     upsert_staging_observations,
 )
 from src.lib.pipeline.checkpoints import record_pipeline_run, utc_now_iso, write_successful_checkpoint
+from src.lib.pipeline.transforms.staging import normalize_observation_date
 from src.lib.source.registry import get_series_definition, get_series_definitions
 from src.lib.source.types import FetchResult
+
+
+def _normalize_result_observation_date(raw_date: str, result: FetchResult) -> str:
+    if result.series is None:
+        return raw_date
+
+    return normalize_observation_date(raw_date, result.series.frequency)
 
 
 def _raw_rows_from_results(fetch_results: list[FetchResult], *, fetched_at: str) -> list[dict[str, object]]:
@@ -25,7 +33,7 @@ def _raw_rows_from_results(fetch_results: list[FetchResult], *, fetched_at: str)
             raw_rows.append(
                 {
                     "series_id": result.series.key,
-                    "observation_date": f"{observation.date}-01" if len(observation.date) == 7 else observation.date,
+                    "observation_date": _normalize_result_observation_date(observation.date, result),
                     "value": observation.value,
                     "fetched_at": fetched_at,
                 }
@@ -72,7 +80,7 @@ def load_taylor_layers(
         if not result.ok or result.series is None or not result.series.observations:
             continue
         latest_observation_date = max(
-            f"{observation.date}-01" if len(observation.date) == 7 else observation.date
+            _normalize_result_observation_date(observation.date, result)
             for observation in result.series.observations
         )
         write_successful_checkpoint(
