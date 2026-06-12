@@ -42,7 +42,8 @@ def test_ecb_adapter_returns_standardized_success(monkeypatch):
     writer.writerow({"TIME_PERIOD": "2026-04", "OBS_VALUE": "2.10"})
 
     def fake_urlopen(request):
-        assert "service/data/FM/FM.D.U2.EUR.4F.KR.DFR.LEV" in request.full_url
+        assert "service/data/FM/D.U2.EUR.4F.KR.DFR.LEV" in request.full_url
+        assert "service/data/FM/FM.D.U2.EUR.4F.KR.DFR.LEV" not in request.full_url
         assert "startPeriod=2026-01-01" in request.full_url
         assert request.headers["User-agent"].startswith("macro-valuation-desk/")
         assert request.headers["Accept"] == "text/csv,application/vnd.ecb.data+csv;version=1.0.0"
@@ -126,7 +127,7 @@ def test_ecb_adapter_includes_request_url_and_response_body_in_http_errors(monke
 
     assert result.ok is False
     assert result.error is not None
-    assert "service/data/FM/FM.D.U2.EUR.4F.KR.DFR.LEV" in result.error.message
+    assert "service/data/FM/D.U2.EUR.4F.KR.DFR.LEV" in result.error.message
     assert "invalid ECB request" in result.error.message
 
 

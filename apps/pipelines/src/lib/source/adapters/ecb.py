@@ -95,9 +95,9 @@ class EcbAdapter(SourceAdapter):
         if fetch_options.limit is not None:
             query_params["lastNObservations"] = str(fetch_options.limit)
 
-        flow_ref = series_definition.external_series_id.split(".", 1)[0]
+        flow_ref, series_key = series_definition.external_series_id.split(".", 1)
         request = Request(
-            f"{self.BASE_URL}/{flow_ref}/{series_definition.external_series_id}?{urlencode(query_params)}",
+            f"{self.BASE_URL}/{flow_ref}/{series_key}?{urlencode(query_params)}",
             headers=self.REQUEST_HEADERS,
         )
 
