@@ -89,6 +89,10 @@ function tenorRank(tenor: string) {
   return { "3M": 1, "6M": 2, "12M": 3 }[tenor] ?? 99;
 }
 
+function hasValidatedObservedForward(row: IrpSnapshotRow) {
+  return row.has_observed_forward && row.observed_forward !== null && row.forward_source_url !== null;
+}
+
 function parseAnchorStatistic(value: unknown): CurrencyAnalysisPppAnchorStatistic {
   return value === "median" ? "median" : "average";
 }
@@ -341,9 +345,9 @@ export async function registerCurrencyAnalysisRoute(app: FastifyInstance) {
       usdRate: row.usd_rate,
       rateSpread: row.rate_spread,
       cipImpliedForward: row.cip_implied_forward,
-      ...(row.observed_forward ? { observedForward: row.observed_forward } : {}),
-      ...(row.cip_basis_bps ? { cipBasisBps: row.cip_basis_bps } : {}),
-      hasObservedForward: row.has_observed_forward,
+      ...(hasValidatedObservedForward(row) ? { observedForward: row.observed_forward! } : {}),
+      ...(hasValidatedObservedForward(row) && row.cip_basis_bps !== null ? { cipBasisBps: row.cip_basis_bps } : {}),
+      hasObservedForward: hasValidatedObservedForward(row),
     }));
 
     const availability: CurrencyAnalysisAvailabilityItem[] = availabilityResult.rows.map((row) => ({
@@ -361,8 +365,8 @@ export async function registerCurrencyAnalysisRoute(app: FastifyInstance) {
           { label: `EUR ${row.tenor} rate`, url: row.eur_rate_source_url },
           { label: `USD ${row.tenor} rate`, url: row.usd_rate_source_url },
         ];
-        if (row.forward_source_url) {
-          items.push({ label: `EUR/USD ${row.tenor} forward`, url: row.forward_source_url });
+        if (hasValidatedObservedForward(row)) {
+          items.push({ label: `EUR/USD ${row.tenor} forward`, url: row.forward_source_url! });
         }
         return items;
       }),

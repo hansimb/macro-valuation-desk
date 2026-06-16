@@ -303,3 +303,66 @@ def test_build_currency_irp_outputs_includes_observed_forward_when_staged_forwar
     ]
     assert outputs["availability_rows"][0]["status"] == "available"
     assert outputs["availability_rows"][0]["detail"] == "Observed forward comparison available."
+
+
+def test_build_currency_irp_outputs_ignores_zero_forward_values_as_unavailable():
+    staging_rows = [
+        {
+            "series_id": "eurusd_spot_daily",
+            "observation_date": "2026-05-30",
+            "numeric_value": 1.14,
+            "category": "fx_spot",
+            "region": "FX",
+            "frequency": "daily",
+            "unit": "usd_per_eur",
+            "provider": "ecb",
+            "source_url": "https://data.ecb.europa.eu/data/datasets/EXR/EXR.D.USD.EUR.SP00.A",
+            "is_valid": True,
+        },
+        {
+            "series_id": "eur_3m_rate",
+            "observation_date": "2026-05-30",
+            "numeric_value": 2.0,
+            "category": "market_rate",
+            "region": "EU",
+            "frequency": "daily",
+            "unit": "percent",
+            "provider": "ecb",
+            "source_url": "https://data.ecb.europa.eu/data/datasets/EST/EST.B.EU000A2QQF32.CR",
+            "is_valid": True,
+        },
+        {
+            "series_id": "usd_3m_rate",
+            "observation_date": "2026-05-30",
+            "numeric_value": 4.0,
+            "category": "market_rate",
+            "region": "US",
+            "frequency": "daily",
+            "unit": "percent",
+            "provider": "fred",
+            "source_url": "https://fred.stlouisfed.org/series/DTB3",
+            "is_valid": True,
+        },
+        {
+            "series_id": "eurusd_forward_3m",
+            "observation_date": "2026-05-30",
+            "numeric_value": 0.0,
+            "category": "fx_forward",
+            "region": "FX",
+            "frequency": "daily",
+            "unit": "usd_per_eur",
+            "provider": "placeholder-provider",
+            "source_url": "https://example.com/placeholder-forward-source",
+            "is_valid": True,
+        },
+    ]
+
+    outputs = build_currency_irp_outputs(staging_rows)
+
+    assert outputs["snapshot_rows"][0]["observed_forward"] is None
+    assert outputs["snapshot_rows"][0]["cip_basis_bps"] is None
+    assert outputs["snapshot_rows"][0]["forward_series_key"] is None
+    assert outputs["snapshot_rows"][0]["forward_source_url"] is None
+    assert outputs["snapshot_rows"][0]["has_observed_forward"] is False
+    assert outputs["availability_rows"][0]["status"] == "partial"
+    assert outputs["availability_rows"][0]["detail"] == "Observed forward unavailable; CIP-only comparison returned."

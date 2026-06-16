@@ -26,6 +26,31 @@ def _latest_row(staging_rows: list[dict[str, object]], series_id: str) -> dict[s
     return matching_rows[-1]
 
 
+def _validated_forward_row(staging_rows: list[dict[str, object]], series_id: str) -> dict[str, object] | None:
+    row = _latest_row(staging_rows, series_id)
+    if row is None:
+        return None
+
+    if row.get("category") != "fx_forward":
+        return None
+    if bool(row.get("is_imputed", False)):
+        return None
+
+    source_url = str(row.get("source_url") or "").strip()
+    if not source_url:
+        return None
+
+    try:
+        numeric_value = float(row["numeric_value"])
+    except (TypeError, ValueError):
+        return None
+
+    if numeric_value <= 0:
+        return None
+
+    return row
+
+
 def _round_price(value: float) -> float:
     return round(value, 4)
 
@@ -85,7 +110,7 @@ def build_currency_irp_outputs(staging_rows: list[dict[str, object]]) -> dict[st
         rate_spread = eur_rate - usd_rate
         cip_implied_forward = spot * ((1 + (eur_rate / 100) * tenor_fraction) / (1 + (usd_rate / 100) * tenor_fraction))
         forward_series_key = FORWARD_SERIES_BY_TENOR[tenor]
-        forward_row = _latest_row(staging_rows, forward_series_key)
+        forward_row = _validated_forward_row(staging_rows, forward_series_key)
         observed_forward = float(forward_row["numeric_value"]) if forward_row is not None else None
         cip_basis_bps = (
             ((observed_forward - cip_implied_forward) / spot) * 10000
