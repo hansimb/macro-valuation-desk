@@ -93,19 +93,18 @@ export function CurrencyIrpFormulaBlock() {
           }))}
           symbolColumnWidth={{ base: "4.25rem", md: "5rem" }}
         />
-        <Stack borderColor="edge" borderTopWidth="1px" gap="3" pt="4">
+        <Stack borderColor="edge" borderTopWidth="1px" gap="2" pt="4">
           <Text color="accent" textStyle="eyebrow">
-            Derived Relationships
+            Methodology
           </Text>
           <Text color="muted" textStyle="body">
-            For short tenors, the forward premium is often approximated as the EUR rate minus the USD rate:{" "}
-            (<MathToken symbol="F" /> - <MathToken symbol="S" />) / <MathToken symbol="S" /> ~={" "}
-            <MathToken symbol="r_EUR" /> - <MathToken symbol="r_USD" />.
+            1. Start from the live spot and tenor rates (S, rEUR, rUSD, T).
           </Text>
           <Text color="muted" textStyle="body">
-            UIP reuses the rate spread as a theoretical expected-spot framing: <MathToken symbol="E_S_T" /> ={" "}
-            <MathToken symbol="S" /> x (1 + (<MathToken symbol="r_EUR" /> - <MathToken symbol="r_USD" />) x{" "}
-            <MathToken symbol="T" />). It is not a mechanical spot forecast.
+            2. Use the formula to calculate the tenor-matched forward anchor (F).
+          </Text>
+          <Text color="muted" textStyle="body">
+            3. Read UIP separately as a theoretical expected-spot lens (E[ST]).
           </Text>
         </Stack>
       </Stack>

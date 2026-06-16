@@ -184,7 +184,12 @@ describe("Currency Analysis page", () => {
     expect(screen.queryByText("CIP exact")).not.toBeInTheDocument();
     expect(screen.queryByText("Carry approximation")).not.toBeInTheDocument();
     expect(screen.getByText(/F = S x \(\(1 \+ r_EUR x T\) \/ \(1 \+ r_USD x T\)\)/i)).toBeInTheDocument();
+    expect(screen.getByText(/Start from the live spot and tenor rates \(S, rEUR, rUSD, T\)/i)).toBeInTheDocument();
+    expect(screen.getByText(/Use the formula to calculate the tenor-matched forward anchor \(F\)/i)).toBeInTheDocument();
+    expect(screen.getByText(/Read UIP separately as a theoretical expected-spot lens \(E\[ST\]\)/i)).toBeInTheDocument();
     expect(screen.getByText(/CIP-implied forward/i)).toBeInTheDocument();
+    expect(screen.queryByRole("columnheader", { name: /Observed forward/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("columnheader", { name: /CIP gap/i })).not.toBeInTheDocument();
     expect(screen.getAllByText("3M").length).toBeGreaterThan(0);
     expect(screen.getAllByText("6M").length).toBeGreaterThan(0);
     expect(screen.getAllByText("1.1400").length).toBeGreaterThan(0);

@@ -51,6 +51,10 @@ function RateInputCard({
   );
 }
 
+function RateInputSpacer() {
+  return <Box aria-hidden="true" display={{ base: "none", md: "block" }} />;
+}
+
 export function CurrencyIrpDataInputsBlock({
   asOf,
   inputs,
@@ -65,21 +69,40 @@ export function CurrencyIrpDataInputsBlock({
   }
 
   const spotRef = referenceForLabel(inputs, "EUR/USD spot");
-  const cards = [
+  const cards: Array<
+    | {
+        kind: "card";
+        label: string;
+        value: string;
+        note: string;
+        ref?: AnalysisCitationRef;
+      }
+    | {
+        kind: "spacer";
+        key: string;
+      }
+  > = [
     {
+      kind: "card",
       label: "EUR/USD spot",
       value: rows[0].spot,
       note: `Spot input used for the ${rows[0].tenor} CIP calculation.`,
       ref: spotRef,
     },
+    {
+      kind: "spacer",
+      key: "spot-spacer",
+    },
     ...rows.flatMap((row) => [
       {
+        kind: "card" as const,
         label: `EUR ${row.tenor} rate`,
         value: `${row.eurRate}%`,
         note: `EUR tenor-matched rate proxy as of ${row.asOf}.`,
         ref: referenceForLabel(inputs, `EUR ${row.tenor} rate`),
       },
       {
+        kind: "card" as const,
         label: `USD ${row.tenor} rate`,
         value: `${row.usdRate}%`,
         note: `USD tenor-matched rate proxy as of ${row.asOf}.`,
@@ -99,13 +122,17 @@ export function CurrencyIrpDataInputsBlock({
         </Text>
         <SimpleGrid columns={{ base: 1, md: 2 }} gap="3">
           {cards.map((card) => (
-            <RateInputCard
-              key={card.label}
-              label={card.label}
-              note={card.note}
-              ref={card.ref}
-              value={card.value}
-            />
+            card.kind === "spacer" ? (
+              <RateInputSpacer key={card.key} />
+            ) : (
+              <RateInputCard
+                key={card.label}
+                label={card.label}
+                note={card.note}
+                ref={card.ref}
+                value={card.value}
+              />
+            )
           ))}
         </SimpleGrid>
         <Text color="muted" textStyle="caption">

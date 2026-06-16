@@ -22,6 +22,8 @@ export function CurrencyIrpTenorTableBlock({
   rows: CurrencyIrpTenorRow[];
 }) {
   const primaryRow = rows[0];
+  const hasObservedForwardColumn = rows.some((row) => row.hasObservedForward && Boolean(row.observedForward));
+  const hasCipGapColumn = rows.some((row) => row.hasObservedForward && Boolean(row.cipBasisBps));
   const takeaway =
     primaryRow && Number.parseFloat(primaryRow.rateSpread) < 0
       ? "EUR rates sit below USD rates across the shown tenor set, so CIP implies forward EUR/USD levels below spot. This is a forward-pricing relationship, not a standalone spot forecast."
@@ -38,7 +40,7 @@ export function CurrencyIrpTenorTableBlock({
           CIP Tenor Comparison
         </Text>
         <Text color="muted" textStyle="body">
-          The table compares tenor-matched rate differentials with the forward level implied by covered interest parity. Missing observed forwards are left blank analytically rather than filled with substitute values.
+          The table compares tenor-matched rate differentials with the forward level implied by covered interest parity. Observed-forward columns appear only when validated forward-market observations are available.
         </Text>
         <Box overflowX="auto">
           <Table.Root minW="56rem" size="sm" variant="outline">
@@ -50,8 +52,8 @@ export function CurrencyIrpTenorTableBlock({
                 <Table.ColumnHeader>USD rate</Table.ColumnHeader>
                 <Table.ColumnHeader>Spread</Table.ColumnHeader>
                 <Table.ColumnHeader>CIP-implied forward</Table.ColumnHeader>
-                <Table.ColumnHeader>Observed forward</Table.ColumnHeader>
-                <Table.ColumnHeader>CIP gap</Table.ColumnHeader>
+                {hasObservedForwardColumn ? <Table.ColumnHeader>Observed forward</Table.ColumnHeader> : null}
+                {hasCipGapColumn ? <Table.ColumnHeader>CIP gap</Table.ColumnHeader> : null}
               </Table.Row>
             </Table.Header>
             <Table.Body>
@@ -63,8 +65,8 @@ export function CurrencyIrpTenorTableBlock({
                   <Table.Cell>{row.usdRate}%</Table.Cell>
                   <Table.Cell>{row.rateSpread}%</Table.Cell>
                   <Table.Cell>{row.cipImpliedForward}</Table.Cell>
-                  <Table.Cell>{row.hasObservedForward ? row.observedForward : ""}</Table.Cell>
-                  <Table.Cell>{row.hasObservedForward && row.cipBasisBps ? `${row.cipBasisBps} bps` : ""}</Table.Cell>
+                  {hasObservedForwardColumn ? <Table.Cell>{row.hasObservedForward ? row.observedForward : ""}</Table.Cell> : null}
+                  {hasCipGapColumn ? <Table.Cell>{row.hasObservedForward && row.cipBasisBps ? `${row.cipBasisBps} bps` : ""}</Table.Cell> : null}
                 </Table.Row>
               ))}
             </Table.Body>
