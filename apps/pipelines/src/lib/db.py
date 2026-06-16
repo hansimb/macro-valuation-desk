@@ -538,8 +538,6 @@ def replace_currency_irp_snapshots(connection, rows: list[dict[str, object]]) ->
                 usd_rate,
                 rate_spread,
                 cip_implied_forward,
-                observed_forward,
-                cip_basis_bps,
                 uip_implied_move_pct,
                 uip_implied_spot,
                 spot_series_key,
@@ -547,10 +545,7 @@ def replace_currency_irp_snapshots(connection, rows: list[dict[str, object]]) ->
                 eur_rate_series_key,
                 eur_rate_source_url,
                 usd_rate_series_key,
-                usd_rate_source_url,
-                forward_series_key,
-                forward_source_url,
-                has_observed_forward
+                usd_rate_source_url
             )
             values (
                 %(pair_key)s,
@@ -561,8 +556,6 @@ def replace_currency_irp_snapshots(connection, rows: list[dict[str, object]]) ->
                 %(usd_rate)s,
                 %(rate_spread)s,
                 %(cip_implied_forward)s,
-                %(observed_forward)s,
-                %(cip_basis_bps)s,
                 %(uip_implied_move_pct)s,
                 %(uip_implied_spot)s,
                 %(spot_series_key)s,
@@ -570,10 +563,7 @@ def replace_currency_irp_snapshots(connection, rows: list[dict[str, object]]) ->
                 %(eur_rate_series_key)s,
                 %(eur_rate_source_url)s,
                 %(usd_rate_series_key)s,
-                %(usd_rate_source_url)s,
-                %(forward_series_key)s,
-                %(forward_source_url)s,
-                %(has_observed_forward)s
+                %(usd_rate_source_url)s
             )
             on conflict (pair_key, as_of_date, tenor) do update
             set
@@ -582,8 +572,6 @@ def replace_currency_irp_snapshots(connection, rows: list[dict[str, object]]) ->
                 usd_rate = excluded.usd_rate,
                 rate_spread = excluded.rate_spread,
                 cip_implied_forward = excluded.cip_implied_forward,
-                observed_forward = excluded.observed_forward,
-                cip_basis_bps = excluded.cip_basis_bps,
                 uip_implied_move_pct = excluded.uip_implied_move_pct,
                 uip_implied_spot = excluded.uip_implied_spot,
                 spot_series_key = excluded.spot_series_key,
@@ -591,10 +579,7 @@ def replace_currency_irp_snapshots(connection, rows: list[dict[str, object]]) ->
                 eur_rate_series_key = excluded.eur_rate_series_key,
                 eur_rate_source_url = excluded.eur_rate_source_url,
                 usd_rate_series_key = excluded.usd_rate_series_key,
-                usd_rate_source_url = excluded.usd_rate_source_url,
-                forward_series_key = excluded.forward_series_key,
-                forward_source_url = excluded.forward_source_url,
-                has_observed_forward = excluded.has_observed_forward
+                usd_rate_source_url = excluded.usd_rate_source_url
             """,
             rows,
         )

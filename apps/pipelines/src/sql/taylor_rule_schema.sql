@@ -160,8 +160,6 @@ create table if not exists mart.currency_irp_snapshots (
     usd_rate numeric not null,
     rate_spread numeric not null,
     cip_implied_forward numeric not null,
-    observed_forward numeric,
-    cip_basis_bps numeric,
     uip_implied_move_pct numeric not null,
     uip_implied_spot numeric not null,
     spot_series_key text not null,
@@ -170,9 +168,6 @@ create table if not exists mart.currency_irp_snapshots (
     eur_rate_source_url text not null,
     usd_rate_series_key text not null,
     usd_rate_source_url text not null,
-    forward_series_key text,
-    forward_source_url text,
-    has_observed_forward boolean not null default false,
     primary key (pair_key, as_of_date, tenor)
 );
 
@@ -209,6 +204,11 @@ alter table mart.currency_ppp_paths add column if not exists anchor_window_code 
 alter table mart.currency_ppp_paths add column if not exists base_year text;
 alter table mart.currency_ppp_paths add column if not exists has_imputed_inputs boolean not null default false;
 alter table mart.currency_ppp_paths add column if not exists imputation_note text;
+alter table mart.currency_irp_snapshots drop column if exists observed_forward;
+alter table mart.currency_irp_snapshots drop column if exists cip_basis_bps;
+alter table mart.currency_irp_snapshots drop column if exists forward_series_key;
+alter table mart.currency_irp_snapshots drop column if exists forward_source_url;
+alter table mart.currency_irp_snapshots drop column if exists has_observed_forward;
 
 do $$
 begin

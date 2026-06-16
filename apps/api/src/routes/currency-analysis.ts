@@ -57,15 +57,11 @@ interface IrpSnapshotRow {
   usd_rate: string;
   rate_spread: string;
   cip_implied_forward: string;
-  observed_forward: string | null;
-  cip_basis_bps: string | null;
   uip_implied_move_pct: string;
   uip_implied_spot: string;
   spot_source_url: string;
   eur_rate_source_url: string;
   usd_rate_source_url: string;
-  forward_source_url: string | null;
-  has_observed_forward: boolean;
 }
 
 interface AvailabilityRow {
@@ -87,10 +83,6 @@ function uniqueReferences(references: CurrencyAnalysisReferenceItem[]) {
 
 function tenorRank(tenor: string) {
   return { "3M": 1, "6M": 2, "12M": 3 }[tenor] ?? 99;
-}
-
-function hasValidatedObservedForward(row: IrpSnapshotRow) {
-  return row.has_observed_forward && row.observed_forward !== null && row.forward_source_url !== null;
 }
 
 function parseAnchorStatistic(value: unknown): CurrencyAnalysisPppAnchorStatistic {
@@ -309,15 +301,11 @@ export async function registerCurrencyAnalysisRoute(app: FastifyInstance) {
         usd_rate::text,
         rate_spread::text,
         cip_implied_forward::text,
-        observed_forward::text,
-        cip_basis_bps::text,
         uip_implied_move_pct::text,
         uip_implied_spot::text,
         spot_source_url,
         eur_rate_source_url,
-        usd_rate_source_url,
-        forward_source_url,
-        has_observed_forward
+        usd_rate_source_url
       from mart.currency_irp_snapshots
       where pair_key = 'eurusd'
       order by as_of_date asc, tenor asc
@@ -345,9 +333,6 @@ export async function registerCurrencyAnalysisRoute(app: FastifyInstance) {
       usdRate: row.usd_rate,
       rateSpread: row.rate_spread,
       cipImpliedForward: row.cip_implied_forward,
-      ...(hasValidatedObservedForward(row) ? { observedForward: row.observed_forward! } : {}),
-      ...(hasValidatedObservedForward(row) && row.cip_basis_bps !== null ? { cipBasisBps: row.cip_basis_bps } : {}),
-      hasObservedForward: hasValidatedObservedForward(row),
     }));
 
     const availability: CurrencyAnalysisAvailabilityItem[] = availabilityResult.rows.map((row) => ({
@@ -365,9 +350,6 @@ export async function registerCurrencyAnalysisRoute(app: FastifyInstance) {
           { label: `EUR ${row.tenor} rate`, url: row.eur_rate_source_url },
           { label: `USD ${row.tenor} rate`, url: row.usd_rate_source_url },
         ];
-        if (hasValidatedObservedForward(row)) {
-          items.push({ label: `EUR/USD ${row.tenor} forward`, url: row.forward_source_url! });
-        }
         return items;
       }),
     );

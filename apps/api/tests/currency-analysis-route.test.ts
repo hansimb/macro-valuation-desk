@@ -145,15 +145,11 @@ describe("currency analysis route", () => {
             usd_rate: "4.00",
             rate_spread: "-2.00",
             cip_implied_forward: "1.1344",
-            observed_forward: null,
-            cip_basis_bps: null,
             uip_implied_move_pct: "-0.50",
             uip_implied_spot: "1.1343",
             spot_source_url: "https://data.ecb.europa.eu/data/datasets/EXR/EXR.D.USD.EUR.SP00.A",
             eur_rate_source_url: "https://data.ecb.europa.eu/data/datasets/EST/EST.B.EU000A2QQF32.CR",
             usd_rate_source_url: "https://fred.stlouisfed.org/series/DTB3",
-            forward_source_url: null,
-            has_observed_forward: false,
           },
         ],
       })
@@ -234,7 +230,6 @@ describe("currency analysis route", () => {
             usdRate: "4.00",
             rateSpread: "-2.00",
             cipImpliedForward: "1.1344",
-            hasObservedForward: false,
           },
         ],
         uip: {
@@ -342,15 +337,11 @@ describe("currency analysis route", () => {
             usd_rate: "4.20",
             rate_spread: "-2.00",
             cip_implied_forward: "1.1181",
-            observed_forward: null,
-            cip_basis_bps: null,
             uip_implied_move_pct: "-2.00",
             uip_implied_spot: "1.1172",
             spot_source_url: "https://data.ecb.europa.eu/data/datasets/EXR/EXR.D.USD.EUR.SP00.A",
             eur_rate_source_url: "https://data.ecb.europa.eu/data/datasets/EST/EST.B.EU000A2QQF57.CR",
             usd_rate_source_url: "https://fred.stlouisfed.org/series/DTB1YR",
-            forward_source_url: null,
-            has_observed_forward: false,
           },
           {
             as_of_date: "2026-05-30",
@@ -360,15 +351,11 @@ describe("currency analysis route", () => {
             usd_rate: "4.00",
             rate_spread: "-2.00",
             cip_implied_forward: "1.1344",
-            observed_forward: "1.1330",
-            cip_basis_bps: "-11.90",
             uip_implied_move_pct: "-0.50",
             uip_implied_spot: "1.1343",
             spot_source_url: "https://data.ecb.europa.eu/data/datasets/EXR/EXR.D.USD.EUR.SP00.A",
             eur_rate_source_url: "https://data.ecb.europa.eu/data/datasets/EST/EST.B.EU000A2QQF32.CR",
             usd_rate_source_url: "https://fred.stlouisfed.org/series/DTB3",
-            forward_source_url: "https://example.com/verified-forward-source",
-            has_observed_forward: true,
           },
           {
             as_of_date: "2026-05-30",
@@ -378,15 +365,11 @@ describe("currency analysis route", () => {
             usd_rate: "4.10",
             rate_spread: "-2.00",
             cip_implied_forward: "1.1288",
-            observed_forward: null,
-            cip_basis_bps: null,
             uip_implied_move_pct: "-1.00",
             uip_implied_spot: "1.1286",
             spot_source_url: "https://data.ecb.europa.eu/data/datasets/EXR/EXR.D.USD.EUR.SP00.A",
             eur_rate_source_url: "https://data.ecb.europa.eu/data/datasets/EST/EST.B.EU000A2QQF40.CR",
             usd_rate_source_url: "https://fred.stlouisfed.org/series/DTB6",
-            forward_source_url: null,
-            has_observed_forward: false,
           },
         ],
       })
@@ -404,9 +387,6 @@ describe("currency analysis route", () => {
         usdRate: "4.00",
         rateSpread: "-2.00",
         cipImpliedForward: "1.1344",
-        observedForward: "1.1330",
-        cipBasisBps: "-11.90",
-        hasObservedForward: true,
       },
       {
         tenor: "6M",
@@ -416,7 +396,6 @@ describe("currency analysis route", () => {
         usdRate: "4.10",
         rateSpread: "-2.00",
         cipImpliedForward: "1.1288",
-        hasObservedForward: false,
       },
       {
         tenor: "12M",
@@ -426,63 +405,12 @@ describe("currency analysis route", () => {
         usdRate: "4.20",
         rateSpread: "-2.00",
         cipImpliedForward: "1.1181",
-        hasObservedForward: false,
       },
     ]);
     expect(response.json().irp.uip.rows).toEqual([
       { tenor: "3M", impliedMovePct: "-0.50", impliedSpot: "1.1343" },
       { tenor: "6M", impliedMovePct: "-1.00", impliedSpot: "1.1286" },
       { tenor: "12M", impliedMovePct: "-2.00", impliedSpot: "1.1172" },
-    ]);
-  });
-
-  it("does not emit fallback-like observed-forward fields or references when mart rows flag them unavailable", async () => {
-    queryMock
-      .mockResolvedValueOnce({ rows: [] })
-      .mockResolvedValueOnce({ rows: [] })
-      .mockResolvedValueOnce({
-        rows: [
-          {
-            as_of_date: "2026-05-30",
-            tenor: "3M",
-            spot: "1.1400",
-            eur_rate: "2.00",
-            usd_rate: "4.00",
-            rate_spread: "-2.00",
-            cip_implied_forward: "1.1344",
-            observed_forward: "0.0000",
-            cip_basis_bps: "0.0",
-            uip_implied_move_pct: "-0.50",
-            uip_implied_spot: "1.1343",
-            spot_source_url: "https://data.ecb.europa.eu/data/datasets/EXR/EXR.D.USD.EUR.SP00.A",
-            eur_rate_source_url: "https://data.ecb.europa.eu/data/datasets/EST/EST.B.EU000A2QQF32.CR",
-            usd_rate_source_url: "https://fred.stlouisfed.org/series/DTB3",
-            forward_source_url: "https://example.com/placeholder-forward-source",
-            has_observed_forward: false,
-          },
-        ],
-      })
-      .mockResolvedValueOnce({ rows: [] });
-
-    const response = await app.inject({ method: "GET", url: "/macro/currency-analysis" });
-
-    expect(response.statusCode).toBe(200);
-    expect(response.json().irp.cipRows).toEqual([
-      {
-        tenor: "3M",
-        asOf: "2026-05-30",
-        spot: "1.1400",
-        eurRate: "2.00",
-        usdRate: "4.00",
-        rateSpread: "-2.00",
-        cipImpliedForward: "1.1344",
-        hasObservedForward: false,
-      },
-    ]);
-    expect(response.json().irp.references).toEqual([
-      { label: "EUR/USD spot", url: "https://data.ecb.europa.eu/data/datasets/EXR/EXR.D.USD.EUR.SP00.A" },
-      { label: "EUR 3M rate", url: "https://data.ecb.europa.eu/data/datasets/EST/EST.B.EU000A2QQF32.CR" },
-      { label: "USD 3M rate", url: "https://fred.stlouisfed.org/series/DTB3" },
     ]);
   });
 

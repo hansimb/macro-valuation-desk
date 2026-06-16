@@ -65,9 +65,6 @@ export interface CurrencyAnalysisIrpCipRow {
   usdRate: string;
   rateSpread: string;
   cipImpliedForward: string;
-  observedForward?: string;
-  cipBasisBps?: string;
-  hasObservedForward: boolean;
 }
 
 export interface CurrencyAnalysisIrpUipRow {
