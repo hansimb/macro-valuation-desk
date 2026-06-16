@@ -6,18 +6,19 @@ import EquityMarketsPage from "../src/app/equity-markets/page";
 import { ThemeProvider } from "../src/features/theme/provider";
 
 describe("Equity Markets page", () => {
-  it("renders an empty-state card when the equity analysis registry is empty", () => {
+  it("renders an analysis registry page that mirrors the macro landing-page structure", () => {
     render(
       <ThemeProvider>
         <EquityMarketsPage />
       </ThemeProvider>
     );
 
-    expect(screen.getByRole("heading", { name: "Equity market index valuation analysis" })).toBeInTheDocument();
-    expect(screen.getByText("Global Equity Valuation")).toBeInTheDocument();
-    expect(screen.getByText("No analysis yet")).toBeInTheDocument();
-    expect(screen.queryByRole("table")).not.toBeInTheDocument();
-    expect(screen.queryByRole("columnheader", { name: "Market" })).not.toBeInTheDocument();
-    expect(screen.queryByText("S&P 500")).not.toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Equity Markets" })).toBeInTheDocument();
+    expect(screen.getByText("Equity Workspace")).toBeInTheDocument();
+    expect(screen.getByText("Analysis")).toBeInTheDocument();
+    expect(screen.queryByText("No analysis yet")).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /Highest P\/S Stocks/i })).toBeInTheDocument();
+    expect(screen.getByText(/Ranking view for the most sales-expensive stocks in the selected universe/i)).toBeInTheDocument();
+    expect(screen.getByText(/Frontend demo route first, then replaced with live ranking data once the full-stack flow is ready/i)).toBeInTheDocument();
   });
 });

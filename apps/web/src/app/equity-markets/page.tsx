@@ -1,164 +1,82 @@
 import React from "react";
 import NextLink from "next/link";
-import { Box, Heading, Link, Stack, Text } from "@chakra-ui/react";
+import { Heading, Link, Stack, Text } from "@chakra-ui/react";
 
-import { equityMarketAnalyses } from "../../features/site-shell/mvd-data";
+import { equityAnalyses } from "../../features/site-shell/mvd-data";
 
 export default function EquityMarketsPage() {
   return (
-    <Stack gap={{ base: "8", md: "10" }}>
+    <Stack gap={{ base: "10", md: "14" }}>
       <Stack gap="4" maxW="4xl">
         <Text color="accent" textStyle="eyebrow">
-          Global Equity Valuation
+          Equity Workspace
         </Text>
         <Heading as="h1" textStyle="hero">
-          Equity market index valuation analysis
+          Equity Markets
         </Heading>
-        <Text color="muted" maxW="4xl" textStyle="subtitle">
-          Broad-market valuation overview across the main reference indexes.
+        <Text color="muted" maxW="3xl" textStyle="subtitle">
+          Equity valuation analysis and research notes.
         </Text>
       </Stack>
 
-      <Stack bg="surface" borderColor="edge" borderWidth="1px" gap="0" overflowX="auto" rounded="panel">
-        {equityMarketAnalyses.length === 0 ? (
-          <Stack gap="3" justify="center" minH="12rem" p={{ base: "6", md: "7" }}>
+      <Stack gap="5">
+        <Text color="muted" textStyle="eyebrow">
+          Analysis
+        </Text>
+        {equityAnalyses.length === 0 ? (
+          <Stack
+            bg="surface"
+            borderColor="edge"
+            borderWidth="1px"
+            gap="3"
+            minH="12rem"
+            justify="center"
+            p={{ base: "6", md: "7" }}
+            rounded="panel"
+          >
             <Heading as="h2" textStyle="title">
               No analysis yet
             </Heading>
             <Text color="muted" maxW="2xl" textStyle="body">
-              Index valuation analysis pages will appear here once the first market coverage is published.
+              New equity analysis pages will appear here once the first published work is ready.
             </Text>
           </Stack>
         ) : (
-          <>
-            <Text
-              color="muted"
-              px={{ base: "5", md: "6" }}
-              pt={{ base: "5", md: "6" }}
-              textStyle="eyebrow"
-            >
-              Standardized coverage
-            </Text>
-            <Box as="table" borderCollapse="collapse" role="table" w="full">
-              <Box as="thead">
-                <Box as="tr">
-                  <Box as="th" px={{ base: "5", md: "6" }} py="3" textAlign="left">
-                    <Text color="muted" fontWeight="500" textStyle="eyebrow">
-                      Market
+          <Stack gap="4">
+            {equityAnalyses.map((analysis) => (
+              <Link
+                asChild
+                key={analysis.slug}
+                display="block"
+                textDecoration="none"
+                _hover={{ textDecoration: "none" }}
+              >
+                <NextLink href={`/equity-markets/${analysis.slug}`}>
+                  <Stack
+                    bg="surface"
+                    borderColor="edge"
+                    borderWidth="1px"
+                    gap="3"
+                    p={{ base: "6", md: "7" }}
+                    rounded="panel"
+                    transition="border-color 0.2s ease, transform 0.2s ease"
+                    _hover={{ borderColor: "accent", transform: "translateY(-2px)" }}
+                  >
+                    <Text color="accent" textStyle="eyebrow">
+                      {analysis.eyebrow}
                     </Text>
-                  </Box>
-                  <Box as="th" display={{ base: "none", md: "table-cell" }} px={{ base: "5", md: "6" }} py="3" textAlign="left">
-                    <Text color="muted" fontWeight="500" textStyle="eyebrow">
-                      Ticker
+                    <Heading as="h2" textStyle="title">
+                      {analysis.title}
+                    </Heading>
+                    <Text color="muted" textStyle="body">{analysis.summary}</Text>
+                    <Text color="muted" textStyle="caption">
+                      {analysis.cue}
                     </Text>
-                  </Box>
-                  <Box as="th" display={{ base: "none", lg: "table-cell" }} px={{ base: "5", md: "6" }} py="3" textAlign="right">
-                    <Text color="muted" fontWeight="500" textStyle="eyebrow">
-                      P/E
-                    </Text>
-                  </Box>
-                  <Box as="th" display={{ base: "none", lg: "table-cell" }} px={{ base: "5", md: "6" }} py="3" textAlign="right">
-                    <Text color="muted" fontWeight="500" textStyle="eyebrow">
-                      CAPE
-                    </Text>
-                  </Box>
-                  <Box as="th" display={{ base: "none", xl: "table-cell" }} px={{ base: "5", md: "6" }} py="3" textAlign="right">
-                    <Text color="muted" fontWeight="500" textStyle="eyebrow">
-                      P/B
-                    </Text>
-                  </Box>
-                  <Box as="th" px={{ base: "5", md: "6" }} py="3" textAlign="right">
-                    <Text color="muted" fontWeight="500" textStyle="eyebrow">
-                      Valuation posture
-                    </Text>
-                  </Box>
-                </Box>
-              </Box>
-              <Box as="tbody">
-                {equityMarketAnalyses.map((market, index) => (
-                  <Box as="tr" key={market.slug}>
-                    <Box
-                      as="td"
-                      borderBottomWidth={index === equityMarketAnalyses.length - 1 ? "0" : "1px"}
-                      borderColor="edge"
-                      px={{ base: "5", md: "6" }}
-                      py={{ base: "4", md: "5" }}
-                    >
-                      <Link
-                        asChild
-                        color="text"
-                        fontWeight="semibold"
-                        textDecoration="none"
-                        _hover={{ color: "accent", textDecoration: "none" }}
-                      >
-                        <NextLink href={`/equity-markets/${market.slug}`}>
-                          {market.flagEmoji} {market.market}
-                        </NextLink>
-                      </Link>
-                      <Text color="muted" mt="1" textStyle="caption">
-                        {market.region}
-                      </Text>
-                    </Box>
-                    <Box
-                      as="td"
-                      borderBottomWidth={index === equityMarketAnalyses.length - 1 ? "0" : "1px"}
-                      borderColor="edge"
-                      display={{ base: "none", md: "table-cell" }}
-                      px={{ base: "5", md: "6" }}
-                      py={{ base: "4", md: "5" }}
-                    >
-                      <Text color="muted">{market.ticker}</Text>
-                    </Box>
-                    <Box
-                      as="td"
-                      borderBottomWidth={index === equityMarketAnalyses.length - 1 ? "0" : "1px"}
-                      borderColor="edge"
-                      display={{ base: "none", lg: "table-cell" }}
-                      px={{ base: "5", md: "6" }}
-                      py={{ base: "4", md: "5" }}
-                      textAlign="right"
-                    >
-                      <Text>{market.pe}</Text>
-                    </Box>
-                    <Box
-                      as="td"
-                      borderBottomWidth={index === equityMarketAnalyses.length - 1 ? "0" : "1px"}
-                      borderColor="edge"
-                      display={{ base: "none", lg: "table-cell" }}
-                      px={{ base: "5", md: "6" }}
-                      py={{ base: "4", md: "5" }}
-                      textAlign="right"
-                    >
-                      <Text>{market.cape}</Text>
-                    </Box>
-                    <Box
-                      as="td"
-                      borderBottomWidth={index === equityMarketAnalyses.length - 1 ? "0" : "1px"}
-                      borderColor="edge"
-                      display={{ base: "none", xl: "table-cell" }}
-                      px={{ base: "5", md: "6" }}
-                      py={{ base: "4", md: "5" }}
-                      textAlign="right"
-                    >
-                      <Text>{market.pb}</Text>
-                    </Box>
-                    <Box
-                      as="td"
-                      borderBottomWidth={index === equityMarketAnalyses.length - 1 ? "0" : "1px"}
-                      borderColor="edge"
-                      px={{ base: "5", md: "6" }}
-                      py={{ base: "4", md: "5" }}
-                      textAlign="right"
-                    >
-                      <Text color="accent" textStyle="body">
-                        {market.posture}
-                      </Text>
-                    </Box>
-                  </Box>
-                ))}
-              </Box>
-            </Box>
-          </>
+                  </Stack>
+                </NextLink>
+              </Link>
+            ))}
+          </Stack>
         )}
       </Stack>
     </Stack>
