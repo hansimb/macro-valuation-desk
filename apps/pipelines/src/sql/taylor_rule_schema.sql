@@ -181,6 +181,36 @@ create table if not exists mart.currency_data_availability (
     primary key (pair_key, section_key, item_key)
 );
 
+create table if not exists mart.highest_ps_section_summaries (
+    section_key text primary key,
+    as_of_date date,
+    universe_key text not null,
+    universe_label text not null,
+    section_label text not null,
+    benchmark_key text not null,
+    benchmark_label text not null,
+    average_ps_ratio numeric,
+    top_basket_average_ps_ratio numeric,
+    top_basket_index_weight_pct numeric,
+    eligible_constituent_count integer not null,
+    unavailable boolean not null default false
+);
+
+create table if not exists mart.highest_ps_section_rankings (
+    section_key text not null,
+    rank integer not null,
+    ticker text not null,
+    company text not null,
+    country_code text not null,
+    country_name text not null,
+    sector text not null,
+    ps_ratio numeric not null,
+    sector_average_ps_ratio numeric not null,
+    relative_to_sector_multiple numeric not null,
+    index_weight_pct numeric not null,
+    primary key (section_key, rank)
+);
+
 alter table mart.macro_reference_metrics add column if not exists output_gap numeric not null default 0;
 alter table mart.macro_reference_metrics add column if not exists output_gap_as_of_date date not null default date '1970-01-01';
 alter table mart.macro_reference_metrics add column if not exists output_gap_series_key text not null default '';

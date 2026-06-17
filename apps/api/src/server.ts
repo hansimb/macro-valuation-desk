@@ -2,6 +2,7 @@ import Fastify from "fastify";
 
 import { registerCurrencyAnalysisRoute } from "./routes/currency-analysis";
 import { registerHealthRoute } from "./routes/health";
+import { registerHighestPsRankingRoute } from "./routes/highest-ps-ranking";
 import { registerMacroOverviewRoute } from "./routes/macro-overview";
 import { registerTaylorRuleRoute } from "./routes/taylor-rule";
 
@@ -14,6 +15,7 @@ export function buildServer() {
   registerMacroOverviewRoute(app);
   registerTaylorRuleRoute(app);
   registerCurrencyAnalysisRoute(app);
+  registerHighestPsRankingRoute(app);
 
   return app;
 }

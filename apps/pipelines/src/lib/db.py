@@ -207,6 +207,11 @@ def read_staging_rows_for_series(connection, series_ids: list[str]) -> list[dict
         return list(cursor.fetchall())
 
 
+def read_highest_ps_candidate_rows(connection) -> list[dict[str, object]]:
+    del connection
+    return []
+
+
 def replace_taylor_rule_inputs(connection, rows: list[dict[str, object]]) -> None:
     regions = sorted({row["region"] for row in rows})
 
@@ -618,6 +623,118 @@ def replace_currency_data_availability(connection, rows: list[dict[str, object]]
                 status = excluded.status,
                 detail = excluded.detail,
                 as_of_date = excluded.as_of_date
+            """,
+            rows,
+        )
+    connection.commit()
+
+
+def replace_highest_ps_section_summaries(connection, rows: list[dict[str, object]]) -> None:
+    section_keys = sorted({row["section_key"] for row in rows})
+
+    with connection.cursor() as cursor:
+        if section_keys:
+            cursor.execute(
+                "delete from mart.highest_ps_section_summaries where section_key = any(%(section_keys)s)",
+                {"section_keys": section_keys},
+            )
+        cursor.executemany(
+            """
+            insert into mart.highest_ps_section_summaries (
+                section_key,
+                as_of_date,
+                universe_key,
+                universe_label,
+                section_label,
+                benchmark_key,
+                benchmark_label,
+                average_ps_ratio,
+                top_basket_average_ps_ratio,
+                top_basket_index_weight_pct,
+                eligible_constituent_count,
+                unavailable
+            )
+            values (
+                %(section_key)s,
+                %(as_of_date)s,
+                %(universe_key)s,
+                %(universe_label)s,
+                %(section_label)s,
+                %(benchmark_key)s,
+                %(benchmark_label)s,
+                %(average_ps_ratio)s,
+                %(top_basket_average_ps_ratio)s,
+                %(top_basket_index_weight_pct)s,
+                %(eligible_constituent_count)s,
+                %(unavailable)s
+            )
+            on conflict (section_key) do update
+            set
+                as_of_date = excluded.as_of_date,
+                universe_key = excluded.universe_key,
+                universe_label = excluded.universe_label,
+                section_label = excluded.section_label,
+                benchmark_key = excluded.benchmark_key,
+                benchmark_label = excluded.benchmark_label,
+                average_ps_ratio = excluded.average_ps_ratio,
+                top_basket_average_ps_ratio = excluded.top_basket_average_ps_ratio,
+                top_basket_index_weight_pct = excluded.top_basket_index_weight_pct,
+                eligible_constituent_count = excluded.eligible_constituent_count,
+                unavailable = excluded.unavailable
+            """,
+            rows,
+        )
+    connection.commit()
+
+
+def replace_highest_ps_section_rankings(connection, rows: list[dict[str, object]]) -> None:
+    section_keys = sorted({row["section_key"] for row in rows})
+
+    with connection.cursor() as cursor:
+        if section_keys:
+            cursor.execute(
+                "delete from mart.highest_ps_section_rankings where section_key = any(%(section_keys)s)",
+                {"section_keys": section_keys},
+            )
+        cursor.executemany(
+            """
+            insert into mart.highest_ps_section_rankings (
+                section_key,
+                rank,
+                ticker,
+                company,
+                country_code,
+                country_name,
+                sector,
+                ps_ratio,
+                sector_average_ps_ratio,
+                relative_to_sector_multiple,
+                index_weight_pct
+            )
+            values (
+                %(section_key)s,
+                %(rank)s,
+                %(ticker)s,
+                %(company)s,
+                %(country_code)s,
+                %(country_name)s,
+                %(sector)s,
+                %(ps_ratio)s,
+                %(sector_average_ps_ratio)s,
+                %(relative_to_sector_multiple)s,
+                %(index_weight_pct)s
+            )
+            on conflict (section_key, rank) do update
+            set
+                ticker = excluded.ticker,
+                company = excluded.company,
+                country_code = excluded.country_code,
+                country_name = excluded.country_name,
+                sector = excluded.sector,
+                ps_ratio = excluded.ps_ratio,
+                sector_average_ps_ratio = excluded.sector_average_ps_ratio,
+                relative_to_sector_multiple = excluded.relative_to_sector_multiple,
+                index_weight_pct = excluded.index_weight_pct
             """,
             rows,
         )

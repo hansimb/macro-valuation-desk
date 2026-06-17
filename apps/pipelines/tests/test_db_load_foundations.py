@@ -11,6 +11,8 @@ from src.lib.db import (
     replace_currency_irp_snapshots,
     replace_currency_ppp_paths,
     replace_currency_ppp_snapshots,
+    replace_highest_ps_section_rankings,
+    replace_highest_ps_section_summaries,
     replace_taylor_rule_inputs,
     upsert_raw_observations,
     upsert_series_metadata,
@@ -255,6 +257,43 @@ def test_upsert_helpers_write_expected_row_shapes():
             }
         ],
     )
+    replace_highest_ps_section_summaries(
+        connection,
+        [
+            {
+                "section_key": "usa",
+                "as_of_date": "2026-06-15",
+                "universe_key": "sp500",
+                "universe_label": "S&P 500",
+                "section_label": "USA High P/S Leaders",
+                "benchmark_key": "sp500",
+                "benchmark_label": "S&P 500 Average P/S",
+                "average_ps_ratio": 14.75,
+                "top_basket_average_ps_ratio": 14.75,
+                "top_basket_index_weight_pct": 19.7,
+                "eligible_constituent_count": 4,
+                "unavailable": False,
+            }
+        ],
+    )
+    replace_highest_ps_section_rankings(
+        connection,
+        [
+            {
+                "section_key": "usa",
+                "rank": 1,
+                "ticker": "NVDA",
+                "company": "NVIDIA",
+                "country_code": "US",
+                "country_name": "United States",
+                "sector": "Information Technology",
+                "ps_ratio": 24.1,
+                "sector_average_ps_ratio": 14.7,
+                "relative_to_sector_multiple": 1.64,
+                "index_weight_pct": 6.1,
+            }
+        ],
+    )
 
     commands = connection.cursor_instance.commands
     assert any("insert into core.series_metadata" in query.lower() for query, _ in commands)
@@ -270,7 +309,11 @@ def test_upsert_helpers_write_expected_row_shapes():
     assert any("delete from mart.currency_irp_snapshots" in query.lower() for query, _ in commands)
     assert any("insert into mart.currency_data_availability" in query.lower() for query, _ in commands)
     assert any("delete from mart.currency_data_availability" in query.lower() for query, _ in commands)
-    assert connection.commit_count == 8
+    assert any("insert into mart.highest_ps_section_summaries" in query.lower() for query, _ in commands)
+    assert any("delete from mart.highest_ps_section_summaries" in query.lower() for query, _ in commands)
+    assert any("insert into mart.highest_ps_section_rankings" in query.lower() for query, _ in commands)
+    assert any("delete from mart.highest_ps_section_rankings" in query.lower() for query, _ in commands)
+    assert connection.commit_count == 10
 
 
 def test_checkpoint_helpers_read_write_and_build_reprocessing_window():
