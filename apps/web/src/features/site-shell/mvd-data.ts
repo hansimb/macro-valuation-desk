@@ -50,8 +50,8 @@ export const equityAnalyses: EquityAnalysisEntry[] = [
   {
     slug: "highest-ps-ranking",
     title: "Highest P/S Stocks",
-    summary: "Ranking view for the most sales-expensive stocks in the selected universe, starting with an S&P 500 demo version.",
-    cue: "Frontend demo route first, then replaced with live ranking data once the full-stack flow is ready.",
+    summary: "Top-50 ranking view for the most sales-expensive stocks in the S&P 500 universe.",
+    cue: "Shows only live data and stays hidden until the ranking mart and benchmark inputs are available.",
     eyebrow: "Valuation Ranking"
   }
 ];

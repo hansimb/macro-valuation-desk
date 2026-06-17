@@ -18,7 +18,7 @@ describe("Equity Markets page", () => {
     expect(screen.getByText("Analysis")).toBeInTheDocument();
     expect(screen.queryByText("No analysis yet")).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: /Highest P\/S Stocks/i })).toBeInTheDocument();
-    expect(screen.getByText(/Ranking view for the most sales-expensive stocks in the selected universe/i)).toBeInTheDocument();
-    expect(screen.getByText(/Frontend demo route first, then replaced with live ranking data once the full-stack flow is ready/i)).toBeInTheDocument();
+    expect(screen.getByText(/Top-50 ranking view for the most sales-expensive stocks in the S&P 500 universe/i)).toBeInTheDocument();
+    expect(screen.getByText(/Shows only live data and stays hidden until the ranking mart and benchmark inputs are available/i)).toBeInTheDocument();
   });
 });
