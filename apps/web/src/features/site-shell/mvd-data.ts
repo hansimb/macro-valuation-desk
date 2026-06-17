@@ -50,8 +50,8 @@ export const equityAnalyses: EquityAnalysisEntry[] = [
   {
     slug: "highest-ps-ranking",
     title: "Highest P/S Stocks",
-    summary: "Top-50 ranking view for the most sales-expensive stocks in the S&P 500 universe.",
-    cue: "Shows only live data and stays hidden until the ranking mart and benchmark inputs are available.",
+    summary: "Separate U.S. and Europe leaderboards for the highest price-to-sales names in major large-cap indices.",
+    cue: "Theory-first comparison of top multiple baskets, benchmark averages, and index-weight concentration.",
     eyebrow: "Valuation Ranking"
   }
 ];

@@ -1,10 +1,23 @@
-import type { HighestPsRankingResponse } from "../../../../../packages/shared/src/contracts/highest-ps-ranking";
+import type {
+  HighestPsRankingResponse,
+  HighestPsRankingSection,
+} from "../../../../../packages/shared/src/contracts/highest-ps-ranking";
 
 export type HighestPsRankingPageData = HighestPsRankingResponse;
 
 export const emptyHighestPsRankingPageData: HighestPsRankingPageData = {
   asOf: null,
-  universeLabel: null,
-  ranking: [],
-  referenceBenchmarks: [],
+  sections: [],
+  references: [],
 };
+
+export function hasRenderableHighestPsSection(section: HighestPsRankingSection) {
+  return (
+    !section.unavailable
+    && section.ranking.length > 0
+    && section.benchmark.averagePsRatio !== null
+    && section.benchmark.topBasketAveragePsRatio !== null
+    && section.benchmark.topBasketIndexWeightPct !== null
+    && section.benchmark.eligibleConstituentCount > 0
+  );
+}
