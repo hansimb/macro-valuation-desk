@@ -23,7 +23,7 @@ Observed-forward support should be implemented as optional transform/API/UI capa
 ## Current State Summary
 
 - `apps/pipelines/src/lib/pipeline/transforms/currency_irp.py` already builds `3M`, `6M`, and `12M` `CIP`/`UIP` rows from `eurusd_spot_daily`, `eur_*_rate`, and `usd_*_rate`.
-- `apps/pipelines/src/sql/taylor_rule_schema.sql` already has `mart.currency_irp_snapshots` with optional `observed_forward`, `cip_basis_bps`, `forward_series_key`, `forward_source_url`, and `has_observed_forward`.
+- `apps/pipelines/src/sql/pipeline_schema.sql` already has `mart.currency_irp_snapshots` with optional `observed_forward`, `cip_basis_bps`, `forward_series_key`, `forward_source_url`, and `has_observed_forward`.
 - `packages/shared/src/contracts/currency-analysis.ts` already exposes `irp.cipRows` and `irp.uip.rows`.
 - `apps/api/src/routes/currency-analysis.ts` already reads `mart.currency_irp_snapshots`, but `UIP` row shaping currently depends on array index alignment after sorting and should be made tenor-keyed.
 - `apps/web/src/features/macro/currency-analysis-client.tsx` renders only PPP. It returns `null` when PPP summary is missing, so IRP cannot render independently yet.

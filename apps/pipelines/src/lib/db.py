@@ -24,7 +24,7 @@ def get_connection():
 
 
 def _schema_sql() -> str:
-    schema_path = Path(__file__).resolve().parents[1] / "sql" / "taylor_rule_schema.sql"
+    schema_path = Path(__file__).resolve().parents[1] / "sql" / "pipeline_schema.sql"
     return schema_path.read_text(encoding="utf-8")
 
 

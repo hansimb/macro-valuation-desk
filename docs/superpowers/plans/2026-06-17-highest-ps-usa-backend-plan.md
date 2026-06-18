@@ -99,7 +99,7 @@ This is the first shipping methodology. It intentionally avoids tiny outliers an
 - `apps/api/src/routes/...` (new route registration or existing equity route index)
 - `apps/api/tests/...` (new highest-P/S route tests)
 - `apps/pipelines/src/lib/db.py`
-- `apps/pipelines/src/sql/taylor_rule_schema.sql`
+- `apps/pipelines/src/sql/pipeline_schema.sql`
 - `apps/pipelines/tests/test_db_load_foundations.py`
 - `apps/web/src/features/equity/highest-ps-ranking-types.ts`
 
@@ -286,7 +286,7 @@ git commit -m "feat: add usa highest ps ranking transform"
 ### Task 3: Add mart storage for the USA section
 
 **Files:**
-- Modify: `apps/pipelines/src/sql/taylor_rule_schema.sql`
+- Modify: `apps/pipelines/src/sql/pipeline_schema.sql`
 - Modify: `apps/pipelines/src/lib/db.py`
 - Modify: `apps/pipelines/tests/test_db_load_foundations.py`
 
@@ -362,7 +362,7 @@ Expected: PASS.
 - [ ] **Step 6: Commit**
 
 ```bash
-git add apps/pipelines/src/sql/taylor_rule_schema.sql apps/pipelines/src/lib/db.py apps/pipelines/tests/test_db_load_foundations.py
+git add apps/pipelines/src/sql/pipeline_schema.sql apps/pipelines/src/lib/db.py apps/pipelines/tests/test_db_load_foundations.py
 git commit -m "feat: add highest ps mart storage"
 ```
 

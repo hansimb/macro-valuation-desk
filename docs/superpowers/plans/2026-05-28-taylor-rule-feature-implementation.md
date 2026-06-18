@@ -59,7 +59,7 @@
 - `apps/web/tests/taylor-rule-page.test.tsx`
 
 #### SQL / docs
-- `apps/pipelines/src/sql/taylor_rule_schema.sql`
+- `apps/pipelines/src/sql/pipeline_schema.sql`
 - `docs/analysis/taylor-rule-master-plan.md` (small implementation notes only if needed)
 
 ---
@@ -132,7 +132,7 @@ git commit -m "feat: add Taylor Rule source layer foundations"
 **Objective:** Create the first real database layout and load structures that match the approved architecture.
 
 **Files**
-- Create: `apps/pipelines/src/sql/taylor_rule_schema.sql`
+- Create: `apps/pipelines/src/sql/pipeline_schema.sql`
 - Modify: `apps/pipelines/src/lib/db.py`
 - Create: `apps/pipelines/src/lib/pipeline/checkpoints.py`
 
@@ -171,7 +171,7 @@ git commit -m "feat: add Taylor Rule source layer foundations"
 - [ ] Commit:
 
 ```bash
-git add apps/pipelines/src/sql/taylor_rule_schema.sql apps/pipelines/src/lib/db.py apps/pipelines/src/lib/pipeline/checkpoints.py
+git add apps/pipelines/src/sql/pipeline_schema.sql apps/pipelines/src/lib/db.py apps/pipelines/src/lib/pipeline/checkpoints.py
 git commit -m "feat: add Taylor Rule database and load foundations"
 ```
 

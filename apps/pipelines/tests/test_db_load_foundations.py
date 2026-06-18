@@ -5,6 +5,7 @@ from datetime import date
 from psycopg.rows import dict_row
 
 from src.lib.db import (
+    _schema_sql,
     bootstrap_taylor_rule_schema,
     get_connection,
     replace_currency_data_availability,
@@ -83,6 +84,13 @@ def test_get_connection_uses_dict_row_factory(monkeypatch):
     assert connection is not None
     assert captured_kwargs["connection_string"] == "postgresql://example"
     assert captured_kwargs["row_factory"] is dict_row
+
+
+def test_schema_sql_includes_highest_ps_tables():
+    sql = _schema_sql()
+
+    assert "create table if not exists mart.highest_ps_section_summaries" in sql
+    assert "create table if not exists mart.highest_ps_section_rankings" in sql
 
 
 def test_bootstrap_taylor_rule_schema_creates_required_schemas_and_tables():

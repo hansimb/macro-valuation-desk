@@ -20,7 +20,7 @@
 - `apps/pipelines/src/lib/db.py`
 - `apps/pipelines/src/lib/pipeline/transforms/staging.py`
 - `apps/pipelines/src/lib/pipeline/transforms/reference_metrics.py`
-- `apps/pipelines/src/sql/taylor_rule_schema.sql`
+- `apps/pipelines/src/sql/pipeline_schema.sql`
 - `apps/pipelines/src/flows/all_flows.py`
 - `apps/api/src/server.ts`
 - `apps/api/src/lib/db.ts`
@@ -121,7 +121,7 @@ git commit -m "feat: extend source coverage for currency analysis"
 **Objective:** Add mart storage for `PPP`, `IRP`, and honest availability metadata while reusing the current raw and staging layer structure.
 
 **Files**
-- Modify: `apps/pipelines/src/sql/taylor_rule_schema.sql`
+- Modify: `apps/pipelines/src/sql/pipeline_schema.sql`
 - Modify: `apps/pipelines/src/lib/db.py`
 - Test: `apps/pipelines/tests/test_db_load_foundations.py`
 
@@ -136,7 +136,7 @@ git commit -m "feat: extend source coverage for currency analysis"
 Run: `pytest apps/pipelines/tests/test_db_load_foundations.py -v`
 Expected: FAIL with missing currency-analysis tables or helper expectations.
 
-- [ ] Extend `taylor_rule_schema.sql` with the currency mart tables:
+- [ ] Extend `pipeline_schema.sql` with the currency mart tables:
   - `mart.currency_ppp_snapshots` for base-month-specific current fair value / deviation outputs
   - `mart.currency_ppp_paths` for monthly PPP path points
   - `mart.currency_irp_snapshots` for tenor-specific `CIP` / `UIP` outputs
@@ -160,7 +160,7 @@ Expected: PASS with schema bootstrap and load helpers supporting currency mart t
 - [ ] Commit:
 
 ```bash
-git add apps/pipelines/src/sql/taylor_rule_schema.sql apps/pipelines/src/lib/db.py apps/pipelines/tests/test_db_load_foundations.py
+git add apps/pipelines/src/sql/pipeline_schema.sql apps/pipelines/src/lib/db.py apps/pipelines/tests/test_db_load_foundations.py
 git commit -m "feat: add currency analysis mart load foundations"
 ```
 
