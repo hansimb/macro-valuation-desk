@@ -1,0 +1,20 @@
+# Dependency and package manager output
+node_modules/
+package-lock.json
+
+# Build, cache, and generated artifacts
+.next/
+dist/
+coverage/
+*.tsbuildinfo
+
+# Python environments and caches
+.venv/
+__pycache__/
+.pytest_cache/
+.mypy_cache/
+.prefect-test-home/
+mvd_pipelines.egg-info/
+*.pyc
+*.pyo
+*.pyd
