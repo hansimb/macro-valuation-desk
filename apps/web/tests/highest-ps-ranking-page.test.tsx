@@ -11,7 +11,7 @@ afterEach(() => {
 });
 
 describe("Highest P/S ranking page", () => {
-  it("falls back to a temporary mock preview when live section data is unavailable", async () => {
+  it("shows a page-level unavailable state when live section data is unavailable", async () => {
     vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("offline")));
 
     const page = await HighestPsRankingPage();
@@ -21,11 +21,10 @@ describe("Highest P/S ranking page", () => {
     expect(screen.getByRole("heading", { name: "Highest P/S Stocks" })).toBeInTheDocument();
     expect(screen.getByText("Equity Valuation")).toBeInTheDocument();
     expect(screen.getByText(/Two-track valuation view for the highest price-to-sales leaders in U\.S\. and European large-cap indices/i)).toBeInTheDocument();
-    expect(screen.getByText(/Temporary mock preview for the two-section design/i)).toBeInTheDocument();
-    expect(screen.getAllByText("USA High P/S Leaders").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("Europe High P/S Leaders").length).toBeGreaterThan(0);
-    expect(screen.getByText("SNOW")).toBeInTheDocument();
-    expect(screen.getAllByText("ASML").length).toBeGreaterThan(0);
+    expect(screen.getByText("Live highest P/S section data is unavailable right now.")).toBeInTheDocument();
+    expect(screen.getByText("Start the API and run the equity ranking pipeline to populate current section data.")).toBeInTheDocument();
+    expect(screen.queryByText("USA High P/S Leaders")).not.toBeInTheDocument();
+    expect(screen.queryByText("Europe High P/S Leaders")).not.toBeInTheDocument();
   });
 
   it("renders separate USA and Europe analysis blocks and keeps unavailable sections isolated", async () => {
