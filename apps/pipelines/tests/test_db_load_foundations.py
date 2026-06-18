@@ -16,6 +16,7 @@ from src.lib.db import (
     replace_highest_ps_section_summaries,
     read_highest_ps_candidate_rows,
     replace_taylor_rule_inputs,
+    upsert_equity_index_constituent_snapshots,
     upsert_raw_observations,
     upsert_series_metadata,
     upsert_staging_observations,
@@ -217,6 +218,27 @@ def test_upsert_helpers_write_expected_row_shapes():
             }
         ],
     )
+    upsert_equity_index_constituent_snapshots(
+        connection,
+        [
+            {
+                "universe_key": "sp500",
+                "as_of_date": "2026-06-15",
+                "ticker": "NVDA",
+                "company": "NVIDIA",
+                "country_code": "US",
+                "country_name": "United States",
+                "sector": "Information Technology",
+                "market_cap": 3100.0,
+                "trailing_12m_revenue": 130.0,
+                "ps_ratio": 23.85,
+                "index_weight_pct": 6.1,
+                "average_daily_traded_value": 52000.0,
+                "source_provider": "wikipedia+sec+yahoo-chart",
+                "source_url": "https://en.wikipedia.org/wiki/List_of_S%26P_500_companies",
+            }
+        ],
+    )
     replace_taylor_rule_inputs(
         connection,
         [
@@ -367,6 +389,7 @@ def test_upsert_helpers_write_expected_row_shapes():
     assert any("insert into core.series_metadata" in query.lower() for query, _ in commands)
     assert any("insert into raw.series_observations" in query.lower() for query, _ in commands)
     assert any("insert into staging.series_observations" in query.lower() for query, _ in commands)
+    assert any("insert into staging.equity_index_constituent_snapshots" in query.lower() for query, _ in commands)
     assert any("insert into mart.taylor_rule_inputs" in query.lower() for query, _ in commands)
     assert any("delete from mart.taylor_rule_inputs" in query.lower() for query, _ in commands)
     assert any("insert into mart.currency_ppp_snapshots" in query.lower() for query, _ in commands)
@@ -381,7 +404,7 @@ def test_upsert_helpers_write_expected_row_shapes():
     assert any("delete from mart.highest_ps_section_summaries" in query.lower() for query, _ in commands)
     assert any("insert into mart.highest_ps_section_rankings" in query.lower() for query, _ in commands)
     assert any("delete from mart.highest_ps_section_rankings" in query.lower() for query, _ in commands)
-    assert connection.commit_count == 10
+    assert connection.commit_count == 11
 
 
 def test_checkpoint_helpers_read_write_and_build_reprocessing_window():

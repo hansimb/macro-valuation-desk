@@ -70,9 +70,18 @@ def test_run_highest_ps_ranking_flow_builds_and_writes_usa_section(monkeypatch):
     ]
 
     captured = {}
+    staged_rows = []
 
     monkeypatch.setattr("src.flows.highest_ps_ranking_flow.get_connection", lambda: object())
     monkeypatch.setattr("src.flows.highest_ps_ranking_flow.bootstrap_taylor_rule_schema", lambda _connection: None)
+    monkeypatch.setattr(
+        "src.flows.highest_ps_ranking_flow.build_sp500_constituent_snapshot_rows",
+        lambda: [{"ticker": "NVDA", "market_cap": 3100.0}],
+    )
+    monkeypatch.setattr(
+        "src.flows.highest_ps_ranking_flow.upsert_equity_index_constituent_snapshots",
+        lambda _connection, rows: staged_rows.extend(rows),
+    )
     monkeypatch.setattr("src.flows.highest_ps_ranking_flow.read_highest_ps_candidate_rows", lambda _connection: candidate_rows)
     monkeypatch.setattr(
         "src.tasks.load_highest_ps_ranking_layers.load_highest_ps_ranking_layers",
@@ -85,6 +94,7 @@ def test_run_highest_ps_ranking_flow_builds_and_writes_usa_section(monkeypatch):
     result = run_highest_ps_ranking_flow()
 
     assert result["status"] == "success"
+    assert staged_rows == [{"ticker": "NVDA", "market_cap": 3100.0}]
     assert result["section_count"] == 1
     assert result["ranking_row_count"] == 2
     assert captured["payload"]["section_summary_rows"][0]["section_key"] == "usa"
@@ -96,6 +106,8 @@ def test_run_highest_ps_ranking_flow_returns_unavailable_when_no_candidates_exis
 
     monkeypatch.setattr("src.flows.highest_ps_ranking_flow.get_connection", lambda: object())
     monkeypatch.setattr("src.flows.highest_ps_ranking_flow.bootstrap_taylor_rule_schema", lambda _connection: None)
+    monkeypatch.setattr("src.flows.highest_ps_ranking_flow.build_sp500_constituent_snapshot_rows", lambda: [])
+    monkeypatch.setattr("src.flows.highest_ps_ranking_flow.upsert_equity_index_constituent_snapshots", lambda _connection, rows: None)
     monkeypatch.setattr("src.flows.highest_ps_ranking_flow.read_highest_ps_candidate_rows", lambda _connection: [])
     monkeypatch.setattr(
         "src.tasks.load_highest_ps_ranking_layers.load_highest_ps_ranking_layers",

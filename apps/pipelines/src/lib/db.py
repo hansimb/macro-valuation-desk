@@ -174,6 +174,65 @@ def upsert_staging_observations(connection, rows: list[dict[str, object]]) -> No
     connection.commit()
 
 
+def upsert_equity_index_constituent_snapshots(connection, rows: list[dict[str, object]]) -> None:
+    if not rows:
+        return
+
+    with connection.cursor() as cursor:
+        cursor.executemany(
+            """
+            insert into staging.equity_index_constituent_snapshots (
+                universe_key,
+                as_of_date,
+                ticker,
+                company,
+                country_code,
+                country_name,
+                sector,
+                market_cap,
+                trailing_12m_revenue,
+                ps_ratio,
+                index_weight_pct,
+                average_daily_traded_value,
+                source_provider,
+                source_url
+            )
+            values (
+                %(universe_key)s,
+                %(as_of_date)s,
+                %(ticker)s,
+                %(company)s,
+                %(country_code)s,
+                %(country_name)s,
+                %(sector)s,
+                %(market_cap)s,
+                %(trailing_12m_revenue)s,
+                %(ps_ratio)s,
+                %(index_weight_pct)s,
+                %(average_daily_traded_value)s,
+                %(source_provider)s,
+                %(source_url)s
+            )
+            on conflict (universe_key, as_of_date, ticker) do update
+            set
+                company = excluded.company,
+                country_code = excluded.country_code,
+                country_name = excluded.country_name,
+                sector = excluded.sector,
+                market_cap = excluded.market_cap,
+                trailing_12m_revenue = excluded.trailing_12m_revenue,
+                ps_ratio = excluded.ps_ratio,
+                index_weight_pct = excluded.index_weight_pct,
+                average_daily_traded_value = excluded.average_daily_traded_value,
+                source_provider = excluded.source_provider,
+                source_url = excluded.source_url,
+                fetched_at = now()
+            """,
+            rows,
+        )
+    connection.commit()
+
+
 def read_staging_rows_for_series(connection, series_ids: list[str]) -> list[dict[str, object]]:
     if not series_ids:
         return []

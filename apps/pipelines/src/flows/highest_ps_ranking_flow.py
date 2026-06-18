@@ -2,8 +2,14 @@ from __future__ import annotations
 
 from prefect import flow
 
-from src.lib.db import bootstrap_taylor_rule_schema, get_connection, read_highest_ps_candidate_rows
+from src.lib.db import (
+    bootstrap_taylor_rule_schema,
+    get_connection,
+    read_highest_ps_candidate_rows,
+    upsert_equity_index_constituent_snapshots,
+)
 from src.lib.pipeline.transforms.highest_ps_ranking import build_highest_ps_outputs
+from src.lib.source.adapters.equity import build_sp500_constituent_snapshot_rows
 from src.tasks import load_highest_ps_ranking_layers as load_highest_ps_ranking_layers_module
 
 
@@ -18,6 +24,10 @@ def run_highest_ps_ranking_flow() -> dict[str, object]:
     connection = get_connection()
     if connection is not None:
         bootstrap_taylor_rule_schema(connection)
+
+    snapshot_rows = build_sp500_constituent_snapshot_rows()
+    if connection is not None and snapshot_rows:
+        upsert_equity_index_constituent_snapshots(connection, snapshot_rows)
 
     candidate_rows = read_highest_ps_candidate_rows(connection)
     outputs = build_highest_ps_outputs(candidate_rows)
