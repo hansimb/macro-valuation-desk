@@ -60,6 +60,28 @@ create table if not exists staging.series_observations (
     primary key (series_id, observation_date)
 );
 
+create table if not exists staging.equity_index_constituent_snapshots (
+    universe_key text not null,
+    as_of_date date not null,
+    ticker text not null,
+    company text not null,
+    country_code text,
+    country_name text,
+    sector text not null,
+    market_cap numeric not null,
+    trailing_12m_revenue numeric not null,
+    ps_ratio numeric,
+    index_weight_pct numeric not null,
+    average_daily_traded_value numeric not null,
+    source_provider text not null,
+    source_url text,
+    fetched_at timestamptz not null default now(),
+    primary key (universe_key, as_of_date, ticker)
+);
+
+create index if not exists equity_index_constituent_snapshots_universe_as_of_idx
+    on staging.equity_index_constituent_snapshots (universe_key, as_of_date desc);
+
 create table if not exists mart.taylor_rule_inputs (
     region text not null,
     as_of_date date not null,

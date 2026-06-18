@@ -208,8 +208,57 @@ def read_staging_rows_for_series(connection, series_ids: list[str]) -> list[dict
 
 
 def read_highest_ps_candidate_rows(connection) -> list[dict[str, object]]:
-    del connection
-    return []
+    if connection is None:
+        return []
+
+    with connection.cursor() as cursor:
+        cursor.execute(
+            """
+            with latest_snapshot as (
+                select max(as_of_date) as as_of_date
+                from staging.equity_index_constituent_snapshots
+                where universe_key = %(universe_key)s
+            )
+            select
+                'usa' as section_key,
+                'USA High P/S Leaders' as section_label,
+                constituent.universe_key,
+                'S&P 500' as universe_label,
+                constituent.as_of_date::text,
+                constituent.ticker,
+                constituent.company,
+                constituent.country_code,
+                constituent.country_name,
+                constituent.sector,
+                constituent.market_cap,
+                constituent.average_daily_traded_value,
+                coalesce(
+                    constituent.ps_ratio,
+                    constituent.market_cap / nullif(constituent.trailing_12m_revenue, 0)
+                ) as ps_ratio,
+                constituent.index_weight_pct
+            from staging.equity_index_constituent_snapshots as constituent
+            join latest_snapshot
+                on latest_snapshot.as_of_date = constituent.as_of_date
+            where constituent.universe_key = %(universe_key)s
+              and nullif(trim(constituent.ticker), '') is not null
+              and nullif(trim(constituent.company), '') is not null
+              and nullif(trim(constituent.country_code), '') is not null
+              and nullif(trim(constituent.country_name), '') is not null
+              and nullif(trim(constituent.sector), '') is not null
+              and constituent.market_cap > 0
+              and constituent.trailing_12m_revenue > 0
+              and coalesce(
+                    constituent.ps_ratio,
+                    constituent.market_cap / nullif(constituent.trailing_12m_revenue, 0)
+                  ) > 0
+              and constituent.index_weight_pct > 0
+              and constituent.average_daily_traded_value > 0
+            order by constituent.ticker asc
+            """,
+            {"universe_key": "sp500"},
+        )
+        return list(cursor.fetchall())
 
 
 def replace_taylor_rule_inputs(connection, rows: list[dict[str, object]]) -> None:

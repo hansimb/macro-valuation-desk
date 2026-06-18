@@ -14,6 +14,7 @@ from src.lib.db import (
     replace_currency_ppp_snapshots,
     replace_highest_ps_section_rankings,
     replace_highest_ps_section_summaries,
+    read_highest_ps_candidate_rows,
     replace_taylor_rule_inputs,
     upsert_raw_observations,
     upsert_series_metadata,
@@ -30,9 +31,10 @@ from src.lib.source.registry import get_series_definition
 
 
 class FakeCursor:
-    def __init__(self, fetchone_result=None):
+    def __init__(self, fetchone_result=None, fetchall_result=None):
         self.commands: list[tuple[str, object | None]] = []
         self.fetchone_result = fetchone_result
+        self.fetchall_result = fetchall_result or []
 
     def execute(self, query, params=None):
         self.commands.append((str(query), params))
@@ -43,6 +45,9 @@ class FakeCursor:
     def fetchone(self):
         return self.fetchone_result
 
+    def fetchall(self):
+        return self.fetchall_result
+
     def __enter__(self):
         return self
 
@@ -51,8 +56,8 @@ class FakeCursor:
 
 
 class FakeConnection:
-    def __init__(self, fetchone_result=None):
-        self.cursor_instance = FakeCursor(fetchone_result=fetchone_result)
+    def __init__(self, fetchone_result=None, fetchall_result=None):
+        self.cursor_instance = FakeCursor(fetchone_result=fetchone_result, fetchall_result=fetchall_result)
         self.commit_count = 0
 
     def cursor(self):
@@ -89,6 +94,7 @@ def test_get_connection_uses_dict_row_factory(monkeypatch):
 def test_schema_sql_includes_highest_ps_tables():
     sql = _schema_sql()
 
+    assert "create table if not exists staging.equity_index_constituent_snapshots" in sql
     assert "create table if not exists mart.highest_ps_section_summaries" in sql
     assert "create table if not exists mart.highest_ps_section_rankings" in sql
 
@@ -119,6 +125,60 @@ def test_bootstrap_taylor_rule_schema_creates_required_schemas_and_tables():
     assert "primary key (pair_key, base_month, anchor_kind, anchor_statistic, observation_month)" in executed_sql.lower()
     assert "create table if not exists mart.currency_irp_snapshots" in executed_sql.lower()
     assert "create table if not exists mart.currency_data_availability" in executed_sql.lower()
+    assert "create table if not exists staging.equity_index_constituent_snapshots" in executed_sql.lower()
+
+
+def test_read_highest_ps_candidate_rows_reads_latest_complete_sp500_snapshot():
+    connection = FakeConnection(
+        fetchall_result=[
+            {
+                "section_key": "usa",
+                "section_label": "USA High P/S Leaders",
+                "universe_key": "sp500",
+                "universe_label": "S&P 500",
+                "as_of_date": "2026-06-15",
+                "ticker": "NVDA",
+                "company": "NVIDIA",
+                "country_code": "US",
+                "country_name": "United States",
+                "sector": "Information Technology",
+                "market_cap": 3100.0,
+                "average_daily_traded_value": 52000.0,
+                "ps_ratio": 24.1,
+                "index_weight_pct": 6.1,
+            }
+        ]
+    )
+
+    rows = read_highest_ps_candidate_rows(connection)
+
+    assert rows == [
+        {
+            "section_key": "usa",
+            "section_label": "USA High P/S Leaders",
+            "universe_key": "sp500",
+            "universe_label": "S&P 500",
+            "as_of_date": "2026-06-15",
+            "ticker": "NVDA",
+            "company": "NVIDIA",
+            "country_code": "US",
+            "country_name": "United States",
+            "sector": "Information Technology",
+            "market_cap": 3100.0,
+            "average_daily_traded_value": 52000.0,
+            "ps_ratio": 24.1,
+            "index_weight_pct": 6.1,
+        }
+    ]
+    query, params = connection.cursor_instance.commands[0]
+    assert "from staging.equity_index_constituent_snapshots" in query.lower()
+    assert "universe_key = %(universe_key)s" in query
+    assert "latest_snapshot" in query
+    assert params == {"universe_key": "sp500"}
+
+
+def test_read_highest_ps_candidate_rows_returns_empty_without_connection():
+    assert read_highest_ps_candidate_rows(None) == []
 
 
 def test_upsert_helpers_write_expected_row_shapes():
