@@ -109,4 +109,21 @@ describe("Equity return expectation page", () => {
     expect(screen.getByDisplayValue("5")).toBeInTheDocument();
     expect(screen.getByText("8.00%")).toBeInTheDocument();
   });
+
+  it("can calculate Gordon dividend growth from four or five years of dividend history", () => {
+    renderPage();
+
+    fireEvent.click(screen.getByRole("button", { name: "Gordon Growth" }));
+    fireEvent.click(screen.getByRole("button", { name: "Historical dividend growth" }));
+    fireEvent.click(screen.getByRole("button", { name: "5 years" }));
+    fireEvent.change(screen.getByLabelText("Dividend yield"), { target: { value: "3" } });
+
+    ["1", "1.10", "1.21", "1.331", "1.4641"].forEach((value, index) => {
+      fireEvent.change(screen.getByLabelText(`Dividend year ${index + 1}`), { target: { value } });
+    });
+
+    expect(screen.getByText("13.00%")).toBeInTheDocument();
+    expect(screen.getByText("3.00%")).toBeInTheDocument();
+    expect(screen.getByText("10.00%")).toBeInTheDocument();
+  });
 });

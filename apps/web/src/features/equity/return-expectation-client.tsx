@@ -8,6 +8,7 @@ import { AnalysisMetricCard } from "../macro/components/analysis-metric-card";
 type ReturnModel = "gordon" | "earnings" | "fcf";
 type GrowthBasis = "eps" | "revenue";
 type GrowthMode = "direct" | "historical";
+type DividendGrowthMode = "direct" | "historical";
 type YearCount = "4" | "5";
 type EarningsYieldMode = "pe" | "amounts";
 type FcfYieldMode = "direct" | "amounts";
@@ -23,7 +24,10 @@ type CalculatorState = {
   };
   gordon: {
     dividendYieldPct: string;
+    dividendGrowthMode: DividendGrowthMode;
     dividendGrowthPct: string;
+    dividendYears: YearCount;
+    dividendHistory: string[];
   };
   earnings: {
     yieldMode: EarningsYieldMode;
@@ -52,7 +56,10 @@ const DEFAULT_STATE: CalculatorState = {
   },
   gordon: {
     dividendYieldPct: "",
+    dividendGrowthMode: "direct",
     dividendGrowthPct: "",
+    dividendYears: "5",
+    dividendHistory: ["", "", "", "", ""],
   },
   earnings: {
     yieldMode: "pe",
@@ -95,7 +102,18 @@ function readPersistedState(): CalculatorState {
           "",
         ].slice(0, 5),
       },
-      gordon: { ...DEFAULT_STATE.gordon, ...parsed.gordon },
+      gordon: {
+        ...DEFAULT_STATE.gordon,
+        ...parsed.gordon,
+        dividendHistory: [
+          ...(parsed.gordon?.dividendHistory ?? DEFAULT_STATE.gordon.dividendHistory),
+          "",
+          "",
+          "",
+          "",
+          "",
+        ].slice(0, 5),
+      },
       earnings: { ...DEFAULT_STATE.earnings, ...parsed.earnings },
       fcf: { ...DEFAULT_STATE.fcf, ...parsed.fcf },
     };
@@ -194,7 +212,9 @@ function sumNullable(left: number | null, right: number | null) {
 function calculatorResults(state: CalculatorState) {
   const growthPct = selectedGrowthPct(state);
   const dividendYield = toNumber(state.gordon.dividendYieldPct);
-  const dividendGrowth = toNumber(state.gordon.dividendGrowthPct);
+  const dividendGrowth = state.gordon.dividendGrowthMode === "direct"
+    ? toNumber(state.gordon.dividendGrowthPct)
+    : averageHistoricalGrowth(state.gordon.dividendHistory, state.gordon.dividendYears);
   const earningsYield = earningsYieldPct(state);
   const fcfYield = fcfYieldPct(state);
 
@@ -487,18 +507,77 @@ export function EquityReturnExpectationClient() {
                 Gordon-style expected return uses the current dividend yield plus expected long-run dividend growth.
               </Text>
             </Stack>
-            <SimpleGrid columns={{ base: 1, md: 2 }} gap="4">
-              <NumberField
-                label="Dividend yield"
-                onChange={(dividendYieldPct) => updateState((current) => ({ ...current, gordon: { ...current.gordon, dividendYieldPct } }))}
-                value={state.gordon.dividendYieldPct}
-              />
+            <NumberField
+              label="Dividend yield"
+              onChange={(dividendYieldPct) => updateState((current) => ({ ...current, gordon: { ...current.gordon, dividendYieldPct } }))}
+              value={state.gordon.dividendYieldPct}
+            />
+            <Grid gap="2" templateColumns={{ base: "1fr", md: "repeat(2, minmax(0, 14rem))" }}>
+              <SegmentedButton
+                activeValue={state.gordon.dividendGrowthMode}
+                onSelect={(dividendGrowthMode) =>
+                  updateState((current) => ({ ...current, gordon: { ...current.gordon, dividendGrowthMode } }))
+                }
+                value="direct"
+              >
+                Direct dividend growth
+              </SegmentedButton>
+              <SegmentedButton
+                activeValue={state.gordon.dividendGrowthMode}
+                onSelect={(dividendGrowthMode) =>
+                  updateState((current) => ({ ...current, gordon: { ...current.gordon, dividendGrowthMode } }))
+                }
+                value="historical"
+              >
+                Historical dividend growth
+              </SegmentedButton>
+            </Grid>
+            {state.gordon.dividendGrowthMode === "direct" ? (
               <NumberField
                 label="Dividend growth"
                 onChange={(dividendGrowthPct) => updateState((current) => ({ ...current, gordon: { ...current.gordon, dividendGrowthPct } }))}
                 value={state.gordon.dividendGrowthPct}
               />
-            </SimpleGrid>
+            ) : (
+              <Stack gap="4">
+                <Grid gap="2" templateColumns={{ base: "repeat(2, minmax(0, 1fr))", md: "repeat(2, minmax(0, 8rem))" }}>
+                  <SegmentedButton
+                    activeValue={state.gordon.dividendYears}
+                    onSelect={(dividendYears) =>
+                      updateState((current) => ({ ...current, gordon: { ...current.gordon, dividendYears } }))
+                    }
+                    value="4"
+                  >
+                    4 years
+                  </SegmentedButton>
+                  <SegmentedButton
+                    activeValue={state.gordon.dividendYears}
+                    onSelect={(dividendYears) =>
+                      updateState((current) => ({ ...current, gordon: { ...current.gordon, dividendYears } }))
+                    }
+                    value="5"
+                  >
+                    5 years
+                  </SegmentedButton>
+                </Grid>
+                <SimpleGrid columns={{ base: 1, md: state.gordon.dividendYears === "5" ? 5 : 4 }} gap="3">
+                  {state.gordon.dividendHistory.slice(0, Number.parseInt(state.gordon.dividendYears, 10)).map((value, index) => (
+                    <NumberField
+                      key={index}
+                      label={`Dividend year ${index + 1}`}
+                      onChange={(nextValue) =>
+                        updateState((current) => {
+                          const dividendHistory = [...current.gordon.dividendHistory];
+                          dividendHistory[index] = nextValue;
+                          return { ...current, gordon: { ...current.gordon, dividendHistory } };
+                        })
+                      }
+                      value={value}
+                    />
+                  ))}
+                </SimpleGrid>
+              </Stack>
+            )}
           </Stack>
         </Box>
       ) : null}
