@@ -4,10 +4,19 @@ from pathlib import Path
 
 from src.lib.source.types import SeriesDefinition
 
+SCHEMA_FILE_NAMES = [
+    "001_core.sql",
+    "002_etl.sql",
+    "010_macro.sql",
+    "020_currency.sql",
+    "030_equity.sql",
+]
+
+SCHEMA_DIR = Path(__file__).resolve().parents[2] / "sql" / "schema"
+
 
 def _schema_sql() -> str:
-    schema_path = Path(__file__).resolve().parents[2] / "sql" / "pipeline_schema.sql"
-    return schema_path.read_text(encoding="utf-8")
+    return "\n\n".join((SCHEMA_DIR / file_name).read_text(encoding="utf-8") for file_name in SCHEMA_FILE_NAMES)
 
 
 def bootstrap_taylor_rule_schema(connection) -> None:

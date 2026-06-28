@@ -28,6 +28,7 @@ from src.lib.pipeline.checkpoints import (
     record_pipeline_run,
     write_successful_checkpoint,
 )
+from src.lib.db.schema import SCHEMA_FILE_NAMES
 from src.lib.source.registry import get_series_definition
 
 
@@ -98,6 +99,26 @@ def test_schema_sql_includes_highest_ps_tables():
     assert "create table if not exists staging.equity_index_constituent_snapshots" in sql
     assert "create table if not exists mart.highest_ps_section_summaries" in sql
     assert "create table if not exists mart.highest_ps_section_rankings" in sql
+
+
+def test_schema_sql_reads_split_schema_files_in_order():
+    assert SCHEMA_FILE_NAMES == [
+        "001_core.sql",
+        "002_etl.sql",
+        "010_macro.sql",
+        "020_currency.sql",
+        "030_equity.sql",
+    ]
+
+    sql = _schema_sql()
+
+    assert sql.index("create schema if not exists core") < sql.index("create schema if not exists etl")
+    assert sql.index("create table if not exists mart.taylor_rule_inputs") < sql.index(
+        "create table if not exists mart.currency_ppp_snapshots"
+    )
+    assert sql.index("create table if not exists mart.currency_ppp_snapshots") < sql.index(
+        "create table if not exists staging.equity_index_constituent_snapshots"
+    )
 
 
 def test_bootstrap_taylor_rule_schema_creates_required_schemas_and_tables():
