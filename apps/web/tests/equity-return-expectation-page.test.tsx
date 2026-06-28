@@ -140,4 +140,28 @@ describe("Equity return expectation page", () => {
     expect(screen.getByText("3.00%")).toBeInTheDocument();
     expect(screen.getByText("5.00%")).toBeInTheDocument();
   });
+
+  it("saves named analyses locally and restores them from the saved analyses menu", async () => {
+    renderPage();
+
+    expect(screen.getByText(/Saved analyses are stored only on this device/i)).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("Analysis name"), { target: { value: "ADOBE" } });
+    fireEvent.click(screen.getByRole("button", { name: "Earnings Yield + Growth" }));
+    fireEvent.change(screen.getByLabelText("P/E ratio"), { target: { value: "25" } });
+    fireEvent.change(screen.getByLabelText("Expected annual growth"), { target: { value: "7" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save analysis" }));
+
+    expect(screen.getByRole("option", { name: "ADOBE" })).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("P/E ratio"), { target: { value: "10" } });
+    expect(screen.getByText("17.00%")).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("Saved analyses"), { target: { value: "ADOBE" } });
+
+    expect(screen.getByDisplayValue("ADOBE")).toBeInTheDocument();
+    expect(screen.getByDisplayValue("25")).toBeInTheDocument();
+    expect(screen.getByText("11.00%")).toBeInTheDocument();
+    expect(window.localStorage.getItem("equity-return-expectation-analyses-v1")).toContain("ADOBE");
+  });
 });

@@ -47,7 +47,13 @@ type CalculatorState = {
   };
 };
 
+type SavedAnalysis = {
+  name: string;
+  state: CalculatorState;
+};
+
 const STORAGE_KEY = "equity-return-expectation-v1";
+const SAVED_ANALYSES_STORAGE_KEY = "equity-return-expectation-analyses-v1";
 
 const DEFAULT_STATE: CalculatorState = {
   model: "earnings",
@@ -126,6 +132,82 @@ function readPersistedState(): CalculatorState {
     };
   } catch {
     return DEFAULT_STATE;
+  }
+}
+
+function normalizeCalculatorState(value: Partial<CalculatorState>): CalculatorState {
+  return {
+    ...DEFAULT_STATE,
+    ...value,
+    growth: {
+      ...DEFAULT_STATE.growth,
+      ...value.growth,
+      historicalValues: [
+        ...(value.growth?.historicalValues ?? DEFAULT_STATE.growth.historicalValues),
+        "",
+        "",
+        "",
+        "",
+        "",
+      ].slice(0, 5),
+    },
+    gordon: {
+      ...DEFAULT_STATE.gordon,
+      ...value.gordon,
+      dividendHistory: [
+        ...(value.gordon?.dividendHistory ?? DEFAULT_STATE.gordon.dividendHistory),
+        "",
+        "",
+        "",
+        "",
+        "",
+      ].slice(0, 5),
+    },
+    earnings: { ...DEFAULT_STATE.earnings, ...value.earnings },
+    fcf: { ...DEFAULT_STATE.fcf, ...value.fcf },
+  };
+}
+
+function readPersistedAnalyses(): SavedAnalysis[] {
+  if (typeof window === "undefined") {
+    return [];
+  }
+
+  try {
+    const persisted = window.localStorage.getItem(SAVED_ANALYSES_STORAGE_KEY);
+    if (!persisted) {
+      return [];
+    }
+
+    const parsed = JSON.parse(persisted) as Array<Partial<SavedAnalysis>>;
+    if (!Array.isArray(parsed)) {
+      return [];
+    }
+
+    return parsed
+      .filter((analysis): analysis is SavedAnalysis => Boolean(analysis.name && analysis.state))
+      .map((analysis) => ({
+        name: analysis.name,
+        state: normalizeCalculatorState(analysis.state),
+      }));
+  } catch {
+    return [];
+  }
+}
+
+function persistCurrentState(nextState: CalculatorState) {
+  try {
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(nextState));
+  } catch {
+    // Storage is convenience only; keep the calculator usable if persistence fails.
+  }
+}
+
+function persistSavedAnalyses(nextAnalyses: SavedAnalysis[]) {
+  try {
+    window.localStorage.setItem(SAVED_ANALYSES_STORAGE_KEY, JSON.stringify(nextAnalyses));
+  } catch {
+    // Saved analyses are local convenience state only.
   }
 }
 
@@ -333,6 +415,37 @@ function NumberField({
   );
 }
 
+function TextField({
+  label,
+  onChange,
+  value,
+}: {
+  label: string;
+  onChange: (value: string) => void;
+  value: string;
+}) {
+  const id = label.toLowerCase().replace(/[^a-z0-9]+/g, "-");
+
+  return (
+    <Stack gap="2">
+      <label htmlFor={id}>
+        <Text as="span" color="muted" textStyle="body">
+          {label}
+        </Text>
+      </label>
+      <Input
+        bg="canvas"
+        borderColor="edge"
+        color="text"
+        id={id}
+        onChange={(event) => onChange(event.currentTarget.value)}
+        rounded="control"
+        value={value}
+      />
+    </Stack>
+  );
+}
+
 function FormulaBlock({ model }: { model: ReturnModel }) {
   const formula = model === "gordon"
     ? "Expected return = dividend yield + expected dividend growth"
@@ -464,22 +577,118 @@ function GrowthInputs({
 
 export function EquityReturnExpectationClient() {
   const [state, setState] = useState<CalculatorState>(() => readPersistedState());
+  const [analysisName, setAnalysisName] = useState("");
+  const [savedAnalyses, setSavedAnalyses] = useState<SavedAnalysis[]>(() => readPersistedAnalyses());
   const results = calculatorResults(state);
 
   function updateState(updater: (state: CalculatorState) => CalculatorState) {
     setState((current) => {
       const next = updater(current);
-      try {
-        window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
-      } catch {
-        // Storage is convenience only; keep the calculator usable if persistence fails.
-      }
+      persistCurrentState(next);
       return next;
     });
   }
 
+  function saveNamedAnalysis() {
+    const trimmedName = analysisName.trim();
+    if (!trimmedName) {
+      return;
+    }
+
+    const nextAnalysis = { name: trimmedName, state };
+    const nextAnalyses = [
+      ...savedAnalyses.filter((analysis) => analysis.name.toLowerCase() !== trimmedName.toLowerCase()),
+      nextAnalysis,
+    ].sort((left, right) => left.name.localeCompare(right.name));
+    setSavedAnalyses(nextAnalyses);
+    setAnalysisName(trimmedName);
+    persistSavedAnalyses(nextAnalyses);
+  }
+
+  function loadNamedAnalysis(name: string) {
+    const savedAnalysis = savedAnalyses.find((analysis) => analysis.name === name);
+    if (!savedAnalysis) {
+      return;
+    }
+
+    setAnalysisName(savedAnalysis.name);
+    setState(savedAnalysis.state);
+    persistCurrentState(savedAnalysis.state);
+  }
+
   return (
     <Stack gap={{ base: "8", md: "10" }}>
+      <Box bg="surface" borderColor="edge" borderWidth="1px" p={{ base: "6", md: "7" }} rounded="panel">
+        <Stack gap="5">
+          <Stack gap="2">
+            <Text color="accent" textStyle="eyebrow">
+              Saved Analyses
+            </Text>
+            <Text color="muted" textStyle="body">
+              Saved analyses are stored only on this device.
+            </Text>
+          </Stack>
+          <SimpleGrid columns={{ base: 1, md: 3 }} gap="4">
+            <TextField label="Analysis name" onChange={setAnalysisName} value={analysisName} />
+            <Stack gap="2">
+              <label htmlFor="saved-analyses">
+                <Text as="span" color="muted" textStyle="body">
+                  Saved analyses
+                </Text>
+              </label>
+              <Box position="relative">
+                <select
+                  aria-label="Saved analyses"
+                  id="saved-analyses"
+                  onChange={(event) => loadNamedAnalysis(event.currentTarget.value)}
+                  style={{
+                    appearance: "none",
+                    background: "#040612",
+                    border: "1px solid #7e91a8",
+                    borderRadius: "4px",
+                    color: "#d9e8ff",
+                    fontSize: "var(--chakra-font-sizes-body)",
+                    minHeight: "2.5rem",
+                    paddingInlineEnd: "2.25rem",
+                    paddingInlineStart: "0.75rem",
+                    width: "100%",
+                  }}
+                  value=""
+                >
+                  <option style={{ background: "#181A1B", color: "#d9e8ff" }} value="">
+                    Select saved analysis
+                  </option>
+                  {savedAnalyses.map((analysis) => (
+                    <option key={analysis.name} style={{ background: "#181A1B", color: "#d9e8ff" }} value={analysis.name}>
+                      {analysis.name}
+                    </option>
+                  ))}
+                </select>
+                <Box aria-hidden="true" color="text" pointerEvents="none" position="absolute" right="0.75rem" top="50%" transform="translateY(-50%)">
+                  v
+                </Box>
+              </Box>
+            </Stack>
+            <Stack gap="2" justify="end">
+              <Text aria-hidden="true" color="muted" textStyle="body">
+                &nbsp;
+              </Text>
+              <Button
+                bg="accent"
+                color="canvas"
+                disabled={!analysisName.trim()}
+                minH="2.5rem"
+                onClick={saveNamedAnalysis}
+                rounded="control"
+                size="sm"
+              >
+                Save analysis
+              </Button>
+            </Stack>
+          </SimpleGrid>
+        </Stack>
+      </Box>
+
       <Box bg="surface" borderColor="edge" borderWidth="1px" p={{ base: "6", md: "7" }} rounded="panel">
         <Stack gap="4">
           <Text color="accent" textStyle="eyebrow">
