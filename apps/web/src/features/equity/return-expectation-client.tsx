@@ -8,6 +8,7 @@ import { AnalysisMetricCard } from "../macro/components/analysis-metric-card";
 type ReturnModel = "gordon" | "earnings" | "fcf";
 type GrowthBasis = "eps" | "revenue";
 type GrowthMode = "direct" | "historical";
+type DividendYieldMode = "direct" | "amounts";
 type DividendGrowthMode = "direct" | "historical";
 type YearCount = "4" | "5";
 type EarningsYieldMode = "pe" | "amounts";
@@ -23,7 +24,10 @@ type CalculatorState = {
     historicalValues: string[];
   };
   gordon: {
+    dividendYieldMode: DividendYieldMode;
     dividendYieldPct: string;
+    annualDividendPerShare: string;
+    sharePrice: string;
     dividendGrowthMode: DividendGrowthMode;
     dividendGrowthPct: string;
     dividendYears: YearCount;
@@ -55,7 +59,10 @@ const DEFAULT_STATE: CalculatorState = {
     historicalValues: ["", "", "", "", ""],
   },
   gordon: {
+    dividendYieldMode: "direct",
     dividendYieldPct: "",
+    annualDividendPerShare: "",
+    sharePrice: "",
     dividendGrowthMode: "direct",
     dividendGrowthPct: "",
     dividendYears: "5",
@@ -194,6 +201,16 @@ function fcfYieldPct(state: CalculatorState) {
   return marketCap === null || freeCashFlow === null ? null : (freeCashFlow / marketCap) * 100;
 }
 
+function dividendYieldPct(state: CalculatorState) {
+  if (state.gordon.dividendYieldMode === "direct") {
+    return toNumber(state.gordon.dividendYieldPct);
+  }
+
+  const annualDividendPerShare = toNumber(state.gordon.annualDividendPerShare);
+  const sharePrice = positiveNumber(state.gordon.sharePrice);
+  return annualDividendPerShare === null || sharePrice === null ? null : (annualDividendPerShare / sharePrice) * 100;
+}
+
 function impliedPriceToFcf(state: CalculatorState) {
   if (state.fcf.yieldMode === "direct") {
     const directYield = positiveNumber(state.fcf.directYieldPct);
@@ -211,7 +228,7 @@ function sumNullable(left: number | null, right: number | null) {
 
 function calculatorResults(state: CalculatorState) {
   const growthPct = selectedGrowthPct(state);
-  const dividendYield = toNumber(state.gordon.dividendYieldPct);
+  const dividendYield = dividendYieldPct(state);
   const dividendGrowth = state.gordon.dividendGrowthMode === "direct"
     ? toNumber(state.gordon.dividendGrowthPct)
     : averageHistoricalGrowth(state.gordon.dividendHistory, state.gordon.dividendYears);
@@ -507,11 +524,50 @@ export function EquityReturnExpectationClient() {
                 Gordon-style expected return uses the current dividend yield plus expected long-run dividend growth.
               </Text>
             </Stack>
-            <NumberField
-              label="Dividend yield"
-              onChange={(dividendYieldPct) => updateState((current) => ({ ...current, gordon: { ...current.gordon, dividendYieldPct } }))}
-              value={state.gordon.dividendYieldPct}
-            />
+            <Stack gap="4">
+              <Grid gap="2" templateColumns={{ base: "1fr", md: "repeat(2, minmax(0, 14rem))" }}>
+                <SegmentedButton
+                  activeValue={state.gordon.dividendYieldMode}
+                  onSelect={(dividendYieldMode) =>
+                    updateState((current) => ({ ...current, gordon: { ...current.gordon, dividendYieldMode } }))
+                  }
+                  value="direct"
+                >
+                  Dividend yield input
+                </SegmentedButton>
+                <SegmentedButton
+                  activeValue={state.gordon.dividendYieldMode}
+                  onSelect={(dividendYieldMode) =>
+                    updateState((current) => ({ ...current, gordon: { ...current.gordon, dividendYieldMode } }))
+                  }
+                  value="amounts"
+                >
+                  Dividend amount input
+                </SegmentedButton>
+              </Grid>
+              {state.gordon.dividendYieldMode === "direct" ? (
+                <NumberField
+                  label="Dividend yield"
+                  onChange={(dividendYieldPct) => updateState((current) => ({ ...current, gordon: { ...current.gordon, dividendYieldPct } }))}
+                  value={state.gordon.dividendYieldPct}
+                />
+              ) : (
+                <SimpleGrid columns={{ base: 1, md: 2 }} gap="4">
+                  <NumberField
+                    label="Annual dividend per share"
+                    onChange={(annualDividendPerShare) =>
+                      updateState((current) => ({ ...current, gordon: { ...current.gordon, annualDividendPerShare } }))
+                    }
+                    value={state.gordon.annualDividendPerShare}
+                  />
+                  <NumberField
+                    label="Share price"
+                    onChange={(sharePrice) => updateState((current) => ({ ...current, gordon: { ...current.gordon, sharePrice } }))}
+                    value={state.gordon.sharePrice}
+                  />
+                </SimpleGrid>
+              )}
+            </Stack>
             <Grid gap="2" templateColumns={{ base: "1fr", md: "repeat(2, minmax(0, 14rem))" }}>
               <SegmentedButton
                 activeValue={state.gordon.dividendGrowthMode}

@@ -126,4 +126,18 @@ describe("Equity return expectation page", () => {
     expect(screen.getByText("3.00%")).toBeInTheDocument();
     expect(screen.getByText("10.00%")).toBeInTheDocument();
   });
+
+  it("can calculate Gordon dividend yield from dividend amount and share price", () => {
+    renderPage();
+
+    fireEvent.click(screen.getByRole("button", { name: "Gordon Growth" }));
+    fireEvent.click(screen.getByRole("button", { name: "Dividend amount input" }));
+    fireEvent.change(screen.getByLabelText("Annual dividend per share"), { target: { value: "1.50" } });
+    fireEvent.change(screen.getByLabelText("Share price"), { target: { value: "50" } });
+    fireEvent.change(screen.getByLabelText("Dividend growth"), { target: { value: "5" } });
+
+    expect(screen.getByText("8.00%")).toBeInTheDocument();
+    expect(screen.getByText("3.00%")).toBeInTheDocument();
+    expect(screen.getByText("5.00%")).toBeInTheDocument();
+  });
 });
