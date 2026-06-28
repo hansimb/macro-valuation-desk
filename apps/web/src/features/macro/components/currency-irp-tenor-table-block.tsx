@@ -13,7 +13,7 @@ type CurrencyIrpTenorRow = {
   cipImpliedForward: string;
   observedForward?: string;
   cipBasisBps?: string;
-  hasObservedForward: boolean;
+  hasObservedForward?: boolean;
 };
 
 export function CurrencyIrpTenorTableBlock({
