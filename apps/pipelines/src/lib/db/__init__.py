@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import sys
+from urllib.parse import urlparse
+
 from . import connection as _connection
 from .checkpoints import (
     build_fetch_options_for_series,
@@ -36,13 +39,45 @@ psycopg = _connection.psycopg
 dict_row = _connection.dict_row
 get_database_url = _connection.get_database_url
 
+DEFAULT_CONNECT_TIMEOUT_SECONDS = 2
+
+
+def _database_target(database_url: str) -> str:
+    parsed = urlparse(database_url)
+    if not parsed.hostname:
+        return "configured DATABASE_URL"
+
+    target = parsed.hostname
+    if parsed.port:
+        target = f"{target}:{parsed.port}"
+    if parsed.path and parsed.path != "/":
+        target = f"{target}{parsed.path}"
+
+    return target
+
 
 def get_connection():
     database_url = get_database_url()
     if not database_url:
         return None
 
-    return psycopg.connect(database_url, row_factory=dict_row)
+    target = _database_target(database_url)
+    print(f"Connecting to Postgres at {target}...", file=sys.stderr, flush=True)
+
+    try:
+        return psycopg.connect(
+            database_url,
+            row_factory=dict_row,
+            connect_timeout=DEFAULT_CONNECT_TIMEOUT_SECONDS,
+        )
+    except Exception as exc:
+        message = (
+            f"Cannot connect to Postgres at {target}. "
+            "Is the Docker DB running? Try `npm run dev:db` before running the pipeline. "
+            f"Original error: {exc}"
+        )
+        print(message, file=sys.stderr, flush=True)
+        raise RuntimeError(message) from exc
 
 
 __all__ = [

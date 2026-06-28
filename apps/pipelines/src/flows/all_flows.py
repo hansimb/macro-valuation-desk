@@ -1,5 +1,12 @@
 from __future__ import annotations
 
+import sys
+from collections.abc import Callable
+
+from src.lib.runtime_env import configure_prefect_home
+
+configure_prefect_home()
+
 from prefect import flow
 
 from src.flows.currency_analysis_flow import run_currency_analysis_flow
@@ -19,11 +26,18 @@ def _collect_child_flow_errors(name: str, result: dict[str, object]) -> list[str
     return [f"{name}: flow failed"]
 
 
+def _run_child_flow(name: str, run_flow: Callable[[], dict[str, object]]) -> dict[str, object]:
+    print(f"Starting {name} flow...", file=sys.stderr, flush=True)
+    result = run_flow()
+    print(f"Finished {name} flow.", file=sys.stderr, flush=True)
+    return result
+
+
 def run_all_flows() -> dict[str, object]:
-    macro_seed_result = run_macro_seed_flow()
-    taylor_rule_result = run_taylor_rule_flow()
-    currency_analysis_result = run_currency_analysis_flow()
-    highest_ps_ranking_result = run_highest_ps_ranking_flow()
+    macro_seed_result = _run_child_flow("macro_seed", run_macro_seed_flow)
+    taylor_rule_result = _run_child_flow("taylor_rule", run_taylor_rule_flow)
+    currency_analysis_result = _run_child_flow("currency_analysis", run_currency_analysis_flow)
+    highest_ps_ranking_result = _run_child_flow("highest_ps_ranking", run_highest_ps_ranking_flow)
 
     errors = [
         *(_collect_child_flow_errors("macro_seed", macro_seed_result)),

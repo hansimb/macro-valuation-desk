@@ -34,6 +34,22 @@ def test_run_all_flows_executes_macro_seed_then_taylor_rule(monkeypatch):
     }
 
 
+def test_run_all_flows_logs_child_flow_progress(monkeypatch, capsys):
+    monkeypatch.setattr("src.flows.all_flows.run_macro_seed_flow", lambda: {"rows_loaded": 3})
+    monkeypatch.setattr("src.flows.all_flows.run_taylor_rule_flow", lambda: {"status": "success"})
+    monkeypatch.setattr("src.flows.all_flows.run_currency_analysis_flow", lambda: {"status": "success"})
+    monkeypatch.setattr("src.flows.all_flows.run_highest_ps_ranking_flow", lambda: {"status": "unavailable"})
+
+    run_all_flows()
+
+    captured = capsys.readouterr()
+    assert "Starting macro_seed flow..." in captured.err
+    assert "Finished macro_seed flow." in captured.err
+    assert "Starting taylor_rule flow..." in captured.err
+    assert "Starting currency_analysis flow..." in captured.err
+    assert "Starting highest_ps_ranking flow..." in captured.err
+
+
 def test_run_all_flows_returns_failed_status_when_a_child_flow_reports_failed_status(monkeypatch):
     monkeypatch.setattr("src.flows.all_flows.run_macro_seed_flow", lambda: {"rows_loaded": 3})
     monkeypatch.setattr(

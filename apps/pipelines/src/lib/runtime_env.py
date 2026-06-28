@@ -23,3 +23,10 @@ def load_project_env() -> None:
     root = Path(__file__).resolve().parents[4]
     load_env_file(root / ".env")
     load_env_file(root / "infra" / "compose" / ".env")
+
+
+def configure_prefect_home() -> None:
+    prefect_home = Path(__file__).resolve().parents[2] / ".prefect-home"
+    prefect_home.mkdir(exist_ok=True)
+    os.environ.setdefault("PREFECT_HOME", str(prefect_home))
+    os.environ.setdefault("PREFECT_PROFILES_PATH", str(prefect_home / "profiles.toml"))

@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+from src.lib.runtime_env import configure_prefect_home
+
+configure_prefect_home()
+
 from prefect import flow
 
 from src.lib.db import (

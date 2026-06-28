@@ -91,6 +91,28 @@ def test_get_connection_uses_dict_row_factory(monkeypatch):
     assert connection is not None
     assert captured_kwargs["connection_string"] == "postgresql://example"
     assert captured_kwargs["row_factory"] is dict_row
+    assert captured_kwargs["connect_timeout"] == 2
+
+
+def test_get_connection_reports_database_connection_failures(monkeypatch, capsys):
+    def fake_connect(_connection_string, **_kwargs):
+        raise TimeoutError("timed out")
+
+    monkeypatch.setattr("src.lib.db.get_database_url", lambda: "postgresql://mvd:secret@localhost:5432/mvd")
+    monkeypatch.setattr("src.lib.db.psycopg.connect", fake_connect)
+
+    try:
+        get_connection()
+    except RuntimeError as exc:
+        assert "Cannot connect to Postgres" in str(exc)
+    else:
+        raise AssertionError("get_connection should raise a RuntimeError")
+
+    captured = capsys.readouterr()
+    assert "Connecting to Postgres at localhost:5432/mvd" in captured.err
+    assert "Cannot connect to Postgres at localhost:5432/mvd" in captured.err
+    assert "npm run dev:db" in captured.err
+    assert "secret" not in captured.err
 
 
 def test_schema_sql_includes_highest_ps_tables():

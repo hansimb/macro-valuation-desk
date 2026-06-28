@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+from src.lib.runtime_env import configure_prefect_home
+
+configure_prefect_home()
+
 from prefect import flow
 
 from src.lib.db import bootstrap_taylor_rule_schema, get_connection, read_staging_rows_for_series
