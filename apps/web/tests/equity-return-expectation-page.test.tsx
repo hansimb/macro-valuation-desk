@@ -20,6 +20,13 @@ function renderPage() {
   );
 }
 
+function expectButtonBefore(leftName: string, rightName: string) {
+  const left = screen.getByRole("button", { name: leftName });
+  const right = screen.getByRole("button", { name: rightName });
+
+  expect(left.compareDocumentPosition(right) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+}
+
 describe("Equity return expectation page", () => {
   it("is discoverable from the equity analysis registry", () => {
     render(
@@ -114,6 +121,7 @@ describe("Equity return expectation page", () => {
     renderPage();
 
     fireEvent.click(screen.getByRole("button", { name: "Gordon Growth" }));
+    fireEvent.click(screen.getByRole("button", { name: "Dividend yield input" }));
     fireEvent.click(screen.getByRole("button", { name: "Historical dividend growth" }));
     fireEvent.click(screen.getByRole("button", { name: "5 years" }));
     fireEvent.change(screen.getByLabelText("Dividend yield"), { target: { value: "3" } });
@@ -132,6 +140,7 @@ describe("Equity return expectation page", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Gordon Growth" }));
     fireEvent.click(screen.getByRole("button", { name: "Dividend amount input" }));
+    fireEvent.click(screen.getByRole("button", { name: "Direct dividend growth" }));
     fireEvent.change(screen.getByLabelText("Annual dividend per share"), { target: { value: "1.50" } });
     fireEvent.change(screen.getByLabelText("Share price"), { target: { value: "50" } });
     fireEvent.change(screen.getByLabelText("Dividend growth"), { target: { value: "5" } });
@@ -148,6 +157,8 @@ describe("Equity return expectation page", () => {
 
     fireEvent.change(screen.getByLabelText("Analysis name"), { target: { value: "ADOBE" } });
     fireEvent.click(screen.getByRole("button", { name: "Earnings Yield + Growth" }));
+    fireEvent.click(screen.getByRole("button", { name: "Direct growth estimate" }));
+    fireEvent.click(screen.getByRole("button", { name: "P/E input" }));
     fireEvent.change(screen.getByLabelText("P/E ratio"), { target: { value: "25" } });
     fireEvent.change(screen.getByLabelText("Expected annual growth"), { target: { value: "7" } });
     fireEvent.click(screen.getByRole("button", { name: "Save analysis" }));
@@ -163,5 +174,53 @@ describe("Equity return expectation page", () => {
     expect(screen.getByDisplayValue("25")).toBeInTheDocument();
     expect(screen.getByText("11.00%")).toBeInTheDocument();
     expect(window.localStorage.getItem("equity-return-expectation-analyses-v1")).toContain("ADOBE");
+  });
+
+  it("keeps separate saved historical growth values for EPS and revenue assumptions", () => {
+    renderPage();
+
+    fireEvent.click(screen.getByRole("button", { name: "Earnings Yield + Growth" }));
+    fireEvent.click(screen.getByRole("button", { name: "Historical growth" }));
+    fireEvent.click(screen.getByRole("button", { name: "EPS growth" }));
+
+    ["100", "110", "121", "133.1", "146.41"].forEach((value, index) => {
+      fireEvent.change(screen.getByLabelText(`Year ${index + 1} value`), { target: { value } });
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Revenue growth" }));
+
+    expect(screen.queryByDisplayValue("100")).not.toBeInTheDocument();
+    expect(screen.getAllByLabelText(/Year \d value/).map((input) => (input as HTMLInputElement).value)).toEqual(["", "", "", "", ""]);
+
+    ["200", "220", "242", "266.2", "292.82"].forEach((value, index) => {
+      fireEvent.change(screen.getByLabelText(`Year ${index + 1} value`), { target: { value } });
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "EPS growth" }));
+
+    expect(screen.getByDisplayValue("100")).toBeInTheDocument();
+    expect(screen.getByDisplayValue("146.41")).toBeInTheDocument();
+    expect(screen.queryByDisplayValue("200")).not.toBeInTheDocument();
+  });
+
+  it("shows calculated input choices before direct input choices by default", () => {
+    renderPage();
+
+    expectButtonBefore("Historical growth", "Direct growth estimate");
+    expect(screen.getByRole("button", { name: "Historical growth" })).toHaveAttribute("aria-pressed", "true");
+    expectButtonBefore("Market cap input", "P/E input");
+    expect(screen.getByRole("button", { name: "Market cap input" })).toHaveAttribute("aria-pressed", "true");
+
+    fireEvent.click(screen.getByRole("button", { name: "FCF Yield + Growth" }));
+
+    expectButtonBefore("FCF amount input", "FCF yield input");
+    expect(screen.getByRole("button", { name: "FCF amount input" })).toHaveAttribute("aria-pressed", "true");
+
+    fireEvent.click(screen.getByRole("button", { name: "Gordon Growth" }));
+
+    expectButtonBefore("Dividend amount input", "Dividend yield input");
+    expect(screen.getByRole("button", { name: "Dividend amount input" })).toHaveAttribute("aria-pressed", "true");
+    expectButtonBefore("Historical dividend growth", "Direct dividend growth");
+    expect(screen.getByRole("button", { name: "Historical dividend growth" })).toHaveAttribute("aria-pressed", "true");
   });
 });

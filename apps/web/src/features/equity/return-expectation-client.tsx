@@ -14,14 +14,18 @@ type YearCount = "4" | "5";
 type EarningsYieldMode = "pe" | "amounts";
 type FcfYieldMode = "direct" | "amounts";
 
+type GrowthInputsState = {
+  mode: GrowthMode;
+  directPct: string;
+  years: YearCount;
+  historicalValues: string[];
+};
+
 type CalculatorState = {
   model: ReturnModel;
   growth: {
     basis: GrowthBasis;
-    mode: GrowthMode;
-    directPct: string;
-    years: YearCount;
-    historicalValues: string[];
+    byBasis: Record<GrowthBasis, GrowthInputsState>;
   };
   gordon: {
     dividendYieldMode: DividendYieldMode;
@@ -59,29 +63,39 @@ const DEFAULT_STATE: CalculatorState = {
   model: "earnings",
   growth: {
     basis: "eps",
-    mode: "direct",
-    directPct: "",
-    years: "5",
-    historicalValues: ["", "", "", "", ""],
+    byBasis: {
+      eps: {
+        mode: "historical",
+        directPct: "",
+        years: "5",
+        historicalValues: ["", "", "", "", ""],
+      },
+      revenue: {
+        mode: "historical",
+        directPct: "",
+        years: "5",
+        historicalValues: ["", "", "", "", ""],
+      },
+    },
   },
   gordon: {
-    dividendYieldMode: "direct",
+    dividendYieldMode: "amounts",
     dividendYieldPct: "",
     annualDividendPerShare: "",
     sharePrice: "",
-    dividendGrowthMode: "direct",
+    dividendGrowthMode: "historical",
     dividendGrowthPct: "",
     dividendYears: "5",
     dividendHistory: ["", "", "", "", ""],
   },
   earnings: {
-    yieldMode: "pe",
+    yieldMode: "amounts",
     peRatio: "",
     marketCap: "",
     netIncome: "",
   },
   fcf: {
-    yieldMode: "direct",
+    yieldMode: "amounts",
     directYieldPct: "",
     marketCap: "",
     freeCashFlow: "",
@@ -100,71 +114,77 @@ function readPersistedState(): CalculatorState {
     }
 
     const parsed = JSON.parse(persisted) as Partial<CalculatorState>;
-    return {
-      ...DEFAULT_STATE,
-      ...parsed,
-      growth: {
-        ...DEFAULT_STATE.growth,
-        ...parsed.growth,
-        historicalValues: [
-          ...(parsed.growth?.historicalValues ?? DEFAULT_STATE.growth.historicalValues),
-          "",
-          "",
-          "",
-          "",
-          "",
-        ].slice(0, 5),
-      },
-      gordon: {
-        ...DEFAULT_STATE.gordon,
-        ...parsed.gordon,
-        dividendHistory: [
-          ...(parsed.gordon?.dividendHistory ?? DEFAULT_STATE.gordon.dividendHistory),
-          "",
-          "",
-          "",
-          "",
-          "",
-        ].slice(0, 5),
-      },
-      earnings: { ...DEFAULT_STATE.earnings, ...parsed.earnings },
-      fcf: { ...DEFAULT_STATE.fcf, ...parsed.fcf },
-    };
+    return normalizeCalculatorState(parsed);
   } catch {
     return DEFAULT_STATE;
   }
 }
 
+function normalizeGrowthInputs(value?: Partial<GrowthInputsState>): GrowthInputsState {
+  return {
+    ...DEFAULT_STATE.growth.byBasis.eps,
+    ...value,
+    historicalValues: [
+      ...(value?.historicalValues ?? DEFAULT_STATE.growth.byBasis.eps.historicalValues),
+      "",
+      "",
+      "",
+      "",
+      "",
+    ].slice(0, 5),
+  };
+}
+
 function normalizeCalculatorState(value: Partial<CalculatorState>): CalculatorState {
+  const legacyGrowth = value.growth as Partial<CalculatorState["growth"] & GrowthInputsState> | undefined;
+  const epsGrowth = legacyGrowth?.byBasis?.eps ?? {
+    mode: legacyGrowth?.mode,
+    directPct: legacyGrowth?.directPct,
+    years: legacyGrowth?.years,
+    historicalValues: legacyGrowth?.historicalValues,
+  };
+  const revenueGrowth = legacyGrowth?.byBasis?.revenue;
+  const gordon = {
+    ...DEFAULT_STATE.gordon,
+    ...value.gordon,
+    dividendYieldMode: value.gordon?.dividendYieldMode ??
+      (value.gordon?.dividendYieldPct ? "direct" : DEFAULT_STATE.gordon.dividendYieldMode),
+    dividendGrowthMode: value.gordon?.dividendGrowthMode ??
+      (value.gordon?.dividendGrowthPct ? "direct" : DEFAULT_STATE.gordon.dividendGrowthMode),
+    dividendHistory: [
+      ...(value.gordon?.dividendHistory ?? DEFAULT_STATE.gordon.dividendHistory),
+      "",
+      "",
+      "",
+      "",
+      "",
+    ].slice(0, 5),
+  };
+  const earnings = {
+    ...DEFAULT_STATE.earnings,
+    ...value.earnings,
+    yieldMode: value.earnings?.yieldMode ?? (value.earnings?.peRatio ? "pe" : DEFAULT_STATE.earnings.yieldMode),
+  };
+  const fcf = {
+    ...DEFAULT_STATE.fcf,
+    ...value.fcf,
+    yieldMode: value.fcf?.yieldMode ?? (value.fcf?.directYieldPct ? "direct" : DEFAULT_STATE.fcf.yieldMode),
+  };
+
   return {
     ...DEFAULT_STATE,
     ...value,
     growth: {
       ...DEFAULT_STATE.growth,
-      ...value.growth,
-      historicalValues: [
-        ...(value.growth?.historicalValues ?? DEFAULT_STATE.growth.historicalValues),
-        "",
-        "",
-        "",
-        "",
-        "",
-      ].slice(0, 5),
+      basis: value.growth?.basis ?? DEFAULT_STATE.growth.basis,
+      byBasis: {
+        eps: normalizeGrowthInputs(epsGrowth),
+        revenue: normalizeGrowthInputs(revenueGrowth),
+      },
     },
-    gordon: {
-      ...DEFAULT_STATE.gordon,
-      ...value.gordon,
-      dividendHistory: [
-        ...(value.gordon?.dividendHistory ?? DEFAULT_STATE.gordon.dividendHistory),
-        "",
-        "",
-        "",
-        "",
-        "",
-      ].slice(0, 5),
-    },
-    earnings: { ...DEFAULT_STATE.earnings, ...value.earnings },
-    fcf: { ...DEFAULT_STATE.fcf, ...value.fcf },
+    gordon,
+    earnings,
+    fcf,
   };
 }
 
@@ -245,11 +265,12 @@ function averageHistoricalGrowth(values: string[], years: YearCount) {
 }
 
 function selectedGrowthPct(state: CalculatorState) {
-  if (state.growth.mode === "direct") {
-    return toNumber(state.growth.directPct);
+  const activeGrowth = state.growth.byBasis[state.growth.basis];
+  if (activeGrowth.mode === "direct") {
+    return toNumber(activeGrowth.directPct);
   }
 
-  return averageHistoricalGrowth(state.growth.historicalValues, state.growth.years);
+  return averageHistoricalGrowth(activeGrowth.historicalValues, activeGrowth.years);
 }
 
 function earningsYieldPct(state: CalculatorState) {
@@ -480,7 +501,24 @@ function GrowthInputs({
   state: CalculatorState;
   updateState: (updater: (state: CalculatorState) => CalculatorState) => void;
 }) {
-  const selectedYears = Number.parseInt(state.growth.years, 10);
+  const activeGrowth = state.growth.byBasis[state.growth.basis];
+  const selectedYears = Number.parseInt(activeGrowth.years, 10);
+
+  function updateActiveGrowth(updater: (growth: GrowthInputsState) => GrowthInputsState) {
+    updateState((current) => {
+      const currentActiveGrowth = current.growth.byBasis[current.growth.basis];
+      return {
+        ...current,
+        growth: {
+          ...current.growth,
+          byBasis: {
+            ...current.growth.byBasis,
+            [current.growth.basis]: updater(currentActiveGrowth),
+          },
+        },
+      };
+    });
+  }
 
   return (
     <Box bg="surface" borderColor="edge" borderWidth="1px" p={{ base: "6", md: "7" }} rounded="panel">
@@ -513,57 +551,55 @@ function GrowthInputs({
 
         <Grid gap="2" templateColumns={{ base: "1fr", md: "repeat(2, minmax(0, 14rem))" }}>
           <SegmentedButton
-            activeValue={state.growth.mode}
-            onSelect={(mode) => updateState((current) => ({ ...current, growth: { ...current.growth, mode } }))}
-            value="direct"
-          >
-            Direct growth estimate
-          </SegmentedButton>
-          <SegmentedButton
-            activeValue={state.growth.mode}
-            onSelect={(mode) => updateState((current) => ({ ...current, growth: { ...current.growth, mode } }))}
+            activeValue={activeGrowth.mode}
+            onSelect={(mode) => updateActiveGrowth((growth) => ({ ...growth, mode }))}
             value="historical"
           >
             Historical growth
           </SegmentedButton>
+          <SegmentedButton
+            activeValue={activeGrowth.mode}
+            onSelect={(mode) => updateActiveGrowth((growth) => ({ ...growth, mode }))}
+            value="direct"
+          >
+            Direct growth estimate
+          </SegmentedButton>
         </Grid>
 
-        {state.growth.mode === "direct" ? (
+        {activeGrowth.mode === "direct" ? (
           <NumberField
             label="Expected annual growth"
-            onChange={(directPct) => updateState((current) => ({ ...current, growth: { ...current.growth, directPct } }))}
-            value={state.growth.directPct}
+            onChange={(directPct) => updateActiveGrowth((growth) => ({ ...growth, directPct }))}
+            value={activeGrowth.directPct}
           />
         ) : (
           <Stack gap="4">
             <Grid gap="2" templateColumns={{ base: "repeat(2, minmax(0, 1fr))", md: "repeat(2, minmax(0, 8rem))" }}>
               <SegmentedButton
-                activeValue={state.growth.years}
-                onSelect={(years) => updateState((current) => ({ ...current, growth: { ...current.growth, years } }))}
+                activeValue={activeGrowth.years}
+                onSelect={(years) => updateActiveGrowth((growth) => ({ ...growth, years }))}
                 value="4"
               >
                 4 years
               </SegmentedButton>
               <SegmentedButton
-                activeValue={state.growth.years}
-                onSelect={(years) => updateState((current) => ({ ...current, growth: { ...current.growth, years } }))}
+                activeValue={activeGrowth.years}
+                onSelect={(years) => updateActiveGrowth((growth) => ({ ...growth, years }))}
                 value="5"
               >
                 5 years
               </SegmentedButton>
             </Grid>
             <SimpleGrid columns={{ base: 1, md: selectedYears === 5 ? 5 : 4 }} gap="3">
-              {state.growth.historicalValues.slice(0, selectedYears).map((value, index) => (
+              {activeGrowth.historicalValues.slice(0, selectedYears).map((value, index) => (
                 <NumberField
                   key={index}
                   label={`Year ${index + 1} value`}
-                  onChange={(nextValue) =>
-                    updateState((current) => {
-                      const historicalValues = [...current.growth.historicalValues];
-                      historicalValues[index] = nextValue;
-                      return { ...current, growth: { ...current.growth, historicalValues } };
-                    })
-                  }
+                  onChange={(nextValue) => updateActiveGrowth((growth) => {
+                    const historicalValues = [...growth.historicalValues];
+                    historicalValues[index] = nextValue;
+                    return { ...growth, historicalValues };
+                  })}
                   value={value}
                 />
               ))}
@@ -740,18 +776,18 @@ export function EquityReturnExpectationClient() {
                   onSelect={(dividendYieldMode) =>
                     updateState((current) => ({ ...current, gordon: { ...current.gordon, dividendYieldMode } }))
                   }
-                  value="direct"
+                  value="amounts"
                 >
-                  Dividend yield input
+                  Dividend amount input
                 </SegmentedButton>
                 <SegmentedButton
                   activeValue={state.gordon.dividendYieldMode}
                   onSelect={(dividendYieldMode) =>
                     updateState((current) => ({ ...current, gordon: { ...current.gordon, dividendYieldMode } }))
                   }
-                  value="amounts"
+                  value="direct"
                 >
-                  Dividend amount input
+                  Dividend yield input
                 </SegmentedButton>
               </Grid>
               {state.gordon.dividendYieldMode === "direct" ? (
@@ -783,18 +819,18 @@ export function EquityReturnExpectationClient() {
                 onSelect={(dividendGrowthMode) =>
                   updateState((current) => ({ ...current, gordon: { ...current.gordon, dividendGrowthMode } }))
                 }
-                value="direct"
+                value="historical"
               >
-                Direct dividend growth
+                Historical dividend growth
               </SegmentedButton>
               <SegmentedButton
                 activeValue={state.gordon.dividendGrowthMode}
                 onSelect={(dividendGrowthMode) =>
                   updateState((current) => ({ ...current, gordon: { ...current.gordon, dividendGrowthMode } }))
                 }
-                value="historical"
+                value="direct"
               >
-                Historical dividend growth
+                Direct dividend growth
               </SegmentedButton>
             </Grid>
             {state.gordon.dividendGrowthMode === "direct" ? (
@@ -864,16 +900,16 @@ export function EquityReturnExpectationClient() {
                 <SegmentedButton
                   activeValue={state.earnings.yieldMode}
                   onSelect={(yieldMode) => updateState((current) => ({ ...current, earnings: { ...current.earnings, yieldMode } }))}
-                  value="pe"
+                  value="amounts"
                 >
-                  P/E input
+                  Market cap input
                 </SegmentedButton>
                 <SegmentedButton
                   activeValue={state.earnings.yieldMode}
                   onSelect={(yieldMode) => updateState((current) => ({ ...current, earnings: { ...current.earnings, yieldMode } }))}
-                  value="amounts"
+                  value="pe"
                 >
-                  Market cap input
+                  P/E input
                 </SegmentedButton>
               </Grid>
               {state.earnings.yieldMode === "pe" ? (
@@ -918,16 +954,16 @@ export function EquityReturnExpectationClient() {
                 <SegmentedButton
                   activeValue={state.fcf.yieldMode}
                   onSelect={(yieldMode) => updateState((current) => ({ ...current, fcf: { ...current.fcf, yieldMode } }))}
-                  value="direct"
+                  value="amounts"
                 >
-                  FCF yield input
+                  FCF amount input
                 </SegmentedButton>
                 <SegmentedButton
                   activeValue={state.fcf.yieldMode}
                   onSelect={(yieldMode) => updateState((current) => ({ ...current, fcf: { ...current.fcf, yieldMode } }))}
-                  value="amounts"
+                  value="direct"
                 >
-                  FCF amount input
+                  FCF yield input
                 </SegmentedButton>
               </Grid>
               {state.fcf.yieldMode === "direct" ? (
