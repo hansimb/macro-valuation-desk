@@ -152,6 +152,33 @@ describe("Equity return expectation page", () => {
     expect(screen.getByText("8.00%")).toBeInTheDocument();
   });
 
+  it("normalizes legacy direct growth storage with missing values", async () => {
+    window.localStorage.setItem(
+      "equity-return-expectation-v1",
+      JSON.stringify({
+        model: "earnings",
+        growth: {
+          basis: "eps",
+          mode: "direct",
+          years: "5",
+          historicalValues: ["", "", "", "", ""],
+        },
+        earnings: {
+          yieldMode: "pe",
+          peRatio: "20",
+        },
+      }),
+    );
+
+    renderPage();
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "Direct growth estimate" })).toHaveAttribute("aria-pressed", "true");
+    });
+    expect(screen.getByLabelText("Expected annual growth")).toHaveValue("");
+    expect(screen.getByText("5.00%")).toBeInTheDocument();
+  });
+
   it("can calculate Gordon dividend growth from four or five years of dividend history", () => {
     renderPage();
 

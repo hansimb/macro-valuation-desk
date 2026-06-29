@@ -121,17 +121,15 @@ function readPersistedState(): CalculatorState {
 }
 
 function normalizeGrowthInputs(value?: Partial<GrowthInputsState>): GrowthInputsState {
+  const historicalValues = Array.isArray(value?.historicalValues)
+    ? value.historicalValues
+    : DEFAULT_STATE.growth.byBasis.eps.historicalValues;
+
   return {
     ...DEFAULT_STATE.growth.byBasis.eps,
     ...value,
-    historicalValues: [
-      ...(value?.historicalValues ?? DEFAULT_STATE.growth.byBasis.eps.historicalValues),
-      "",
-      "",
-      "",
-      "",
-      "",
-    ].slice(0, 5),
+    directPct: value?.directPct ?? DEFAULT_STATE.growth.byBasis.eps.directPct,
+    historicalValues: [...historicalValues, "", "", "", "", ""].slice(0, 5).map((item) => item ?? ""),
   };
 }
 
@@ -149,26 +147,31 @@ function normalizeCalculatorState(value: Partial<CalculatorState>): CalculatorSt
     ...value.gordon,
     dividendYieldMode: value.gordon?.dividendYieldMode ??
       (value.gordon?.dividendYieldPct ? "direct" : DEFAULT_STATE.gordon.dividendYieldMode),
+    dividendYieldPct: value.gordon?.dividendYieldPct ?? DEFAULT_STATE.gordon.dividendYieldPct,
+    annualDividendPerShare: value.gordon?.annualDividendPerShare ?? DEFAULT_STATE.gordon.annualDividendPerShare,
+    sharePrice: value.gordon?.sharePrice ?? DEFAULT_STATE.gordon.sharePrice,
     dividendGrowthMode: value.gordon?.dividendGrowthMode ??
       (value.gordon?.dividendGrowthPct ? "direct" : DEFAULT_STATE.gordon.dividendGrowthMode),
-    dividendHistory: [
-      ...(value.gordon?.dividendHistory ?? DEFAULT_STATE.gordon.dividendHistory),
-      "",
-      "",
-      "",
-      "",
-      "",
-    ].slice(0, 5),
+    dividendGrowthPct: value.gordon?.dividendGrowthPct ?? DEFAULT_STATE.gordon.dividendGrowthPct,
+    dividendHistory: [...(value.gordon?.dividendHistory ?? DEFAULT_STATE.gordon.dividendHistory), "", "", "", "", ""]
+      .slice(0, 5)
+      .map((item) => item ?? ""),
   };
   const earnings = {
     ...DEFAULT_STATE.earnings,
     ...value.earnings,
     yieldMode: value.earnings?.yieldMode ?? (value.earnings?.peRatio ? "pe" : DEFAULT_STATE.earnings.yieldMode),
+    peRatio: value.earnings?.peRatio ?? DEFAULT_STATE.earnings.peRatio,
+    marketCap: value.earnings?.marketCap ?? DEFAULT_STATE.earnings.marketCap,
+    netIncome: value.earnings?.netIncome ?? DEFAULT_STATE.earnings.netIncome,
   };
   const fcf = {
     ...DEFAULT_STATE.fcf,
     ...value.fcf,
     yieldMode: value.fcf?.yieldMode ?? (value.fcf?.directYieldPct ? "direct" : DEFAULT_STATE.fcf.yieldMode),
+    directYieldPct: value.fcf?.directYieldPct ?? DEFAULT_STATE.fcf.directYieldPct,
+    marketCap: value.fcf?.marketCap ?? DEFAULT_STATE.fcf.marketCap,
+    freeCashFlow: value.fcf?.freeCashFlow ?? DEFAULT_STATE.fcf.freeCashFlow,
   };
 
   return {
