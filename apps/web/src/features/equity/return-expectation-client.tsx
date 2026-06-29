@@ -231,6 +231,10 @@ function persistSavedAnalyses(nextAnalyses: SavedAnalysis[]) {
   }
 }
 
+function statesEqual(left: CalculatorState, right: CalculatorState) {
+  return JSON.stringify(left) === JSON.stringify(right);
+}
+
 function toNumber(value: string) {
   const parsed = Number.parseFloat(value.replace(",", "."));
   return Number.isFinite(parsed) ? parsed : null;
@@ -614,8 +618,18 @@ function GrowthInputs({
 export function EquityReturnExpectationClient() {
   const [state, setState] = useState<CalculatorState>(() => readPersistedState());
   const [analysisName, setAnalysisName] = useState("");
+  const [selectedAnalysisName, setSelectedAnalysisName] = useState("");
   const [savedAnalyses, setSavedAnalyses] = useState<SavedAnalysis[]>(() => readPersistedAnalyses());
   const results = calculatorResults(state);
+  const selectedSavedAnalysis = savedAnalyses.find((analysis) => analysis.name === selectedAnalysisName);
+  const trimmedAnalysisName = analysisName.trim();
+  const analysisStatus = selectedSavedAnalysis
+    ? statesEqual(state, selectedSavedAnalysis.state) && trimmedAnalysisName === selectedSavedAnalysis.name
+      ? `Saved analysis: ${selectedSavedAnalysis.name}`
+      : `Unsaved changes to ${selectedSavedAnalysis.name}`
+    : trimmedAnalysisName
+      ? `Unsaved analysis: ${trimmedAnalysisName}`
+      : "Unnamed analysis";
 
   function updateState(updater: (state: CalculatorState) => CalculatorState) {
     setState((current) => {
@@ -625,56 +639,103 @@ export function EquityReturnExpectationClient() {
     });
   }
 
+  function updateAnalysisName(nextName: string) {
+    setAnalysisName(nextName);
+    if (selectedAnalysisName && nextName.trim() !== selectedAnalysisName) {
+      setSelectedAnalysisName("");
+    }
+  }
+
   function saveNamedAnalysis() {
-    const trimmedName = analysisName.trim();
-    if (!trimmedName) {
+    if (!trimmedAnalysisName) {
       return;
     }
 
-    const nextAnalysis = { name: trimmedName, state };
+    const nextAnalysis = { name: trimmedAnalysisName, state };
     const nextAnalyses = [
-      ...savedAnalyses.filter((analysis) => analysis.name.toLowerCase() !== trimmedName.toLowerCase()),
+      ...savedAnalyses.filter((analysis) => analysis.name.toLowerCase() !== trimmedAnalysisName.toLowerCase()),
       nextAnalysis,
     ].sort((left, right) => left.name.localeCompare(right.name));
     setSavedAnalyses(nextAnalyses);
-    setAnalysisName(trimmedName);
+    setAnalysisName(trimmedAnalysisName);
+    setSelectedAnalysisName(trimmedAnalysisName);
     persistSavedAnalyses(nextAnalyses);
   }
 
   function loadNamedAnalysis(name: string) {
     const savedAnalysis = savedAnalyses.find((analysis) => analysis.name === name);
     if (!savedAnalysis) {
+      setSelectedAnalysisName("");
       return;
     }
 
     setAnalysisName(savedAnalysis.name);
+    setSelectedAnalysisName(savedAnalysis.name);
     setState(savedAnalysis.state);
     persistCurrentState(savedAnalysis.state);
+  }
+
+  function deleteSelectedAnalysis() {
+    if (!selectedAnalysisName) {
+      return;
+    }
+
+    const nextAnalyses = savedAnalyses.filter((analysis) => analysis.name !== selectedAnalysisName);
+    setSavedAnalyses(nextAnalyses);
+    setAnalysisName("");
+    setSelectedAnalysisName("");
+    persistSavedAnalyses(nextAnalyses);
+  }
+
+  function startNewAnalysis() {
+    const nextState = normalizeCalculatorState({});
+    setState(nextState);
+    setAnalysisName("");
+    setSelectedAnalysisName("");
+    persistCurrentState(nextState);
   }
 
   return (
     <Stack gap={{ base: "8", md: "10" }}>
       <Box bg="surface" borderColor="edge" borderWidth="1px" p={{ base: "6", md: "7" }} rounded="panel">
         <Stack gap="5">
-          <Stack gap="2">
-            <Text color="accent" textStyle="eyebrow">
-              Saved Analyses
-            </Text>
-            <Text color="muted" textStyle="body">
-              Saved analyses are stored only on this device.
-            </Text>
+          <Stack align={{ base: "stretch", md: "start" }} direction={{ base: "column", md: "row" }} gap="4" justify="space-between">
+            <Stack gap="2">
+              <Text color="accent" textStyle="eyebrow">
+                Saved Analyses
+              </Text>
+              <Text color="muted" textStyle="body">
+                Saved analyses are stored only on this device.
+              </Text>
+              <Text color={selectedSavedAnalysis && !analysisStatus.startsWith("Saved") ? "accent" : "muted"} textStyle="body">
+                {analysisStatus}
+              </Text>
+            </Stack>
+            <Button
+              bg="canvas"
+              borderColor="edge"
+              borderWidth="1px"
+              color="text"
+              minH="2.5rem"
+              onClick={startNewAnalysis}
+              rounded="control"
+              size="sm"
+              variant="outline"
+            >
+              New analysis
+            </Button>
           </Stack>
-          <SimpleGrid columns={{ base: 1, md: 3 }} gap="4">
-            <TextField label="Analysis name" onChange={setAnalysisName} value={analysisName} />
+          <SimpleGrid columns={{ base: 1, md: 4 }} gap="4">
+            <TextField label="Analysis name" onChange={updateAnalysisName} value={analysisName} />
             <Stack gap="2">
               <label htmlFor="saved-analyses">
                 <Text as="span" color="muted" textStyle="body">
-                  Saved analyses
+                  Selected analysis
                 </Text>
               </label>
               <Box position="relative">
                 <select
-                  aria-label="Saved analyses"
+                  aria-label="Selected analysis"
                   id="saved-analyses"
                   onChange={(event) => loadNamedAnalysis(event.currentTarget.value)}
                   style={{
@@ -689,7 +750,7 @@ export function EquityReturnExpectationClient() {
                     paddingInlineStart: "0.75rem",
                     width: "100%",
                   }}
-                  value=""
+                  value={selectedAnalysisName}
                 >
                   <option style={{ background: "#181A1B", color: "#d9e8ff" }} value="">
                     Select saved analysis
@@ -719,6 +780,25 @@ export function EquityReturnExpectationClient() {
                 size="sm"
               >
                 Save analysis
+              </Button>
+            </Stack>
+            <Stack gap="2" justify="end">
+              <Text aria-hidden="true" color="muted" textStyle="body">
+                &nbsp;
+              </Text>
+              <Button
+                bg="canvas"
+                borderColor="edge"
+                borderWidth="1px"
+                color="text"
+                disabled={!selectedAnalysisName}
+                minH="2.5rem"
+                onClick={deleteSelectedAnalysis}
+                rounded="control"
+                size="sm"
+                variant="outline"
+              >
+                Delete analysis
               </Button>
             </Stack>
           </SimpleGrid>

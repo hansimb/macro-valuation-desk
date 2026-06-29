@@ -168,12 +168,55 @@ describe("Equity return expectation page", () => {
     fireEvent.change(screen.getByLabelText("P/E ratio"), { target: { value: "10" } });
     expect(screen.getByText("17.00%")).toBeInTheDocument();
 
-    fireEvent.change(screen.getByLabelText("Saved analyses"), { target: { value: "ADOBE" } });
+    fireEvent.change(screen.getByLabelText("Selected analysis"), { target: { value: "ADOBE" } });
 
-    expect(screen.getByDisplayValue("ADOBE")).toBeInTheDocument();
+    expect(screen.getByLabelText("Analysis name")).toHaveValue("ADOBE");
+    expect(screen.getByLabelText("Selected analysis")).toHaveValue("ADOBE");
     expect(screen.getByDisplayValue("25")).toBeInTheDocument();
     expect(screen.getByText("11.00%")).toBeInTheDocument();
     expect(window.localStorage.getItem("equity-return-expectation-analyses-v1")).toContain("ADOBE");
+  });
+
+  it("manages selected, modified, deleted, and new saved analyses", async () => {
+    renderPage();
+
+    expect(screen.getByText("Unnamed analysis")).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("Analysis name"), { target: { value: "ADOBE" } });
+    fireEvent.click(screen.getByRole("button", { name: "Direct growth estimate" }));
+    fireEvent.click(screen.getByRole("button", { name: "P/E input" }));
+    fireEvent.change(screen.getByLabelText("P/E ratio"), { target: { value: "25" } });
+    fireEvent.change(screen.getByLabelText("Expected annual growth"), { target: { value: "7" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save analysis" }));
+
+    expect(screen.getByLabelText("Selected analysis")).toHaveValue("ADOBE");
+    expect(screen.getByText("Saved analysis: ADOBE")).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("P/E ratio"), { target: { value: "20" } });
+
+    expect(screen.getByText("Unsaved changes to ADOBE")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Save analysis" }));
+
+    expect(screen.getByText("Saved analysis: ADOBE")).toBeInTheDocument();
+    expect(window.localStorage.getItem("equity-return-expectation-analyses-v1")).toContain("\"peRatio\":\"20\"");
+
+    fireEvent.click(screen.getByRole("button", { name: "New analysis" }));
+
+    expect(screen.getByLabelText("Selected analysis")).toHaveValue("");
+    expect(screen.getByLabelText("Analysis name")).toHaveValue("");
+    expect(screen.queryByDisplayValue("20")).not.toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "ADOBE" })).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("Selected analysis"), { target: { value: "ADOBE" } });
+    fireEvent.click(screen.getByRole("button", { name: "Delete analysis" }));
+
+    expect(screen.getByText("Unnamed analysis")).toBeInTheDocument();
+    expect(screen.queryByRole("option", { name: "ADOBE" })).not.toBeInTheDocument();
+
+    await waitFor(() => {
+      expect(window.localStorage.getItem("equity-return-expectation-analyses-v1")).toBe("[]");
+    });
   });
 
   it("keeps separate saved historical growth values for EPS and revenue assumptions", () => {
