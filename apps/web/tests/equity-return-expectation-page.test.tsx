@@ -1,6 +1,8 @@
 import React from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { hydrateRoot } from "react-dom/client";
+import { renderToString } from "react-dom/server";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 
 import EquityMarketsPage from "../src/app/equity-markets/page";
 import EquityReturnExpectationPage from "../src/app/equity-markets/return-expectation/page";
@@ -78,7 +80,7 @@ describe("Equity return expectation page", () => {
     expect(screen.getByText("12.5x")).toBeInTheDocument();
   });
 
-  it("hydrates saved choices from local storage", () => {
+  it("hydrates saved choices from local storage without a hydration mismatch", async () => {
     window.localStorage.setItem(
       "equity-return-expectation-v1",
       JSON.stringify({
@@ -109,9 +111,42 @@ describe("Equity return expectation page", () => {
       }),
     );
 
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+    const originalWindow = globalThis.window;
+    vi.stubGlobal("window", undefined);
+    const serverHtml = renderToString(
+      <ThemeProvider>
+        <EquityReturnExpectationPage />
+      </ThemeProvider>,
+    );
+    vi.stubGlobal("window", originalWindow);
+    const container = document.createElement("div");
+    container.innerHTML = serverHtml;
+    document.body.appendChild(container);
+
+    const root = hydrateRoot(
+      container,
+      <ThemeProvider>
+        <EquityReturnExpectationPage />
+      </ThemeProvider>,
+    );
+
+    const hydratedPage = within(container);
+    await waitFor(() => {
+      expect(hydratedPage.getByRole("button", { name: "Gordon Growth" })).toHaveAttribute("aria-pressed", "true");
+    });
+    const hydrationErrors = consoleError.mock.calls.filter((call) =>
+      call.some((part) => String(part).includes("Hydration failed")),
+    );
+    expect(hydrationErrors).toEqual([]);
+
+    root.unmount();
+    container.remove();
     renderPage();
 
-    expect(screen.getByRole("button", { name: "Gordon Growth" })).toHaveAttribute("aria-pressed", "true");
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "Gordon Growth" })).toHaveAttribute("aria-pressed", "true");
+    });
     expect(screen.getByDisplayValue("3")).toBeInTheDocument();
     expect(screen.getByDisplayValue("5")).toBeInTheDocument();
     expect(screen.getByText("8.00%")).toBeInTheDocument();

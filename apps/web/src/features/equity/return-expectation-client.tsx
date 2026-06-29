@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Box, Button, Grid, Heading, Input, SimpleGrid, Stack, Text } from "@chakra-ui/react";
 
 import { AnalysisMetricCard } from "../macro/components/analysis-metric-card";
@@ -616,10 +616,10 @@ function GrowthInputs({
 }
 
 export function EquityReturnExpectationClient() {
-  const [state, setState] = useState<CalculatorState>(() => readPersistedState());
+  const [state, setState] = useState<CalculatorState>(() => DEFAULT_STATE);
   const [analysisName, setAnalysisName] = useState("");
   const [selectedAnalysisName, setSelectedAnalysisName] = useState("");
-  const [savedAnalyses, setSavedAnalyses] = useState<SavedAnalysis[]>(() => readPersistedAnalyses());
+  const [savedAnalyses, setSavedAnalyses] = useState<SavedAnalysis[]>([]);
   const results = calculatorResults(state);
   const selectedSavedAnalysis = savedAnalyses.find((analysis) => analysis.name === selectedAnalysisName);
   const trimmedAnalysisName = analysisName.trim();
@@ -630,6 +630,11 @@ export function EquityReturnExpectationClient() {
     : trimmedAnalysisName
       ? `Unsaved analysis: ${trimmedAnalysisName}`
       : "Unnamed analysis";
+
+  useEffect(() => {
+    setState(readPersistedState());
+    setSavedAnalyses(readPersistedAnalyses());
+  }, []);
 
   function updateState(updater: (state: CalculatorState) => CalculatorState) {
     setState((current) => {
