@@ -338,7 +338,7 @@ function fcfHistoricalGrowthPct(state: CalculatorState) {
     return null;
   }
 
-  const numericHistory = fcfHistory as number[];
+  const numericHistory = [...(fcfHistory as number[])].reverse();
   const yearOverYearRates = numericHistory.slice(1).map((value, index) => ((value / numericHistory[index]) - 1) * 100);
   return yearOverYearRates.length === 0 ? null : yearOverYearRates.reduce((sum, value) => sum + value, 0) / yearOverYearRates.length;
 }
@@ -636,7 +636,7 @@ function FormulaBlock({ model }: { model: ReturnModel }) {
     ? "Expected return = dividend yield + expected dividend growth"
     : model === "earnings"
       ? "Expected return = earnings yield + expected growth"
-      : "Expected return = free cash flow yield + expected growth";
+      : "Expected return = free cash flow yield + FCF growth";
 
   return (
     <Box bg="surface" borderColor="edge" borderWidth="1px" p={{ base: "6", md: "7" }} rounded="panel">
@@ -656,6 +656,10 @@ function FormulaBlock({ model }: { model: ReturnModel }) {
       </Stack>
     </Box>
   );
+}
+
+function cashFlowStatementLabel(index: number, metric: "operating cash flow" | "capital expenditures") {
+  return index === 0 ? `Latest year ${metric}` : `${index} year ago ${metric}`;
 }
 
 function GrowthInputs({
@@ -1241,9 +1245,9 @@ export function EquityReturnExpectationClient() {
                 <Stack gap="4">
                   <Box bg="canvas" borderColor="edge" borderWidth="1px" p="4" rounded="panel">
                     <Text color="muted" textStyle="body">
-                      FCF is calculated as operating cash flow minus capital expenditures. Latest fiscal year uses one year of FCF for
-                      the yield component only. Average FCF uses four or five years of calculated FCF divided by current market
-                      capitalization.
+                      FCF is calculated as operating cash flow minus capital expenditures. Enter cash flow statement years from latest
+                      to oldest. Latest fiscal year uses one year of FCF for the yield component only. Average FCF uses four or five
+                      years of calculated FCF divided by current market capitalization.
                     </Text>
                   </Box>
                   <NumberField
@@ -1270,7 +1274,7 @@ export function EquityReturnExpectationClient() {
                   {state.fcf.basis === "latest" ? (
                     <SimpleGrid columns={{ base: 1, md: 2 }} gap="4">
                       <NumberField
-                        label="Latest fiscal year operating cash flow"
+                        label={cashFlowStatementLabel(0, "operating cash flow")}
                         onChange={(nextValue) =>
                           updateState((current) => {
                             const operatingCashFlows = [...current.fcf.operatingCashFlows];
@@ -1281,7 +1285,7 @@ export function EquityReturnExpectationClient() {
                         value={state.fcf.operatingCashFlows[0]}
                       />
                       <NumberField
-                        label="Latest fiscal year capital expenditures"
+                        label={cashFlowStatementLabel(0, "capital expenditures")}
                         onChange={(nextValue) =>
                           updateState((current) => {
                             const capitalExpenditures = [...current.fcf.capitalExpenditures];
@@ -1314,7 +1318,7 @@ export function EquityReturnExpectationClient() {
                         {state.fcf.operatingCashFlows.slice(0, Number.parseInt(state.fcf.years, 10)).map((value, index) => (
                           <NumberField
                             key={`operating-${index}`}
-                            label={`Year ${index + 1} operating cash flow`}
+                            label={cashFlowStatementLabel(index, "operating cash flow")}
                             onChange={(nextValue) =>
                               updateState((current) => {
                                 const operatingCashFlows = [...current.fcf.operatingCashFlows];
@@ -1330,7 +1334,7 @@ export function EquityReturnExpectationClient() {
                         {state.fcf.capitalExpenditures.slice(0, Number.parseInt(state.fcf.years, 10)).map((value, index) => (
                           <NumberField
                             key={`capex-${index}`}
-                            label={`Year ${index + 1} capital expenditures`}
+                            label={cashFlowStatementLabel(index, "capital expenditures")}
                             onChange={(nextValue) =>
                               updateState((current) => {
                                 const capitalExpenditures = [...current.fcf.capitalExpenditures];

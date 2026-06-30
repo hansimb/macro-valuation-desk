@@ -74,11 +74,11 @@ describe("Equity return expectation page", () => {
     fireEvent.click(screen.getByRole("button", { name: "5 years" }));
 
     fireEvent.change(screen.getByLabelText("Market capitalization"), { target: { value: "1000" } });
-    ["100", "120", "140", "160", "180"].forEach((value, index) => {
-      fireEvent.change(screen.getByLabelText(`Year ${index + 1} operating cash flow`), { target: { value } });
+    ["180", "160", "140", "120", "100"].forEach((value, index) => {
+      fireEvent.change(screen.getByLabelText(index === 0 ? "Latest year operating cash flow" : `${index} year ago operating cash flow`), { target: { value } });
     });
-    ["20", "30", "40", "50", "60"].forEach((value, index) => {
-      fireEvent.change(screen.getByLabelText(`Year ${index + 1} capital expenditures`), { target: { value } });
+    ["60", "50", "40", "30", "20"].forEach((value, index) => {
+      fireEvent.change(screen.getByLabelText(index === 0 ? "Latest year capital expenditures" : `${index} year ago capital expenditures`), { target: { value } });
     });
 
     expect(screen.getByText(/Latest fiscal year uses one year of FCF/i)).toBeInTheDocument();
@@ -87,8 +87,8 @@ describe("Equity return expectation page", () => {
     expect(screen.getByText("10.0x")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Latest fiscal year" }));
-    fireEvent.change(screen.getByLabelText("Latest fiscal year operating cash flow"), { target: { value: "180" } });
-    fireEvent.change(screen.getByLabelText("Latest fiscal year capital expenditures"), { target: { value: "60" } });
+    fireEvent.change(screen.getByLabelText("Latest year operating cash flow"), { target: { value: "180" } });
+    fireEvent.change(screen.getByLabelText("Latest year capital expenditures"), { target: { value: "60" } });
     fireEvent.change(screen.getByLabelText("Direct FCF growth estimate"), { target: { value: "5" } });
     expect(screen.getByText("17.00%")).toBeInTheDocument();
     expect(screen.getByText("12.00%")).toBeInTheDocument();
@@ -122,10 +122,10 @@ describe("Equity return expectation page", () => {
     expect(screen.getByRole("button", { name: "Latest fiscal year" })).toHaveAttribute("aria-pressed", "true");
     expect(screen.queryByRole("button", { name: "4 years" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "5 years" })).not.toBeInTheDocument();
-    expect(screen.getByLabelText("Latest fiscal year operating cash flow")).toBeInTheDocument();
-    expect(screen.getByLabelText("Latest fiscal year capital expenditures")).toBeInTheDocument();
+    expect(screen.getByLabelText("Latest year operating cash flow")).toBeInTheDocument();
+    expect(screen.getByLabelText("Latest year capital expenditures")).toBeInTheDocument();
     expect(screen.getByLabelText("Direct FCF growth estimate")).toBeInTheDocument();
-    expect(screen.queryByLabelText("Year 2 operating cash flow")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("1 year ago operating cash flow")).not.toBeInTheDocument();
   });
 
   it("shares market capitalization across earnings and FCF models", () => {
@@ -138,8 +138,8 @@ describe("Equity return expectation page", () => {
     fireEvent.click(screen.getByRole("button", { name: "FCF Yield + Growth" }));
 
     expect(screen.getByLabelText("Market capitalization")).toHaveValue("1000");
-    fireEvent.change(screen.getByLabelText("Latest fiscal year operating cash flow"), { target: { value: "100" } });
-    fireEvent.change(screen.getByLabelText("Latest fiscal year capital expenditures"), { target: { value: "20" } });
+    fireEvent.change(screen.getByLabelText("Latest year operating cash flow"), { target: { value: "100" } });
+    fireEvent.change(screen.getByLabelText("Latest year capital expenditures"), { target: { value: "20" } });
 
     fireEvent.click(screen.getByRole("button", { name: "Earnings Yield + Growth" }));
     expect(screen.getByLabelText("Market capitalization")).toHaveValue("1000");
