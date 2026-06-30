@@ -416,9 +416,9 @@ function calculatorResults(state: CalculatorState) {
     : averageHistoricalGrowth(state.gordon.dividendHistory, state.gordon.dividendYears);
   const earningsYield = earningsYieldPct(state);
   const fcfYield = fcfYieldPct(state);
-  const fcfGrowth = state.fcf.yieldMode === "direct" || state.fcf.basis === "latest"
+  const fcfGrowth = state.fcf.yieldMode === "direct"
     ? toNumber(state.fcf.directGrowthPct)
-    : fcfHistoricalGrowthPct(state);
+    : state.fcf.basis === "average" ? fcfHistoricalGrowthPct(state) : null;
 
   if (state.model === "gordon") {
     return {
@@ -517,17 +517,9 @@ function returnComparisonRows(state: CalculatorState) {
     "FCF Yield · average FCF + FCF growth history",
     averageFcfYield !== null && historicalFcfGrowth !== null ? averageFcfYield + historicalFcfGrowth : null,
   );
-  const latestFcfState = { ...state, fcf: { ...state.fcf, yieldMode: "amounts" as const, basis: "latest" as const } };
-  const latestFcfYield = fcfYieldPct(latestFcfState);
-  const latestFcfRow = validComparisonRow(
-    "FCF Yield · latest fiscal year FCF + FCF growth estimate",
-    latestFcfYield !== null && directFcfGrowth !== null ? latestFcfYield + directFcfGrowth : null,
-  );
 
   if (averageFcfRow) {
     rows.push(averageFcfRow);
-  } else if (latestFcfRow) {
-    rows.push(latestFcfRow);
   }
 
   if (directFcfRow) {
@@ -1236,9 +1228,9 @@ export function EquityReturnExpectationClient() {
                 <Stack gap="4">
                   <Box bg="canvas" borderColor="edge" borderWidth="1px" p="4" rounded="panel">
                     <Text color="muted" textStyle="body">
-                      FCF is calculated as operating cash flow minus capital expenditures. Latest fiscal year uses one year of FCF;
-                      Average FCF uses four or five years of calculated FCF divided by current market capitalization. Latest fiscal
-                      year uses Direct FCF growth estimate; Average FCF uses Historical FCF growth.
+                      FCF is calculated as operating cash flow minus capital expenditures. Latest fiscal year uses one year of FCF
+                      for the yield component only; Average FCF uses four or five years of calculated FCF divided by current market
+                      capitalization and Historical FCF growth.
                     </Text>
                   </Box>
                   <NumberField
@@ -1263,7 +1255,7 @@ export function EquityReturnExpectationClient() {
                     </SegmentedButton>
                   </Grid>
                   {state.fcf.basis === "latest" ? (
-                    <SimpleGrid columns={{ base: 1, md: 3 }} gap="4">
+                    <SimpleGrid columns={{ base: 1, md: 2 }} gap="4">
                       <NumberField
                         label="Latest fiscal year operating cash flow"
                         onChange={(nextValue) =>
@@ -1285,11 +1277,6 @@ export function EquityReturnExpectationClient() {
                           })
                         }
                         value={state.fcf.capitalExpenditures[0]}
-                      />
-                      <NumberField
-                        label="Direct FCF growth estimate"
-                        onChange={(directGrowthPct) => updateState((current) => ({ ...current, fcf: { ...current.fcf, directGrowthPct } }))}
-                        value={state.fcf.directGrowthPct}
                       />
                     </SimpleGrid>
                   ) : (

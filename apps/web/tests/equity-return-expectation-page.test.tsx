@@ -82,11 +82,10 @@ describe("Equity return expectation page", () => {
     fireEvent.click(screen.getByRole("button", { name: "Latest fiscal year" }));
     fireEvent.change(screen.getByLabelText("Latest fiscal year operating cash flow"), { target: { value: "180" } });
     fireEvent.change(screen.getByLabelText("Latest fiscal year capital expenditures"), { target: { value: "60" } });
-    fireEvent.change(screen.getByLabelText("Direct FCF growth estimate"), { target: { value: "5" } });
-
-    expect(screen.getByText("17.00%")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Direct FCF growth estimate")).not.toBeInTheDocument();
+    expect(screen.queryByText("17.00%")).not.toBeInTheDocument();
     expect(screen.getByText("12.00%")).toBeInTheDocument();
-    expect(screen.getByText("5.00%")).toBeInTheDocument();
+    expect(screen.getAllByText("N/A").length).toBeGreaterThan(0);
     expect(screen.getByText("8.3x")).toBeInTheDocument();
   });
 
@@ -118,6 +117,7 @@ describe("Equity return expectation page", () => {
     expect(screen.queryByRole("button", { name: "5 years" })).not.toBeInTheDocument();
     expect(screen.getByLabelText("Latest fiscal year operating cash flow")).toBeInTheDocument();
     expect(screen.getByLabelText("Latest fiscal year capital expenditures")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Direct FCF growth estimate")).not.toBeInTheDocument();
     expect(screen.queryByLabelText("Year 2 operating cash flow")).not.toBeInTheDocument();
   });
 
