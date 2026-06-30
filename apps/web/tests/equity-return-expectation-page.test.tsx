@@ -50,7 +50,7 @@ describe("Equity return expectation page", () => {
     fireEvent.change(screen.getByLabelText("P/E ratio"), { target: { value: "20" } });
     fireEvent.change(screen.getByLabelText("Expected annual growth"), { target: { value: "6" } });
 
-    expect(screen.getByText("11.00%")).toBeInTheDocument();
+    expect(screen.getAllByText("11.00%").length).toBeGreaterThan(0);
     expect(screen.getByText("5.00%")).toBeInTheDocument();
     expect(screen.getByText("6.00%")).toBeInTheDocument();
 
@@ -102,9 +102,10 @@ describe("Equity return expectation page", () => {
     expect(screen.queryByRole("button", { name: "Revenue growth" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Historical growth" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Direct growth estimate" })).not.toBeInTheDocument();
-    expect(screen.getByText("11.00%")).toBeInTheDocument();
+    expect(screen.getAllByText("11.00%").length).toBeGreaterThan(0);
     expect(screen.getByText("7.00%")).toBeInTheDocument();
     expect(screen.getByText("4.00%")).toBeInTheDocument();
+    expect(screen.queryByText("FCF Yield · latest fiscal year FCF + FCF growth estimate")).not.toBeInTheDocument();
   });
 
   it("asks only for the latest fiscal year when FCF basis is latest", () => {
@@ -135,6 +136,37 @@ describe("Equity return expectation page", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Earnings Yield + Growth" }));
     expect(screen.getByLabelText("Market capitalization")).toHaveValue("1000");
+  });
+
+  it("compares valid return expectation methods and prefers historical growth over estimates", () => {
+    renderPage();
+
+    expect(screen.queryByText("Return Expectation Methods")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Earnings Yield + Growth" }));
+    fireEvent.change(screen.getByLabelText("Market capitalization"), { target: { value: "1000" } });
+    fireEvent.change(screen.getByLabelText("Net income"), { target: { value: "80" } });
+    ["100", "110", "121", "133.1", "146.41"].forEach((value, index) => {
+      fireEvent.change(screen.getByLabelText(`Year ${index + 1} value`), { target: { value } });
+    });
+
+    expect(screen.queryByText("Return Expectation Methods")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Revenue growth" }));
+    fireEvent.click(screen.getByRole("button", { name: "Direct growth estimate" }));
+    fireEvent.change(screen.getByLabelText("Expected annual growth"), { target: { value: "6" } });
+
+    expect(screen.getByText("Return Expectation Methods")).toBeInTheDocument();
+    expect(screen.getByText("Earnings Yield · EPS growth history")).toBeInTheDocument();
+    expect(screen.getByText("Earnings Yield · revenue growth estimate")).toBeInTheDocument();
+    expect(screen.getByText("Compares completed methods only; no average is calculated across models.")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "EPS growth" }));
+    fireEvent.click(screen.getByRole("button", { name: "Direct growth estimate" }));
+    fireEvent.change(screen.getByLabelText("Expected annual growth"), { target: { value: "4" } });
+
+    expect(screen.getByText("Earnings Yield · EPS growth history")).toBeInTheDocument();
+    expect(screen.queryByText("Earnings Yield · EPS growth estimate")).not.toBeInTheDocument();
   });
 
   it("hydrates saved choices from local storage without a hydration mismatch", async () => {
@@ -206,7 +238,7 @@ describe("Equity return expectation page", () => {
     });
     expect(screen.getByDisplayValue("3")).toBeInTheDocument();
     expect(screen.getByDisplayValue("5")).toBeInTheDocument();
-    expect(screen.getByText("8.00%")).toBeInTheDocument();
+    expect(screen.getAllByText("8.00%").length).toBeGreaterThan(0);
   });
 
   it("normalizes legacy direct growth storage with missing values", async () => {

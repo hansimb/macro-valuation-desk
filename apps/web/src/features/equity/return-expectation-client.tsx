@@ -455,6 +455,88 @@ function calculatorResults(state: CalculatorState) {
   };
 }
 
+type ReturnComparisonRow = {
+  label: string;
+  value: number;
+};
+
+function validComparisonRow(label: string, value: number | null): ReturnComparisonRow | null {
+  return value === null || !Number.isFinite(value) ? null : { label, value };
+}
+
+function preferredGrowth(growth: GrowthInputsState) {
+  const historicalGrowth = averageHistoricalGrowth(growth.historicalValues, growth.years);
+  if (historicalGrowth !== null) {
+    return { source: "history", value: historicalGrowth };
+  }
+
+  const directGrowth = toNumber(growth.directPct);
+  return directGrowth === null ? null : { source: "estimate", value: directGrowth };
+}
+
+function returnComparisonRows(state: CalculatorState) {
+  const rows: ReturnComparisonRow[] = [];
+  const dividendYield = dividendYieldPct(state);
+  const historicalDividendGrowth = averageHistoricalGrowth(state.gordon.dividendHistory, state.gordon.dividendYears);
+  const directDividendGrowth = toNumber(state.gordon.dividendGrowthPct);
+  const dividendGrowth = historicalDividendGrowth !== null
+    ? { source: "dividend history", value: historicalDividendGrowth }
+    : directDividendGrowth !== null ? { source: "dividend growth estimate", value: directDividendGrowth } : null;
+  const gordonRow = validComparisonRow(
+    dividendGrowth ? `Gordon Growth · ${dividendGrowth.source}` : "",
+    dividendYield !== null && dividendGrowth !== null ? dividendYield + dividendGrowth.value : null,
+  );
+
+  if (gordonRow) {
+    rows.push(gordonRow);
+  }
+
+  const earningsYield = earningsYieldPct(state);
+  (["eps", "revenue"] as GrowthBasis[]).forEach((basis) => {
+    const growth = preferredGrowth(state.growth.byBasis[basis]);
+    const row = validComparisonRow(
+      growth ? `Earnings Yield · ${basis === "eps" ? "EPS" : "revenue"} growth ${growth.source}` : "",
+      earningsYield !== null && growth !== null ? earningsYield + growth.value : null,
+    );
+
+    if (row) {
+      rows.push(row);
+    }
+  });
+
+  const directFcfYield = toNumber(state.fcf.directYieldPct);
+  const directFcfGrowth = toNumber(state.fcf.directGrowthPct);
+  const directFcfRow = validComparisonRow(
+    "FCF Yield · direct FCF yield + FCF growth estimate",
+    directFcfYield !== null && directFcfGrowth !== null ? directFcfYield + directFcfGrowth : null,
+  );
+  const averageFcfState = { ...state, fcf: { ...state.fcf, yieldMode: "amounts" as const, basis: "average" as const } };
+  const averageFcfYield = fcfYieldPct(averageFcfState);
+  const historicalFcfGrowth = fcfHistoricalGrowthPct(averageFcfState);
+  const averageFcfRow = validComparisonRow(
+    "FCF Yield · average FCF + FCF growth history",
+    averageFcfYield !== null && historicalFcfGrowth !== null ? averageFcfYield + historicalFcfGrowth : null,
+  );
+  const latestFcfState = { ...state, fcf: { ...state.fcf, yieldMode: "amounts" as const, basis: "latest" as const } };
+  const latestFcfYield = fcfYieldPct(latestFcfState);
+  const latestFcfRow = validComparisonRow(
+    "FCF Yield · latest fiscal year FCF + FCF growth estimate",
+    latestFcfYield !== null && directFcfGrowth !== null ? latestFcfYield + directFcfGrowth : null,
+  );
+
+  if (averageFcfRow) {
+    rows.push(averageFcfRow);
+  } else if (latestFcfRow) {
+    rows.push(latestFcfRow);
+  }
+
+  if (directFcfRow) {
+    rows.push(directFcfRow);
+  }
+
+  return rows;
+}
+
 function SegmentedButton<T extends string>({
   activeValue,
   children,
@@ -699,6 +781,7 @@ export function EquityReturnExpectationClient() {
   const [selectedAnalysisName, setSelectedAnalysisName] = useState("");
   const [savedAnalyses, setSavedAnalyses] = useState<SavedAnalysis[]>([]);
   const results = calculatorResults(state);
+  const comparisonRows = returnComparisonRows(state);
   const selectedSavedAnalysis = savedAnalyses.find((analysis) => analysis.name === selectedAnalysisName);
   const trimmedAnalysisName = analysisName.trim();
   const analysisStatus = selectedSavedAnalysis
@@ -1305,6 +1388,31 @@ export function EquityReturnExpectationClient() {
           </SimpleGrid>
         </Stack>
       </Box>
+
+      {comparisonRows.length > 1 ? (
+        <Box bg="surface" borderColor="edge" borderWidth="1px" p={{ base: "6", md: "7" }} rounded="panel">
+          <Stack gap="5">
+            <Stack gap="2">
+              <Text color="accent" textStyle="eyebrow">
+                Return Expectation Methods
+              </Text>
+              <Text color="muted" textStyle="body">
+                Compares completed methods only; no average is calculated across models.
+              </Text>
+            </Stack>
+            <SimpleGrid columns={{ base: 1, md: 2, xl: 3 }} gap="4">
+              {comparisonRows.map((row) => (
+                <AnalysisMetricCard
+                  key={row.label}
+                  label={row.label}
+                  note="Completed method"
+                  value={formatPct(row.value)}
+                />
+              ))}
+            </SimpleGrid>
+          </Stack>
+        </Box>
+      ) : null}
     </Stack>
   );
 }
