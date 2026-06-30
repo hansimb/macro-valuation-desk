@@ -421,6 +421,7 @@ describe("Equity return expectation page", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Gordon Growth" }));
 
+    expectTextBefore("Dividend Yield", "Dividend Growth");
     expectButtonBefore("Dividend amount input", "Dividend yield input");
     expect(screen.getByRole("button", { name: "Dividend amount input" })).toHaveAttribute("aria-pressed", "true");
     expectButtonBefore("Historical dividend growth", "Direct dividend growth");

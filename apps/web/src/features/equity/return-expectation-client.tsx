@@ -1013,17 +1013,17 @@ export function EquityReturnExpectationClient() {
       <FormulaBlock model={state.model} />
 
       {state.model === "gordon" ? (
-        <Box bg="surface" borderColor="edge" borderWidth="1px" p={{ base: "6", md: "7" }} rounded="panel">
-          <Stack gap="5">
-            <Stack gap="2">
-              <Text color="accent" textStyle="eyebrow">
-                Gordon Growth Inputs
-              </Text>
-              <Text color="muted" textStyle="body">
-                Gordon-style expected return uses the current dividend yield plus expected long-run dividend growth.
-              </Text>
-            </Stack>
-            <Stack gap="4">
+        <>
+          <Box bg="surface" borderColor="edge" borderWidth="1px" p={{ base: "6", md: "7" }} rounded="panel">
+            <Stack gap="5">
+              <Stack gap="2">
+                <Text color="accent" textStyle="eyebrow">
+                  Dividend Yield
+                </Text>
+                <Text color="muted" textStyle="body">
+                  Enter dividend yield directly, or calculate it from annual dividend per share and current share price.
+                </Text>
+              </Stack>
               <Grid gap="2" templateColumns={{ base: "1fr", md: "repeat(2, minmax(0, 14rem))" }}>
                 <SegmentedButton
                   activeValue={state.gordon.dividendYieldMode}
@@ -1067,74 +1067,86 @@ export function EquityReturnExpectationClient() {
                 </SimpleGrid>
               )}
             </Stack>
-            <Grid gap="2" templateColumns={{ base: "1fr", md: "repeat(2, minmax(0, 14rem))" }}>
-              <SegmentedButton
-                activeValue={state.gordon.dividendGrowthMode}
-                onSelect={(dividendGrowthMode) =>
-                  updateState((current) => ({ ...current, gordon: { ...current.gordon, dividendGrowthMode } }))
-                }
-                value="historical"
-              >
-                Historical dividend growth
-              </SegmentedButton>
-              <SegmentedButton
-                activeValue={state.gordon.dividendGrowthMode}
-                onSelect={(dividendGrowthMode) =>
-                  updateState((current) => ({ ...current, gordon: { ...current.gordon, dividendGrowthMode } }))
-                }
-                value="direct"
-              >
-                Direct dividend growth
-              </SegmentedButton>
-            </Grid>
-            {state.gordon.dividendGrowthMode === "direct" ? (
-              <NumberField
-                label="Dividend growth"
-                onChange={(dividendGrowthPct) => updateState((current) => ({ ...current, gordon: { ...current.gordon, dividendGrowthPct } }))}
-                value={state.gordon.dividendGrowthPct}
-              />
-            ) : (
-              <Stack gap="4">
-                <Grid gap="2" templateColumns={{ base: "repeat(2, minmax(0, 1fr))", md: "repeat(2, minmax(0, 8rem))" }}>
-                  <SegmentedButton
-                    activeValue={state.gordon.dividendYears}
-                    onSelect={(dividendYears) =>
-                      updateState((current) => ({ ...current, gordon: { ...current.gordon, dividendYears } }))
-                    }
-                    value="4"
-                  >
-                    4 years
-                  </SegmentedButton>
-                  <SegmentedButton
-                    activeValue={state.gordon.dividendYears}
-                    onSelect={(dividendYears) =>
-                      updateState((current) => ({ ...current, gordon: { ...current.gordon, dividendYears } }))
-                    }
-                    value="5"
-                  >
-                    5 years
-                  </SegmentedButton>
-                </Grid>
-                <SimpleGrid columns={{ base: 1, md: state.gordon.dividendYears === "5" ? 5 : 4 }} gap="3">
-                  {state.gordon.dividendHistory.slice(0, Number.parseInt(state.gordon.dividendYears, 10)).map((value, index) => (
-                    <NumberField
-                      key={index}
-                      label={`Dividend year ${index + 1}`}
-                      onChange={(nextValue) =>
-                        updateState((current) => {
-                          const dividendHistory = [...current.gordon.dividendHistory];
-                          dividendHistory[index] = nextValue;
-                          return { ...current, gordon: { ...current.gordon, dividendHistory } };
-                        })
-                      }
-                      value={value}
-                    />
-                  ))}
-                </SimpleGrid>
+          </Box>
+          <Box bg="surface" borderColor="edge" borderWidth="1px" p={{ base: "6", md: "7" }} rounded="panel">
+            <Stack gap="5">
+              <Stack gap="2">
+                <Text color="accent" textStyle="eyebrow">
+                  Dividend Growth
+                </Text>
+                <Text color="muted" textStyle="body">
+                  Use either a direct dividend growth estimate or calculate average realized annual dividend growth.
+                </Text>
               </Stack>
-            )}
-          </Stack>
-        </Box>
+              <Grid gap="2" templateColumns={{ base: "1fr", md: "repeat(2, minmax(0, 14rem))" }}>
+                <SegmentedButton
+                  activeValue={state.gordon.dividendGrowthMode}
+                  onSelect={(dividendGrowthMode) =>
+                    updateState((current) => ({ ...current, gordon: { ...current.gordon, dividendGrowthMode } }))
+                  }
+                  value="historical"
+                >
+                  Historical dividend growth
+                </SegmentedButton>
+                <SegmentedButton
+                  activeValue={state.gordon.dividendGrowthMode}
+                  onSelect={(dividendGrowthMode) =>
+                    updateState((current) => ({ ...current, gordon: { ...current.gordon, dividendGrowthMode } }))
+                  }
+                  value="direct"
+                >
+                  Direct dividend growth
+                </SegmentedButton>
+              </Grid>
+              {state.gordon.dividendGrowthMode === "direct" ? (
+                <NumberField
+                  label="Dividend growth"
+                  onChange={(dividendGrowthPct) => updateState((current) => ({ ...current, gordon: { ...current.gordon, dividendGrowthPct } }))}
+                  value={state.gordon.dividendGrowthPct}
+                />
+              ) : (
+                <Stack gap="4">
+                  <Grid gap="2" templateColumns={{ base: "repeat(2, minmax(0, 1fr))", md: "repeat(2, minmax(0, 8rem))" }}>
+                    <SegmentedButton
+                      activeValue={state.gordon.dividendYears}
+                      onSelect={(dividendYears) =>
+                        updateState((current) => ({ ...current, gordon: { ...current.gordon, dividendYears } }))
+                      }
+                      value="4"
+                    >
+                      4 years
+                    </SegmentedButton>
+                    <SegmentedButton
+                      activeValue={state.gordon.dividendYears}
+                      onSelect={(dividendYears) =>
+                        updateState((current) => ({ ...current, gordon: { ...current.gordon, dividendYears } }))
+                      }
+                      value="5"
+                    >
+                      5 years
+                    </SegmentedButton>
+                  </Grid>
+                  <SimpleGrid columns={{ base: 1, md: state.gordon.dividendYears === "5" ? 5 : 4 }} gap="3">
+                    {state.gordon.dividendHistory.slice(0, Number.parseInt(state.gordon.dividendYears, 10)).map((value, index) => (
+                      <NumberField
+                        key={index}
+                        label={`Dividend year ${index + 1}`}
+                        onChange={(nextValue) =>
+                          updateState((current) => {
+                            const dividendHistory = [...current.gordon.dividendHistory];
+                            dividendHistory[index] = nextValue;
+                            return { ...current, gordon: { ...current.gordon, dividendHistory } };
+                          })
+                        }
+                        value={value}
+                      />
+                    ))}
+                  </SimpleGrid>
+                </Stack>
+              )}
+            </Stack>
+          </Box>
+        </>
       ) : null}
 
       {state.model === "earnings" ? (
