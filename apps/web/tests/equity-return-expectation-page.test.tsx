@@ -59,25 +59,47 @@ describe("Equity return expectation page", () => {
     });
   });
 
-  it("can estimate growth from four or five years of history and reuse it in the FCF model", () => {
+  it("calculates FCF yield and growth from cash flow statement history", () => {
     renderPage();
 
     fireEvent.click(screen.getByRole("button", { name: "FCF Yield + Growth" }));
-    fireEvent.click(screen.getByRole("button", { name: "Historical growth" }));
-    fireEvent.click(screen.getByRole("button", { name: "Revenue growth" }));
     fireEvent.click(screen.getByRole("button", { name: "5 years" }));
-    fireEvent.click(screen.getByRole("button", { name: "FCF amount input" }));
+    fireEvent.click(screen.getByRole("button", { name: "Average FCF" }));
 
-    ["100", "110", "121", "133.1", "146.41"].forEach((value, index) => {
-      fireEvent.change(screen.getByLabelText(`Year ${index + 1} value`), { target: { value } });
-    });
     fireEvent.change(screen.getByLabelText("Market capitalization"), { target: { value: "1000" } });
-    fireEvent.change(screen.getByLabelText("Free cash flow"), { target: { value: "80" } });
+    ["100", "120", "140", "160", "180"].forEach((value, index) => {
+      fireEvent.change(screen.getByLabelText(`Year ${index + 1} operating cash flow`), { target: { value } });
+    });
+    ["20", "30", "40", "50", "60"].forEach((value, index) => {
+      fireEvent.change(screen.getByLabelText(`Year ${index + 1} capital expenditures`), { target: { value } });
+    });
 
-    expect(screen.getByText("18.00%")).toBeInTheDocument();
-    expect(screen.getByText("8.00%")).toBeInTheDocument();
+    expect(screen.getByText(/FCF is calculated each year as operating cash flow minus capital expenditures/i)).toBeInTheDocument();
     expect(screen.getByText("10.00%")).toBeInTheDocument();
-    expect(screen.getByText("12.5x")).toBeInTheDocument();
+    expect(screen.getByText("10.68%")).toBeInTheDocument();
+    expect(screen.getByText("10.0x")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Latest fiscal year" }));
+
+    expect(screen.getByText("12.00%")).toBeInTheDocument();
+    expect(screen.getByText("8.3x")).toBeInTheDocument();
+  });
+
+  it("shares market capitalization across earnings and FCF models", () => {
+    renderPage();
+
+    fireEvent.click(screen.getByRole("button", { name: "Earnings Yield + Growth" }));
+    fireEvent.change(screen.getByLabelText("Market capitalization"), { target: { value: "1000" } });
+    fireEvent.change(screen.getByLabelText("Net income"), { target: { value: "80" } });
+
+    fireEvent.click(screen.getByRole("button", { name: "FCF Yield + Growth" }));
+
+    expect(screen.getByLabelText("Market capitalization")).toHaveValue("1000");
+    fireEvent.change(screen.getByLabelText("Year 1 operating cash flow"), { target: { value: "100" } });
+    fireEvent.change(screen.getByLabelText("Year 1 capital expenditures"), { target: { value: "20" } });
+
+    fireEvent.click(screen.getByRole("button", { name: "Earnings Yield + Growth" }));
+    expect(screen.getByLabelText("Market capitalization")).toHaveValue("1000");
   });
 
   it("hydrates saved choices from local storage without a hydration mismatch", async () => {
@@ -318,8 +340,8 @@ describe("Equity return expectation page", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "FCF Yield + Growth" }));
 
-    expectButtonBefore("FCF amount input", "FCF yield input");
-    expect(screen.getByRole("button", { name: "FCF amount input" })).toHaveAttribute("aria-pressed", "true");
+    expectButtonBefore("Cash flow statement input", "FCF yield input");
+    expect(screen.getByRole("button", { name: "Cash flow statement input" })).toHaveAttribute("aria-pressed", "true");
 
     fireEvent.click(screen.getByRole("button", { name: "Gordon Growth" }));
 
