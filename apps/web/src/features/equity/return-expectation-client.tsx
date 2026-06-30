@@ -326,7 +326,7 @@ function selectedCalculatedFcf(state: CalculatorState) {
     return numericHistory.reduce((sum, value) => sum + value, 0) / numericHistory.length;
   }
 
-  return numericHistory[numericHistory.length - 1] ?? null;
+  return numericHistory[0] ?? null;
 }
 
 function fcfHistoricalGrowthPct(state: CalculatorState) {
@@ -413,7 +413,9 @@ function calculatorResults(state: CalculatorState) {
     : averageHistoricalGrowth(state.gordon.dividendHistory, state.gordon.dividendYears);
   const earningsYield = earningsYieldPct(state);
   const fcfYield = fcfYieldPct(state);
-  const fcfGrowth = state.fcf.yieldMode === "direct" ? growthPct : fcfHistoricalGrowthPct(state);
+  const fcfGrowth = state.fcf.yieldMode === "direct"
+    ? growthPct
+    : state.fcf.basis === "average" ? fcfHistoricalGrowthPct(state) : null;
 
   if (state.model === "gordon") {
     return {
@@ -1144,9 +1146,9 @@ export function EquityReturnExpectationClient() {
                 <Stack gap="4">
                   <Box bg="canvas" borderColor="edge" borderWidth="1px" p="4" rounded="panel">
                     <Text color="muted" textStyle="body">
-                      FCF is calculated each year as operating cash flow minus capital expenditures. Yield uses either the latest
-                      fiscal year FCF or the average FCF across the selected history, divided by current market capitalization. Growth
-                      is the average year-over-year FCF growth from the same calculated FCF history.
+                      FCF is calculated as operating cash flow minus capital expenditures. Latest fiscal year uses one year of FCF;
+                      Average FCF uses four or five years of calculated FCF divided by current market capitalization. FCF growth is
+                      shown only for the multi-year average method.
                     </Text>
                   </Box>
                   <NumberField
@@ -1170,54 +1172,83 @@ export function EquityReturnExpectationClient() {
                       Average FCF
                     </SegmentedButton>
                   </Grid>
-                  <Grid gap="2" templateColumns={{ base: "repeat(2, minmax(0, 1fr))", md: "repeat(2, minmax(0, 8rem))" }}>
-                    <SegmentedButton
-                      activeValue={state.fcf.years}
-                      onSelect={(years) => updateState((current) => ({ ...current, fcf: { ...current.fcf, years } }))}
-                      value="4"
-                    >
-                      4 years
-                    </SegmentedButton>
-                    <SegmentedButton
-                      activeValue={state.fcf.years}
-                      onSelect={(years) => updateState((current) => ({ ...current, fcf: { ...current.fcf, years } }))}
-                      value="5"
-                    >
-                      5 years
-                    </SegmentedButton>
-                  </Grid>
-                  <SimpleGrid columns={{ base: 1, md: 2 }} gap="4">
-                    {state.fcf.operatingCashFlows.slice(0, Number.parseInt(state.fcf.years, 10)).map((value, index) => (
+                  {state.fcf.basis === "latest" ? (
+                    <SimpleGrid columns={{ base: 1, md: 2 }} gap="4">
                       <NumberField
-                        key={`operating-${index}`}
-                        label={`Year ${index + 1} operating cash flow`}
+                        label="Latest fiscal year operating cash flow"
                         onChange={(nextValue) =>
                           updateState((current) => {
                             const operatingCashFlows = [...current.fcf.operatingCashFlows];
-                            operatingCashFlows[index] = nextValue;
+                            operatingCashFlows[0] = nextValue;
                             return { ...current, fcf: { ...current.fcf, operatingCashFlows } };
                           })
                         }
-                        value={value}
+                        value={state.fcf.operatingCashFlows[0]}
                       />
-                    ))}
-                  </SimpleGrid>
-                  <SimpleGrid columns={{ base: 1, md: 2 }} gap="4">
-                    {state.fcf.capitalExpenditures.slice(0, Number.parseInt(state.fcf.years, 10)).map((value, index) => (
                       <NumberField
-                        key={`capex-${index}`}
-                        label={`Year ${index + 1} capital expenditures`}
+                        label="Latest fiscal year capital expenditures"
                         onChange={(nextValue) =>
                           updateState((current) => {
                             const capitalExpenditures = [...current.fcf.capitalExpenditures];
-                            capitalExpenditures[index] = nextValue;
+                            capitalExpenditures[0] = nextValue;
                             return { ...current, fcf: { ...current.fcf, capitalExpenditures } };
                           })
                         }
-                        value={value}
+                        value={state.fcf.capitalExpenditures[0]}
                       />
-                    ))}
-                  </SimpleGrid>
+                    </SimpleGrid>
+                  ) : (
+                    <>
+                      <Grid gap="2" templateColumns={{ base: "repeat(2, minmax(0, 1fr))", md: "repeat(2, minmax(0, 8rem))" }}>
+                        <SegmentedButton
+                          activeValue={state.fcf.years}
+                          onSelect={(years) => updateState((current) => ({ ...current, fcf: { ...current.fcf, years } }))}
+                          value="4"
+                        >
+                          4 years
+                        </SegmentedButton>
+                        <SegmentedButton
+                          activeValue={state.fcf.years}
+                          onSelect={(years) => updateState((current) => ({ ...current, fcf: { ...current.fcf, years } }))}
+                          value="5"
+                        >
+                          5 years
+                        </SegmentedButton>
+                      </Grid>
+                      <SimpleGrid columns={{ base: 1, md: 2 }} gap="4">
+                        {state.fcf.operatingCashFlows.slice(0, Number.parseInt(state.fcf.years, 10)).map((value, index) => (
+                          <NumberField
+                            key={`operating-${index}`}
+                            label={`Year ${index + 1} operating cash flow`}
+                            onChange={(nextValue) =>
+                              updateState((current) => {
+                                const operatingCashFlows = [...current.fcf.operatingCashFlows];
+                                operatingCashFlows[index] = nextValue;
+                                return { ...current, fcf: { ...current.fcf, operatingCashFlows } };
+                              })
+                            }
+                            value={value}
+                          />
+                        ))}
+                      </SimpleGrid>
+                      <SimpleGrid columns={{ base: 1, md: 2 }} gap="4">
+                        {state.fcf.capitalExpenditures.slice(0, Number.parseInt(state.fcf.years, 10)).map((value, index) => (
+                          <NumberField
+                            key={`capex-${index}`}
+                            label={`Year ${index + 1} capital expenditures`}
+                            onChange={(nextValue) =>
+                              updateState((current) => {
+                                const capitalExpenditures = [...current.fcf.capitalExpenditures];
+                                capitalExpenditures[index] = nextValue;
+                                return { ...current, fcf: { ...current.fcf, capitalExpenditures } };
+                              })
+                            }
+                            value={value}
+                          />
+                        ))}
+                      </SimpleGrid>
+                    </>
+                  )}
                 </Stack>
               )}
             </Stack>
