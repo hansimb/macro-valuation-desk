@@ -82,9 +82,29 @@ describe("Equity return expectation page", () => {
     fireEvent.click(screen.getByRole("button", { name: "Latest fiscal year" }));
     fireEvent.change(screen.getByLabelText("Latest fiscal year operating cash flow"), { target: { value: "180" } });
     fireEvent.change(screen.getByLabelText("Latest fiscal year capital expenditures"), { target: { value: "60" } });
+    fireEvent.change(screen.getByLabelText("Direct FCF growth estimate"), { target: { value: "5" } });
 
+    expect(screen.getByText("17.00%")).toBeInTheDocument();
     expect(screen.getByText("12.00%")).toBeInTheDocument();
+    expect(screen.getByText("5.00%")).toBeInTheDocument();
     expect(screen.getByText("8.3x")).toBeInTheDocument();
+  });
+
+  it("uses direct FCF growth estimate with direct FCF yield and does not show EPS or revenue growth choices", () => {
+    renderPage();
+
+    fireEvent.click(screen.getByRole("button", { name: "FCF Yield + Growth" }));
+    fireEvent.click(screen.getByRole("button", { name: "FCF yield input" }));
+    fireEvent.change(screen.getByLabelText("FCF yield"), { target: { value: "7" } });
+    fireEvent.change(screen.getByLabelText("Direct FCF growth estimate"), { target: { value: "4" } });
+
+    expect(screen.queryByRole("button", { name: "EPS growth" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Revenue growth" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Historical growth" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Direct growth estimate" })).not.toBeInTheDocument();
+    expect(screen.getByText("11.00%")).toBeInTheDocument();
+    expect(screen.getByText("7.00%")).toBeInTheDocument();
+    expect(screen.getByText("4.00%")).toBeInTheDocument();
   });
 
   it("asks only for the latest fiscal year when FCF basis is latest", () => {
