@@ -29,6 +29,13 @@ function expectButtonBefore(leftName: string, rightName: string) {
   expect(left.compareDocumentPosition(right) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
 }
 
+function expectTextBefore(leftText: string, rightText: string) {
+  const left = screen.getAllByText(leftText)[0];
+  const right = screen.getAllByText(rightText)[0];
+
+  expect(left.compareDocumentPosition(right) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+}
+
 describe("Equity return expectation page", () => {
   it("is discoverable from the equity analysis registry", () => {
     render(
@@ -82,10 +89,10 @@ describe("Equity return expectation page", () => {
     fireEvent.click(screen.getByRole("button", { name: "Latest fiscal year" }));
     fireEvent.change(screen.getByLabelText("Latest fiscal year operating cash flow"), { target: { value: "180" } });
     fireEvent.change(screen.getByLabelText("Latest fiscal year capital expenditures"), { target: { value: "60" } });
-    expect(screen.queryByLabelText("Direct FCF growth estimate")).not.toBeInTheDocument();
-    expect(screen.queryByText("17.00%")).not.toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Direct FCF growth estimate"), { target: { value: "5" } });
+    expect(screen.getByText("17.00%")).toBeInTheDocument();
     expect(screen.getByText("12.00%")).toBeInTheDocument();
-    expect(screen.getAllByText("N/A").length).toBeGreaterThan(0);
+    expect(screen.getByText("5.00%")).toBeInTheDocument();
     expect(screen.getByText("8.3x")).toBeInTheDocument();
   });
 
@@ -117,7 +124,7 @@ describe("Equity return expectation page", () => {
     expect(screen.queryByRole("button", { name: "5 years" })).not.toBeInTheDocument();
     expect(screen.getByLabelText("Latest fiscal year operating cash flow")).toBeInTheDocument();
     expect(screen.getByLabelText("Latest fiscal year capital expenditures")).toBeInTheDocument();
-    expect(screen.queryByLabelText("Direct FCF growth estimate")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Direct FCF growth estimate")).toBeInTheDocument();
     expect(screen.queryByLabelText("Year 2 operating cash flow")).not.toBeInTheDocument();
   });
 
@@ -400,6 +407,7 @@ describe("Equity return expectation page", () => {
   it("shows calculated input choices before direct input choices by default", () => {
     renderPage();
 
+    expectTextBefore("Earnings Yield", "Growth Assumption");
     expectButtonBefore("Historical growth", "Direct growth estimate");
     expect(screen.getByRole("button", { name: "Historical growth" })).toHaveAttribute("aria-pressed", "true");
     expectButtonBefore("Market cap input", "P/E input");
@@ -407,6 +415,7 @@ describe("Equity return expectation page", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "FCF Yield + Growth" }));
 
+    expectTextBefore("Free Cash Flow Yield", "FCF Growth");
     expectButtonBefore("Cash flow statement input", "FCF yield input");
     expect(screen.getByRole("button", { name: "Cash flow statement input" })).toHaveAttribute("aria-pressed", "true");
 
