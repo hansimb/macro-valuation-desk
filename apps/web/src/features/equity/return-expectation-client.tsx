@@ -12,8 +12,9 @@ type DividendYieldMode = "direct" | "amounts";
 type DividendGrowthMode = "direct" | "historical";
 type YearCount = "4" | "5";
 type EarningsYieldMode = "pe" | "amounts";
-type FcfYieldMode = "direct" | "amounts";
-type FcfBasis = "latest" | "average";
+type FcfYieldMode = "latest" | "average2" | "average4" | "direct";
+type FcfGrowthMode = "direct" | "historical";
+type FcfWindow = "2" | "4";
 
 type GrowthInputsState = {
   mode: GrowthMode;
@@ -49,10 +50,10 @@ type CalculatorState = {
   };
   fcf: {
     yieldMode: FcfYieldMode;
-    basis: FcfBasis;
+    growthMode: FcfGrowthMode;
+    growthYears: FcfWindow;
     directYieldPct: string;
     directGrowthPct: string;
-    years: YearCount;
     operatingCashFlows: string[];
     capitalExpenditures: string[];
   };
@@ -105,11 +106,11 @@ const DEFAULT_STATE: CalculatorState = {
     netIncome: "",
   },
   fcf: {
-    yieldMode: "amounts",
-    basis: "latest",
+    yieldMode: "latest",
+    growthMode: "direct",
+    growthYears: "2",
     directYieldPct: "",
     directGrowthPct: "",
-    years: "5",
     operatingCashFlows: ["", "", "", "", ""],
     capitalExpenditures: ["", "", "", "", ""],
   },
@@ -154,7 +155,13 @@ function normalizeStringHistory(value: unknown, fallback: string[]) {
 
 function normalizeCalculatorState(value: Partial<CalculatorState>): CalculatorState {
   type LegacyState = Partial<CalculatorState> & {
-    fcf?: Partial<CalculatorState["fcf"] & { marketCap: string; freeCashFlow: string }>;
+    fcf?: Partial<CalculatorState["fcf"] & {
+      basis: "latest" | "average";
+      freeCashFlow: string;
+      marketCap: string;
+      years: YearCount;
+      yieldMode: FcfYieldMode | "amounts";
+    }>;
   };
   const legacyValue = value as LegacyState;
   const legacyGrowth = value.growth as Partial<CalculatorState["growth"] & GrowthInputsState> | undefined;
@@ -195,14 +202,23 @@ function normalizeCalculatorState(value: Partial<CalculatorState>): CalculatorSt
     (legacyFreeCashFlow ? [legacyFreeCashFlow, "", "", "", ""] : DEFAULT_STATE.fcf.operatingCashFlows);
   const capitalExpenditures = value.fcf?.capitalExpenditures ??
     (legacyFreeCashFlow ? ["0", "", "", "", ""] : DEFAULT_STATE.fcf.capitalExpenditures);
+  const legacyFcfYieldMode = legacyValue.fcf?.yieldMode as FcfYieldMode | "amounts" | undefined;
+  const fcfYieldMode: FcfYieldMode = legacyFcfYieldMode === "amounts"
+    ? legacyValue.fcf?.basis === "average" ? "average4" : "latest"
+    : legacyFcfYieldMode
+      ? legacyFcfYieldMode
+      : value.fcf?.directYieldPct ? "direct" : DEFAULT_STATE.fcf.yieldMode;
+  const fcfGrowthYears = value.fcf?.growthYears ??
+    (legacyValue.fcf?.years === "4" || legacyValue.fcf?.years === "5" ? "4" : DEFAULT_STATE.fcf.growthYears);
   const fcf = {
     ...DEFAULT_STATE.fcf,
     ...value.fcf,
-    yieldMode: value.fcf?.yieldMode ?? (value.fcf?.directYieldPct ? "direct" : DEFAULT_STATE.fcf.yieldMode),
-    basis: value.fcf?.basis ?? DEFAULT_STATE.fcf.basis,
+    yieldMode: fcfYieldMode,
+    growthMode: value.fcf?.growthMode ??
+      (fcfYieldMode === "average2" || fcfYieldMode === "average4" ? "historical" : DEFAULT_STATE.fcf.growthMode),
+    growthYears: fcfGrowthYears,
     directYieldPct: value.fcf?.directYieldPct ?? DEFAULT_STATE.fcf.directYieldPct,
     directGrowthPct: value.fcf?.directGrowthPct ?? DEFAULT_STATE.fcf.directGrowthPct,
-    years: value.fcf?.years ?? DEFAULT_STATE.fcf.years,
     operatingCashFlows: normalizeStringHistory(operatingCashFlows, DEFAULT_STATE.fcf.operatingCashFlows),
     capitalExpenditures: normalizeStringHistory(capitalExpenditures, DEFAULT_STATE.fcf.capitalExpenditures),
   };
@@ -309,8 +325,39 @@ function averageHistoricalGrowth(values: string[], years: YearCount) {
   return yearOverYearRates.reduce((sum, value) => sum + value, 0) / yearOverYearRates.length;
 }
 
-function calculatedFcfHistory(state: CalculatorState) {
-  const selectedYears = Number.parseInt(state.fcf.years, 10);
+function fcfWindowForYield(yieldMode: FcfYieldMode): FcfWindow | null {
+  if (yieldMode === "average2") {
+    return "2";
+  }
+
+  if (yieldMode === "average4") {
+    return "4";
+  }
+
+  return null;
+}
+
+function selectedFcfGrowthWindow(state: CalculatorState): FcfWindow {
+  return fcfWindowForYield(state.fcf.yieldMode) ?? state.fcf.growthYears;
+}
+
+function requiredFcfHistoryYears(state: CalculatorState) {
+  if (state.fcf.yieldMode === "direct" && state.fcf.growthMode === "direct") {
+    return 0;
+  }
+
+  const yieldYears = state.fcf.yieldMode === "latest"
+    ? 1
+    : state.fcf.yieldMode === "average2"
+      ? 2
+      : state.fcf.yieldMode === "average4" ? 4 : 0;
+  const growthYears = state.fcf.growthMode === "historical" ? Number.parseInt(selectedFcfGrowthWindow(state), 10) : 0;
+
+  return Math.max(yieldYears, growthYears);
+}
+
+function calculatedFcfHistory(state: CalculatorState, years = requiredFcfHistoryYears(state)) {
+  const selectedYears = years;
   return state.fcf.operatingCashFlows.slice(0, selectedYears).map((operatingCashFlow, index) => {
     const operating = toNumber(operatingCashFlow);
     const capex = toNumber(state.fcf.capitalExpenditures[index] ?? "");
@@ -319,13 +366,18 @@ function calculatedFcfHistory(state: CalculatorState) {
 }
 
 function selectedCalculatedFcf(state: CalculatorState) {
-  const fcfHistory = calculatedFcfHistory(state);
+  const yieldYears = state.fcf.yieldMode === "latest"
+    ? 1
+    : state.fcf.yieldMode === "average2"
+      ? 2
+      : state.fcf.yieldMode === "average4" ? 4 : 0;
+  const fcfHistory = calculatedFcfHistory(state, yieldYears);
   if (fcfHistory.some((value) => value === null)) {
     return null;
   }
 
   const numericHistory = fcfHistory as number[];
-  if (state.fcf.basis === "average") {
+  if (state.fcf.yieldMode === "average2" || state.fcf.yieldMode === "average4") {
     return numericHistory.reduce((sum, value) => sum + value, 0) / numericHistory.length;
   }
 
@@ -333,7 +385,7 @@ function selectedCalculatedFcf(state: CalculatorState) {
 }
 
 function fcfHistoricalGrowthPct(state: CalculatorState) {
-  const fcfHistory = calculatedFcfHistory(state);
+  const fcfHistory = calculatedFcfHistory(state, Number.parseInt(selectedFcfGrowthWindow(state), 10));
   if (fcfHistory.some((value) => value === null || value <= 0)) {
     return null;
   }
@@ -416,9 +468,9 @@ function calculatorResults(state: CalculatorState) {
     : averageHistoricalGrowth(state.gordon.dividendHistory, state.gordon.dividendYears);
   const earningsYield = earningsYieldPct(state);
   const fcfYield = fcfYieldPct(state);
-  const fcfGrowth = state.fcf.yieldMode === "direct"
+  const fcfGrowth = state.fcf.growthMode === "direct"
     ? toNumber(state.fcf.directGrowthPct)
-    : state.fcf.basis === "average" ? fcfHistoricalGrowthPct(state) : toNumber(state.fcf.directGrowthPct);
+    : fcfHistoricalGrowthPct(state);
 
   if (state.model === "gordon") {
     return {
@@ -474,6 +526,30 @@ function preferredGrowth(growth: GrowthInputsState) {
   return directGrowth === null ? null : { source: "estimate", value: directGrowth };
 }
 
+function fcfYieldComparisonLabel(yieldMode: FcfYieldMode) {
+  if (yieldMode === "latest") {
+    return "latest FCF yield";
+  }
+
+  if (yieldMode === "average2") {
+    return "2-year average FCF";
+  }
+
+  if (yieldMode === "average4") {
+    return "4-year average FCF";
+  }
+
+  return "direct FCF yield";
+}
+
+function fcfGrowthComparisonLabel(state: CalculatorState) {
+  if (state.fcf.growthMode === "direct") {
+    return "FCF growth estimate";
+  }
+
+  return `${selectedFcfGrowthWindow(state)}-year FCF growth history`;
+}
+
 function returnComparisonRows(state: CalculatorState) {
   const rows: ReturnComparisonRow[] = [];
   const dividendYield = dividendYieldPct(state);
@@ -504,34 +580,15 @@ function returnComparisonRows(state: CalculatorState) {
     }
   });
 
-  const directFcfYield = toNumber(state.fcf.directYieldPct);
-  const directFcfGrowth = toNumber(state.fcf.directGrowthPct);
-  const directFcfRow = validComparisonRow(
-    "FCF Yield · direct FCF yield + FCF growth estimate",
-    directFcfYield !== null && directFcfGrowth !== null ? directFcfYield + directFcfGrowth : null,
-  );
-  const averageFcfState = { ...state, fcf: { ...state.fcf, yieldMode: "amounts" as const, basis: "average" as const } };
-  const averageFcfYield = fcfYieldPct(averageFcfState);
-  const historicalFcfGrowth = fcfHistoricalGrowthPct(averageFcfState);
-  const averageFcfRow = validComparisonRow(
-    "FCF Yield · average FCF + FCF growth history",
-    averageFcfYield !== null && historicalFcfGrowth !== null ? averageFcfYield + historicalFcfGrowth : null,
-  );
-  const latestFcfState = { ...state, fcf: { ...state.fcf, yieldMode: "amounts" as const, basis: "latest" as const } };
-  const latestFcfYield = fcfYieldPct(latestFcfState);
-  const latestFcfRow = validComparisonRow(
-    "FCF Yield · latest fiscal year FCF + FCF growth estimate",
-    latestFcfYield !== null && directFcfGrowth !== null ? latestFcfYield + directFcfGrowth : null,
+  const activeFcfYield = fcfYieldPct(state);
+  const activeFcfGrowth = state.fcf.growthMode === "direct" ? toNumber(state.fcf.directGrowthPct) : fcfHistoricalGrowthPct(state);
+  const activeFcfRow = validComparisonRow(
+    `FCF Yield Â· ${fcfYieldComparisonLabel(state.fcf.yieldMode)} + ${fcfGrowthComparisonLabel(state)}`,
+    activeFcfYield !== null && activeFcfGrowth !== null ? activeFcfYield + activeFcfGrowth : null,
   );
 
-  if (averageFcfRow) {
-    rows.push(averageFcfRow);
-  } else if (latestFcfRow) {
-    rows.push(latestFcfRow);
-  }
-
-  if (directFcfRow) {
-    rows.push(directFcfRow);
+  if (activeFcfRow) {
+    rows.push(activeFcfRow);
   }
 
   return rows;
@@ -795,6 +852,8 @@ export function EquityReturnExpectationClient() {
     : trimmedAnalysisName
       ? `Unsaved analysis: ${trimmedAnalysisName}`
       : "Unnamed analysis";
+  const fcfHistoryYears = requiredFcfHistoryYears(state);
+  const lockedFcfGrowthWindow = fcfWindowForYield(state.fcf.yieldMode);
 
   useEffect(() => {
     setState(readPersistedState());
@@ -1213,26 +1272,40 @@ export function EquityReturnExpectationClient() {
             <Stack gap="5">
               <Stack gap="2">
                 <Text color="accent" textStyle="eyebrow">
-                  Free Cash Flow Yield
+                  FCF Yield
                 </Text>
                 <Text color="muted" textStyle="body">
-                  Enter FCF yield directly, or calculate it from market capitalization and cash flow statement history.
+                  Choose how the yield component is estimated: latest FCF, a two- or four-year average, or a direct FCF yield estimate.
                 </Text>
               </Stack>
-              <Grid gap="2" templateColumns={{ base: "1fr", md: "repeat(2, minmax(0, 14rem))" }}>
+              <Grid gap="2" templateColumns={{ base: "1fr", md: "repeat(2, minmax(0, 14rem))", xl: "repeat(4, minmax(0, 14rem))" }}>
                 <SegmentedButton
                   activeValue={state.fcf.yieldMode}
                   onSelect={(yieldMode) => updateState((current) => ({ ...current, fcf: { ...current.fcf, yieldMode } }))}
-                  value="amounts"
+                  value="latest"
                 >
-                  Cash flow statement input
+                  Calculated latest year
+                </SegmentedButton>
+                <SegmentedButton
+                  activeValue={state.fcf.yieldMode}
+                  onSelect={(yieldMode) => updateState((current) => ({ ...current, fcf: { ...current.fcf, yieldMode } }))}
+                  value="average2"
+                >
+                  Calculated 2-year average
+                </SegmentedButton>
+                <SegmentedButton
+                  activeValue={state.fcf.yieldMode}
+                  onSelect={(yieldMode) => updateState((current) => ({ ...current, fcf: { ...current.fcf, yieldMode } }))}
+                  value="average4"
+                >
+                  Calculated 4-year average
                 </SegmentedButton>
                 <SegmentedButton
                   activeValue={state.fcf.yieldMode}
                   onSelect={(yieldMode) => updateState((current) => ({ ...current, fcf: { ...current.fcf, yieldMode } }))}
                   value="direct"
                 >
-                  FCF yield input
+                  Direct FCF yield estimate
                 </SegmentedButton>
               </Grid>
               {state.fcf.yieldMode === "direct" ? (
@@ -1242,113 +1315,11 @@ export function EquityReturnExpectationClient() {
                   value={state.fcf.directYieldPct}
                 />
               ) : (
-                <Stack gap="4">
-                  <Box bg="canvas" borderColor="edge" borderWidth="1px" p="4" rounded="panel">
-                    <Text color="muted" textStyle="body">
-                      FCF is calculated as operating cash flow minus capital expenditures. Enter cash flow statement years from latest
-                      to oldest. Latest fiscal year uses one year of FCF for the yield component only. Average FCF uses four or five
-                      years of calculated FCF divided by current market capitalization.
-                    </Text>
-                  </Box>
-                  <NumberField
-                    label="Market capitalization"
-                    onChange={updateMarketCap}
-                    value={state.common.marketCap}
-                  />
-                  <Grid gap="2" templateColumns={{ base: "1fr", md: "repeat(2, minmax(0, 14rem))" }}>
-                    <SegmentedButton
-                      activeValue={state.fcf.basis}
-                      onSelect={(basis) => updateState((current) => ({ ...current, fcf: { ...current.fcf, basis } }))}
-                      value="latest"
-                    >
-                      Latest fiscal year
-                    </SegmentedButton>
-                    <SegmentedButton
-                      activeValue={state.fcf.basis}
-                      onSelect={(basis) => updateState((current) => ({ ...current, fcf: { ...current.fcf, basis } }))}
-                      value="average"
-                    >
-                      Average FCF
-                    </SegmentedButton>
-                  </Grid>
-                  {state.fcf.basis === "latest" ? (
-                    <SimpleGrid columns={{ base: 1, md: 2 }} gap="4">
-                      <NumberField
-                        label={cashFlowStatementLabel(0, "operating cash flow")}
-                        onChange={(nextValue) =>
-                          updateState((current) => {
-                            const operatingCashFlows = [...current.fcf.operatingCashFlows];
-                            operatingCashFlows[0] = nextValue;
-                            return { ...current, fcf: { ...current.fcf, operatingCashFlows } };
-                          })
-                        }
-                        value={state.fcf.operatingCashFlows[0]}
-                      />
-                      <NumberField
-                        label={cashFlowStatementLabel(0, "capital expenditures")}
-                        onChange={(nextValue) =>
-                          updateState((current) => {
-                            const capitalExpenditures = [...current.fcf.capitalExpenditures];
-                            capitalExpenditures[0] = nextValue;
-                            return { ...current, fcf: { ...current.fcf, capitalExpenditures } };
-                          })
-                        }
-                        value={state.fcf.capitalExpenditures[0]}
-                      />
-                    </SimpleGrid>
-                  ) : (
-                    <>
-                      <Grid gap="2" templateColumns={{ base: "repeat(2, minmax(0, 1fr))", md: "repeat(2, minmax(0, 8rem))" }}>
-                        <SegmentedButton
-                          activeValue={state.fcf.years}
-                          onSelect={(years) => updateState((current) => ({ ...current, fcf: { ...current.fcf, years } }))}
-                          value="4"
-                        >
-                          4 years
-                        </SegmentedButton>
-                        <SegmentedButton
-                          activeValue={state.fcf.years}
-                          onSelect={(years) => updateState((current) => ({ ...current, fcf: { ...current.fcf, years } }))}
-                          value="5"
-                        >
-                          5 years
-                        </SegmentedButton>
-                      </Grid>
-                      <SimpleGrid columns={{ base: 1, md: 2 }} gap="4">
-                        {state.fcf.operatingCashFlows.slice(0, Number.parseInt(state.fcf.years, 10)).map((value, index) => (
-                          <NumberField
-                            key={`operating-${index}`}
-                            label={cashFlowStatementLabel(index, "operating cash flow")}
-                            onChange={(nextValue) =>
-                              updateState((current) => {
-                                const operatingCashFlows = [...current.fcf.operatingCashFlows];
-                                operatingCashFlows[index] = nextValue;
-                                return { ...current, fcf: { ...current.fcf, operatingCashFlows } };
-                              })
-                            }
-                            value={value}
-                          />
-                        ))}
-                      </SimpleGrid>
-                      <SimpleGrid columns={{ base: 1, md: 2 }} gap="4">
-                        {state.fcf.capitalExpenditures.slice(0, Number.parseInt(state.fcf.years, 10)).map((value, index) => (
-                          <NumberField
-                            key={`capex-${index}`}
-                            label={cashFlowStatementLabel(index, "capital expenditures")}
-                            onChange={(nextValue) =>
-                              updateState((current) => {
-                                const capitalExpenditures = [...current.fcf.capitalExpenditures];
-                                capitalExpenditures[index] = nextValue;
-                                return { ...current, fcf: { ...current.fcf, capitalExpenditures } };
-                              })
-                            }
-                            value={value}
-                          />
-                        ))}
-                      </SimpleGrid>
-                    </>
-                  )}
-                </Stack>
+                <NumberField
+                  label="Market capitalization"
+                  onChange={updateMarketCap}
+                  value={state.common.marketCap}
+                />
               )}
             </Stack>
           </Box>
@@ -1359,25 +1330,107 @@ export function EquityReturnExpectationClient() {
                   FCF Growth
                 </Text>
                 <Text color="muted" textStyle="body">
-                  One fiscal year cannot produce a historical growth rate. Latest fiscal year and direct FCF yield use Direct FCF growth
-                  estimate; Average FCF uses Historical FCF growth from the cash flow statement history above.
+                  Estimate growth directly, or calculate historical FCF growth from the same FCF history used by the yield component.
                 </Text>
               </Stack>
-              {state.fcf.yieldMode === "direct" || state.fcf.basis === "latest" ? (
+              <Grid gap="2" templateColumns={{ base: "1fr", md: "repeat(2, minmax(0, 14rem))" }}>
+                <SegmentedButton
+                  activeValue={state.fcf.growthMode}
+                  onSelect={(growthMode) => updateState((current) => ({ ...current, fcf: { ...current.fcf, growthMode } }))}
+                  value="historical"
+                >
+                  Historical FCF growth
+                </SegmentedButton>
+                <SegmentedButton
+                  activeValue={state.fcf.growthMode}
+                  onSelect={(growthMode) => updateState((current) => ({ ...current, fcf: { ...current.fcf, growthMode } }))}
+                  value="direct"
+                >
+                  Direct FCF growth estimate
+                </SegmentedButton>
+              </Grid>
+              {state.fcf.growthMode === "direct" ? (
                 <NumberField
                   label="Direct FCF growth estimate"
                   onChange={(directGrowthPct) => updateState((current) => ({ ...current, fcf: { ...current.fcf, directGrowthPct } }))}
                   value={state.fcf.directGrowthPct}
                 />
               ) : (
-                <Box bg="canvas" borderColor="edge" borderWidth="1px" p="4" rounded="panel">
-                  <Text color="muted" textStyle="body">
-                    Historical FCF growth is calculated from the selected operating cash flow minus capital expenditures history above.
-                  </Text>
-                </Box>
+                <Stack gap="4">
+                  {lockedFcfGrowthWindow ? (
+                    <Box bg="canvas" borderColor="edge" borderWidth="1px" p="4" rounded="panel">
+                      <Text color="muted" textStyle="body">
+                        Historical FCF growth uses the same {lockedFcfGrowthWindow}-year window as the selected FCF yield method.
+                      </Text>
+                    </Box>
+                  ) : (
+                    <Grid gap="2" templateColumns={{ base: "repeat(2, minmax(0, 1fr))", md: "repeat(2, minmax(0, 8rem))" }}>
+                      <SegmentedButton
+                        activeValue={state.fcf.growthYears}
+                        onSelect={(growthYears) => updateState((current) => ({ ...current, fcf: { ...current.fcf, growthYears } }))}
+                        value="2"
+                      >
+                        2 years
+                      </SegmentedButton>
+                      <SegmentedButton
+                        activeValue={state.fcf.growthYears}
+                        onSelect={(growthYears) => updateState((current) => ({ ...current, fcf: { ...current.fcf, growthYears } }))}
+                        value="4"
+                      >
+                        4 years
+                      </SegmentedButton>
+                    </Grid>
+                  )}
+                </Stack>
               )}
             </Stack>
           </Box>
+          {fcfHistoryYears > 0 ? (
+            <Box bg="surface" borderColor="edge" borderWidth="1px" p={{ base: "6", md: "7" }} rounded="panel">
+              <Stack gap="5">
+                <Stack gap="2">
+                  <Text color="accent" textStyle="eyebrow">
+                    FCF Inputs
+                  </Text>
+                  <Text color="muted" textStyle="body">
+                    Enter operating cash flow and capital expenditures from latest to oldest. FCF is operating cash flow minus capital expenditures.
+                  </Text>
+                </Stack>
+                <SimpleGrid columns={{ base: 1, md: 2 }} gap="4">
+                  {state.fcf.operatingCashFlows.slice(0, fcfHistoryYears).map((value, index) => (
+                    <NumberField
+                      key={`operating-${index}`}
+                      label={cashFlowStatementLabel(index, "operating cash flow")}
+                      onChange={(nextValue) =>
+                        updateState((current) => {
+                          const operatingCashFlows = [...current.fcf.operatingCashFlows];
+                          operatingCashFlows[index] = nextValue;
+                          return { ...current, fcf: { ...current.fcf, operatingCashFlows } };
+                        })
+                      }
+                      value={value}
+                    />
+                  ))}
+                </SimpleGrid>
+                <SimpleGrid columns={{ base: 1, md: 2 }} gap="4">
+                  {state.fcf.capitalExpenditures.slice(0, fcfHistoryYears).map((value, index) => (
+                    <NumberField
+                      key={`capex-${index}`}
+                      label={cashFlowStatementLabel(index, "capital expenditures")}
+                      onChange={(nextValue) =>
+                        updateState((current) => {
+                          const capitalExpenditures = [...current.fcf.capitalExpenditures];
+                          capitalExpenditures[index] = nextValue;
+                          return { ...current, fcf: { ...current.fcf, capitalExpenditures } };
+                        })
+                      }
+                      value={value}
+                    />
+                  ))}
+                </SimpleGrid>
+              </Stack>
+            </Box>
+          ) : null}
         </>
       ) : null}
 
