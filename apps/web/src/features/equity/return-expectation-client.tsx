@@ -716,7 +716,8 @@ function FormulaBlock({ model }: { model: ReturnModel }) {
 }
 
 function cashFlowStatementLabel(index: number, metric: "operating cash flow" | "capital expenditures") {
-  return index === 0 ? `Latest year ${metric}` : `${index} year ago ${metric}`;
+  const metricLabel = metric === "operating cash flow" ? "Operating cash flow" : "Capital expenditures";
+  return index === 0 ? `Latest ${metric}` : `${metricLabel} year ${index + 1}`;
 }
 
 function GrowthInputs({
@@ -1396,38 +1397,34 @@ export function EquityReturnExpectationClient() {
                     Enter operating cash flow and capital expenditures from latest to oldest. FCF is operating cash flow minus capital expenditures.
                   </Text>
                 </Stack>
-                <SimpleGrid columns={{ base: 1, md: 2 }} gap="4">
-                  {state.fcf.operatingCashFlows.slice(0, fcfHistoryYears).map((value, index) => (
-                    <NumberField
-                      key={`operating-${index}`}
-                      label={cashFlowStatementLabel(index, "operating cash flow")}
-                      onChange={(nextValue) =>
-                        updateState((current) => {
-                          const operatingCashFlows = [...current.fcf.operatingCashFlows];
-                          operatingCashFlows[index] = nextValue;
-                          return { ...current, fcf: { ...current.fcf, operatingCashFlows } };
-                        })
-                      }
-                      value={value}
-                    />
+                <Stack gap="4">
+                  {state.fcf.operatingCashFlows.slice(0, fcfHistoryYears).map((operatingValue, index) => (
+                    <Grid key={`fcf-row-${index}`} gap="4" templateColumns={{ base: "1fr", md: "repeat(2, minmax(0, 1fr))" }}>
+                      <NumberField
+                        label={cashFlowStatementLabel(index, "operating cash flow")}
+                        onChange={(nextValue) =>
+                          updateState((current) => {
+                            const operatingCashFlows = [...current.fcf.operatingCashFlows];
+                            operatingCashFlows[index] = nextValue;
+                            return { ...current, fcf: { ...current.fcf, operatingCashFlows } };
+                          })
+                        }
+                        value={operatingValue}
+                      />
+                      <NumberField
+                        label={cashFlowStatementLabel(index, "capital expenditures")}
+                        onChange={(nextValue) =>
+                          updateState((current) => {
+                            const capitalExpenditures = [...current.fcf.capitalExpenditures];
+                            capitalExpenditures[index] = nextValue;
+                            return { ...current, fcf: { ...current.fcf, capitalExpenditures } };
+                          })
+                        }
+                        value={state.fcf.capitalExpenditures[index] ?? ""}
+                      />
+                    </Grid>
                   ))}
-                </SimpleGrid>
-                <SimpleGrid columns={{ base: 1, md: 2 }} gap="4">
-                  {state.fcf.capitalExpenditures.slice(0, fcfHistoryYears).map((value, index) => (
-                    <NumberField
-                      key={`capex-${index}`}
-                      label={cashFlowStatementLabel(index, "capital expenditures")}
-                      onChange={(nextValue) =>
-                        updateState((current) => {
-                          const capitalExpenditures = [...current.fcf.capitalExpenditures];
-                          capitalExpenditures[index] = nextValue;
-                          return { ...current, fcf: { ...current.fcf, capitalExpenditures } };
-                        })
-                      }
-                      value={value}
-                    />
-                  ))}
-                </SimpleGrid>
+                </Stack>
               </Stack>
             </Box>
           ) : null}
