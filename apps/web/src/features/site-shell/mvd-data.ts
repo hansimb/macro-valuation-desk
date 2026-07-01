@@ -53,13 +53,6 @@ export const equityAnalyses: EquityAnalysisEntry[] = [
     summary: "Frontend-only calculator for dividend, earnings-yield, and free-cash-flow return models.",
     cue: "Enter company metrics manually and compare Gordon, earnings-yield, and FCF-yield return assumptions.",
     eyebrow: "Return Calculator"
-  },
-  {
-    slug: "highest-ps-ranking",
-    title: "Highest P/S Stocks",
-    summary: "Separate U.S. and Europe leaderboards for the highest price-to-sales names in major large-cap indices.",
-    cue: "Theory-first comparison of top multiple baskets, benchmark averages, and index-weight concentration.",
-    eyebrow: "Valuation Ranking"
   }
 ];
 
