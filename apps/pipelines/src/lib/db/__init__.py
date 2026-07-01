@@ -18,12 +18,6 @@ from .currency_analysis import (
     replace_currency_ppp_paths,
     replace_currency_ppp_snapshots,
 )
-from .highest_ps_ranking import (
-    read_highest_ps_candidate_rows,
-    replace_highest_ps_section_rankings,
-    replace_highest_ps_section_summaries,
-    upsert_equity_index_constituent_snapshots,
-)
 from .macro_reference import replace_macro_reference_metrics
 from .schema import (
     _schema_sql,
@@ -89,7 +83,6 @@ __all__ = [
     "get_connection",
     "get_database_url",
     "psycopg",
-    "read_highest_ps_candidate_rows",
     "read_latest_checkpoint",
     "read_staging_rows_for_series",
     "record_pipeline_run",
@@ -97,11 +90,8 @@ __all__ = [
     "replace_currency_irp_snapshots",
     "replace_currency_ppp_paths",
     "replace_currency_ppp_snapshots",
-    "replace_highest_ps_section_rankings",
-    "replace_highest_ps_section_summaries",
     "replace_macro_reference_metrics",
     "replace_taylor_rule_inputs",
-    "upsert_equity_index_constituent_snapshots",
     "upsert_raw_observations",
     "upsert_series_metadata",
     "upsert_staging_observations",

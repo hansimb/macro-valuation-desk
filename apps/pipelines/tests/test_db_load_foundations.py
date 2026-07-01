@@ -12,11 +12,7 @@ from src.lib.db import (
     replace_currency_irp_snapshots,
     replace_currency_ppp_paths,
     replace_currency_ppp_snapshots,
-    replace_highest_ps_section_rankings,
-    replace_highest_ps_section_summaries,
-    read_highest_ps_candidate_rows,
     replace_taylor_rule_inputs,
-    upsert_equity_index_constituent_snapshots,
     upsert_raw_observations,
     upsert_series_metadata,
     upsert_staging_observations,
@@ -115,12 +111,12 @@ def test_get_connection_reports_database_connection_failures(monkeypatch, capsys
     assert "secret" not in captured.err
 
 
-def test_schema_sql_includes_highest_ps_tables():
+def test_schema_sql_excludes_removed_highest_ps_tables():
     sql = _schema_sql()
 
-    assert "create table if not exists staging.equity_index_constituent_snapshots" in sql
-    assert "create table if not exists mart.highest_ps_section_summaries" in sql
-    assert "create table if not exists mart.highest_ps_section_rankings" in sql
+    assert "equity_index_constituent_snapshots" not in sql
+    assert "highest_ps_section_summaries" not in sql
+    assert "highest_ps_section_rankings" not in sql
 
 
 def test_schema_sql_reads_split_schema_files_in_order():
@@ -129,7 +125,6 @@ def test_schema_sql_reads_split_schema_files_in_order():
         "002_etl.sql",
         "010_macro.sql",
         "020_currency.sql",
-        "030_equity.sql",
     ]
 
     sql = _schema_sql()
@@ -137,9 +132,6 @@ def test_schema_sql_reads_split_schema_files_in_order():
     assert sql.index("create schema if not exists core") < sql.index("create schema if not exists etl")
     assert sql.index("create table if not exists mart.taylor_rule_inputs") < sql.index(
         "create table if not exists mart.currency_ppp_snapshots"
-    )
-    assert sql.index("create table if not exists mart.currency_ppp_snapshots") < sql.index(
-        "create table if not exists staging.equity_index_constituent_snapshots"
     )
 
 
@@ -169,60 +161,6 @@ def test_bootstrap_taylor_rule_schema_creates_required_schemas_and_tables():
     assert "primary key (pair_key, base_month, anchor_kind, anchor_statistic, observation_month)" in executed_sql.lower()
     assert "create table if not exists mart.currency_irp_snapshots" in executed_sql.lower()
     assert "create table if not exists mart.currency_data_availability" in executed_sql.lower()
-    assert "create table if not exists staging.equity_index_constituent_snapshots" in executed_sql.lower()
-
-
-def test_read_highest_ps_candidate_rows_reads_latest_complete_sp500_snapshot():
-    connection = FakeConnection(
-        fetchall_result=[
-            {
-                "section_key": "usa",
-                "section_label": "USA High P/S Leaders",
-                "universe_key": "sp500",
-                "universe_label": "S&P 500",
-                "as_of_date": "2026-06-15",
-                "ticker": "NVDA",
-                "company": "NVIDIA",
-                "country_code": "US",
-                "country_name": "United States",
-                "sector": "Information Technology",
-                "market_cap": 3100.0,
-                "average_daily_traded_value": 52000.0,
-                "ps_ratio": 24.1,
-                "index_weight_pct": 6.1,
-            }
-        ]
-    )
-
-    rows = read_highest_ps_candidate_rows(connection)
-
-    assert rows == [
-        {
-            "section_key": "usa",
-            "section_label": "USA High P/S Leaders",
-            "universe_key": "sp500",
-            "universe_label": "S&P 500",
-            "as_of_date": "2026-06-15",
-            "ticker": "NVDA",
-            "company": "NVIDIA",
-            "country_code": "US",
-            "country_name": "United States",
-            "sector": "Information Technology",
-            "market_cap": 3100.0,
-            "average_daily_traded_value": 52000.0,
-            "ps_ratio": 24.1,
-            "index_weight_pct": 6.1,
-        }
-    ]
-    query, params = connection.cursor_instance.commands[0]
-    assert "from staging.equity_index_constituent_snapshots" in query.lower()
-    assert "universe_key = %(universe_key)s" in query
-    assert "latest_snapshot" in query
-    assert params == {"universe_key": "sp500"}
-
-
-def test_read_highest_ps_candidate_rows_returns_empty_without_connection():
-    assert read_highest_ps_candidate_rows(None) == []
 
 
 def test_upsert_helpers_write_expected_row_shapes():
@@ -258,27 +196,6 @@ def test_upsert_helpers_write_expected_row_shapes():
                 "imputation_method": None,
                 "imputation_note": None,
                 "imputation_source_window": None,
-            }
-        ],
-    )
-    upsert_equity_index_constituent_snapshots(
-        connection,
-        [
-            {
-                "universe_key": "sp500",
-                "as_of_date": "2026-06-15",
-                "ticker": "NVDA",
-                "company": "NVIDIA",
-                "country_code": "US",
-                "country_name": "United States",
-                "sector": "Information Technology",
-                "market_cap": 3100.0,
-                "trailing_12m_revenue": 130.0,
-                "ps_ratio": 23.85,
-                "index_weight_pct": 6.1,
-                "average_daily_traded_value": 52000.0,
-                "source_provider": "wikipedia+sec+yahoo-chart",
-                "source_url": "https://en.wikipedia.org/wiki/List_of_S%26P_500_companies",
             }
         ],
     )
@@ -390,49 +307,10 @@ def test_upsert_helpers_write_expected_row_shapes():
             }
         ],
     )
-    replace_highest_ps_section_summaries(
-        connection,
-        [
-            {
-                "section_key": "usa",
-                "as_of_date": "2026-06-15",
-                "universe_key": "sp500",
-                "universe_label": "S&P 500",
-                "section_label": "USA High P/S Leaders",
-                "benchmark_key": "sp500",
-                "benchmark_label": "S&P 500 Average P/S",
-                "average_ps_ratio": 14.75,
-                "top_basket_average_ps_ratio": 14.75,
-                "top_basket_index_weight_pct": 19.7,
-                "eligible_constituent_count": 4,
-                "unavailable": False,
-            }
-        ],
-    )
-    replace_highest_ps_section_rankings(
-        connection,
-        [
-            {
-                "section_key": "usa",
-                "rank": 1,
-                "ticker": "NVDA",
-                "company": "NVIDIA",
-                "country_code": "US",
-                "country_name": "United States",
-                "sector": "Information Technology",
-                "ps_ratio": 24.1,
-                "sector_average_ps_ratio": 14.7,
-                "relative_to_sector_multiple": 1.64,
-                "index_weight_pct": 6.1,
-            }
-        ],
-    )
-
     commands = connection.cursor_instance.commands
     assert any("insert into core.series_metadata" in query.lower() for query, _ in commands)
     assert any("insert into raw.series_observations" in query.lower() for query, _ in commands)
     assert any("insert into staging.series_observations" in query.lower() for query, _ in commands)
-    assert any("insert into staging.equity_index_constituent_snapshots" in query.lower() for query, _ in commands)
     assert any("insert into mart.taylor_rule_inputs" in query.lower() for query, _ in commands)
     assert any("delete from mart.taylor_rule_inputs" in query.lower() for query, _ in commands)
     assert any("insert into mart.currency_ppp_snapshots" in query.lower() for query, _ in commands)
@@ -443,11 +321,7 @@ def test_upsert_helpers_write_expected_row_shapes():
     assert any("delete from mart.currency_irp_snapshots" in query.lower() for query, _ in commands)
     assert any("insert into mart.currency_data_availability" in query.lower() for query, _ in commands)
     assert any("delete from mart.currency_data_availability" in query.lower() for query, _ in commands)
-    assert any("insert into mart.highest_ps_section_summaries" in query.lower() for query, _ in commands)
-    assert any("delete from mart.highest_ps_section_summaries" in query.lower() for query, _ in commands)
-    assert any("insert into mart.highest_ps_section_rankings" in query.lower() for query, _ in commands)
-    assert any("delete from mart.highest_ps_section_rankings" in query.lower() for query, _ in commands)
-    assert connection.commit_count == 11
+    assert connection.commit_count == 8
 
 
 def test_checkpoint_helpers_read_write_and_build_reprocessing_window():
