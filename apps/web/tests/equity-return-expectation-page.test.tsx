@@ -397,6 +397,67 @@ describe("Equity return expectation page", () => {
     expect(window.localStorage.getItem("equity-return-expectation-analyses-v1")).toContain("ADOBE");
   });
 
+  it("restores the selected saved analysis context when reopening the calculator", async () => {
+    renderPage();
+
+    fireEvent.change(screen.getByLabelText("Analysis name"), { target: { value: "ADOBE" } });
+    fireEvent.click(screen.getByRole("button", { name: "Direct growth estimate" }));
+    fireEvent.click(screen.getByRole("button", { name: "P/E input" }));
+    fireEvent.change(screen.getByLabelText("P/E ratio"), { target: { value: "25" } });
+    fireEvent.change(screen.getByLabelText("Expected annual growth"), { target: { value: "7" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save analysis" }));
+
+    cleanup();
+    renderPage();
+
+    await waitFor(() => {
+      expect(screen.getByLabelText("Selected analysis")).toHaveValue("ADOBE");
+    });
+    expect(screen.getByLabelText("Analysis name")).toHaveValue("ADOBE");
+    expect(screen.getByText("Saved analysis: ADOBE")).toBeInTheDocument();
+    expect(screen.getByDisplayValue("25")).toBeInTheDocument();
+  });
+
+  it("restores unsaved changes to a selected analysis when reopening the calculator", async () => {
+    renderPage();
+
+    fireEvent.change(screen.getByLabelText("Analysis name"), { target: { value: "ADOBE" } });
+    fireEvent.click(screen.getByRole("button", { name: "Direct growth estimate" }));
+    fireEvent.click(screen.getByRole("button", { name: "P/E input" }));
+    fireEvent.change(screen.getByLabelText("P/E ratio"), { target: { value: "25" } });
+    fireEvent.change(screen.getByLabelText("Expected annual growth"), { target: { value: "7" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save analysis" }));
+    fireEvent.change(screen.getByLabelText("P/E ratio"), { target: { value: "20" } });
+
+    cleanup();
+    renderPage();
+
+    await waitFor(() => {
+      expect(screen.getByLabelText("Selected analysis")).toHaveValue("ADOBE");
+    });
+    expect(screen.getByLabelText("Analysis name")).toHaveValue("ADOBE");
+    expect(screen.getByText("Unsaved changes to ADOBE")).toBeInTheDocument();
+    expect(screen.getByDisplayValue("20")).toBeInTheDocument();
+  });
+
+  it("labels a restored unnamed draft as unsaved when reopening the calculator", async () => {
+    renderPage();
+
+    fireEvent.click(screen.getByRole("button", { name: "Direct growth estimate" }));
+    fireEvent.click(screen.getByRole("button", { name: "P/E input" }));
+    fireEvent.change(screen.getByLabelText("P/E ratio"), { target: { value: "20" } });
+
+    cleanup();
+    renderPage();
+
+    await waitFor(() => {
+      expect(screen.getByDisplayValue("20")).toBeInTheDocument();
+    });
+    expect(screen.getByLabelText("Selected analysis")).toHaveValue("");
+    expect(screen.getByLabelText("Analysis name")).toHaveValue("");
+    expect(screen.getByText("Unsaved unnamed analysis")).toBeInTheDocument();
+  });
+
   it("manages selected, modified, deleted, and new saved analyses", async () => {
     renderPage();
 
@@ -431,7 +492,7 @@ describe("Equity return expectation page", () => {
     fireEvent.change(screen.getByLabelText("Selected analysis"), { target: { value: "ADOBE" } });
     fireEvent.click(screen.getByRole("button", { name: "Delete analysis" }));
 
-    expect(screen.getByText("Unnamed analysis")).toBeInTheDocument();
+    expect(screen.getByText("Unsaved unnamed analysis")).toBeInTheDocument();
     expect(screen.queryByRole("option", { name: "ADOBE" })).not.toBeInTheDocument();
 
     await waitFor(() => {

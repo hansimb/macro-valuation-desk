@@ -64,8 +64,14 @@ type SavedAnalysis = {
   state: CalculatorState;
 };
 
+type PersistedSession = {
+  analysisName: string;
+  selectedAnalysisName: string;
+};
+
 const STORAGE_KEY = "equity-return-expectation-v1";
 const SAVED_ANALYSES_STORAGE_KEY = "equity-return-expectation-analyses-v1";
+const SESSION_STORAGE_KEY = "equity-return-expectation-session-v1";
 
 const DEFAULT_STATE: CalculatorState = {
   model: "earnings",
@@ -272,6 +278,27 @@ function readPersistedAnalyses(): SavedAnalysis[] {
   }
 }
 
+function readPersistedSession(): PersistedSession {
+  if (typeof window === "undefined") {
+    return { analysisName: "", selectedAnalysisName: "" };
+  }
+
+  try {
+    const persisted = window.localStorage.getItem(SESSION_STORAGE_KEY);
+    if (!persisted) {
+      return { analysisName: "", selectedAnalysisName: "" };
+    }
+
+    const parsed = JSON.parse(persisted) as Partial<PersistedSession>;
+    return {
+      analysisName: typeof parsed.analysisName === "string" ? parsed.analysisName : "",
+      selectedAnalysisName: typeof parsed.selectedAnalysisName === "string" ? parsed.selectedAnalysisName : "",
+    };
+  } catch {
+    return { analysisName: "", selectedAnalysisName: "" };
+  }
+}
+
 function persistCurrentState(nextState: CalculatorState) {
   try {
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(nextState));
@@ -288,8 +315,20 @@ function persistSavedAnalyses(nextAnalyses: SavedAnalysis[]) {
   }
 }
 
+function persistSessionContext(nextSession: PersistedSession) {
+  try {
+    window.localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(nextSession));
+  } catch {
+    // Session context only helps restore local UX state.
+  }
+}
+
 function statesEqual(left: CalculatorState, right: CalculatorState) {
   return JSON.stringify(left) === JSON.stringify(right);
+}
+
+function matchedSavedAnalysisName(state: CalculatorState, savedAnalyses: SavedAnalysis[]) {
+  return savedAnalyses.find((analysis) => statesEqual(state, analysis.state))?.name ?? "";
 }
 
 function toNumber(value: string) {
@@ -846,19 +885,29 @@ export function EquityReturnExpectationClient() {
   const comparisonRows = returnComparisonRows(state);
   const selectedSavedAnalysis = savedAnalyses.find((analysis) => analysis.name === selectedAnalysisName);
   const trimmedAnalysisName = analysisName.trim();
+  const isUnnamedDraft = !trimmedAnalysisName && !statesEqual(state, DEFAULT_STATE);
   const analysisStatus = selectedSavedAnalysis
     ? statesEqual(state, selectedSavedAnalysis.state) && trimmedAnalysisName === selectedSavedAnalysis.name
       ? `Saved analysis: ${selectedSavedAnalysis.name}`
       : `Unsaved changes to ${selectedSavedAnalysis.name}`
     : trimmedAnalysisName
       ? `Unsaved analysis: ${trimmedAnalysisName}`
-      : "Unnamed analysis";
+      : isUnnamedDraft ? "Unsaved unnamed analysis" : "Unnamed analysis";
   const fcfHistoryYears = requiredFcfHistoryYears(state);
   const lockedFcfGrowthWindow = fcfWindowForYield(state.fcf.yieldMode);
 
   useEffect(() => {
-    setState(readPersistedState());
-    setSavedAnalyses(readPersistedAnalyses());
+    const persistedState = readPersistedState();
+    const persistedAnalyses = readPersistedAnalyses();
+    const persistedSession = readPersistedSession();
+    const selectedName = persistedAnalyses.some((analysis) => analysis.name === persistedSession.selectedAnalysisName)
+      ? persistedSession.selectedAnalysisName
+      : matchedSavedAnalysisName(persistedState, persistedAnalyses);
+
+    setState(persistedState);
+    setSavedAnalyses(persistedAnalyses);
+    setSelectedAnalysisName(selectedName);
+    setAnalysisName(persistedSession.analysisName || selectedName);
   }, []);
 
   function updateState(updater: (state: CalculatorState) => CalculatorState) {
@@ -873,7 +922,11 @@ export function EquityReturnExpectationClient() {
     setAnalysisName(nextName);
     if (selectedAnalysisName && nextName.trim() !== selectedAnalysisName) {
       setSelectedAnalysisName("");
+      persistSessionContext({ analysisName: nextName, selectedAnalysisName: "" });
+      return;
     }
+
+    persistSessionContext({ analysisName: nextName, selectedAnalysisName });
   }
 
   function saveNamedAnalysis() {
@@ -890,6 +943,7 @@ export function EquityReturnExpectationClient() {
     setAnalysisName(trimmedAnalysisName);
     setSelectedAnalysisName(trimmedAnalysisName);
     persistSavedAnalyses(nextAnalyses);
+    persistSessionContext({ analysisName: trimmedAnalysisName, selectedAnalysisName: trimmedAnalysisName });
   }
 
   function loadNamedAnalysis(name: string) {
@@ -903,6 +957,7 @@ export function EquityReturnExpectationClient() {
     setSelectedAnalysisName(savedAnalysis.name);
     setState(savedAnalysis.state);
     persistCurrentState(savedAnalysis.state);
+    persistSessionContext({ analysisName: savedAnalysis.name, selectedAnalysisName: savedAnalysis.name });
   }
 
   function deleteSelectedAnalysis() {
@@ -915,6 +970,7 @@ export function EquityReturnExpectationClient() {
     setAnalysisName("");
     setSelectedAnalysisName("");
     persistSavedAnalyses(nextAnalyses);
+    persistSessionContext({ analysisName: "", selectedAnalysisName: "" });
   }
 
   function startNewAnalysis() {
@@ -923,6 +979,7 @@ export function EquityReturnExpectationClient() {
     setAnalysisName("");
     setSelectedAnalysisName("");
     persistCurrentState(nextState);
+    persistSessionContext({ analysisName: "", selectedAnalysisName: "" });
   }
 
   function updateMarketCap(marketCap: string) {
@@ -945,7 +1002,7 @@ export function EquityReturnExpectationClient() {
               <Text color="muted" textStyle="body">
                 Saved analyses are stored only on this device.
               </Text>
-              <Text color={selectedSavedAnalysis && !analysisStatus.startsWith("Saved") ? "accent" : "muted"} textStyle="body">
+              <Text color={analysisStatus.startsWith("Unsaved") ? "accent" : "muted"} textStyle="body">
                 {analysisStatus}
               </Text>
             </Stack>
