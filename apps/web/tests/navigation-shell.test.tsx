@@ -24,9 +24,12 @@ describe("MVD home shell", () => {
 
     expect(screen.getByText("Macro")).toBeInTheDocument();
     expect(screen.getByText("Equity Markets")).toBeInTheDocument();
-    expect(screen.getByText("Featured analysis")).toBeInTheDocument();
-    expect(screen.getByText("No featured analysis yet.")).toBeInTheDocument();
+    expect(screen.getAllByText("Featured analysis").length).toBeGreaterThan(0);
+    expect(screen.getByRole("link", { name: /Featured analysis Stock Return Expectation/i })).toHaveAttribute("href", "/equity-markets/return-expectation");
+    expect(screen.queryByText("No featured analysis yet.")).not.toBeInTheDocument();
     expect(screen.getByText("A growing set of reasoning-led macro analyses that update through dedicated data pipelines.")).toBeInTheDocument();
+    expect(screen.getAllByText("Analysis archive.").length).toBeGreaterThan(1);
+    expect(screen.getByText("Equity analysis tools, calculators, and valuation workups collected in one research archive.")).toBeInTheDocument();
     expect(screen.queryByText("GDP growth")).not.toBeInTheDocument();
   });
 

@@ -2,6 +2,14 @@ import React from "react";
 import NextLink from "next/link";
 import { Heading, Link, SimpleGrid, Stack, Text } from "@chakra-ui/react";
 
+const featuredAnalysis = {
+  href: "/equity-markets/return-expectation",
+  eyebrow: "Featured analysis",
+  title: "Stock Return Expectation",
+  summary: "Compare dividend, earnings-yield, and free-cash-flow return assumptions in one front-end calculator.",
+  cue: "Use it as a reusable equity valuation workspace with saved local analyses and transparent input methods."
+};
+
 const sectionEntries = [
   {
     href: "/macro",
@@ -12,8 +20,8 @@ const sectionEntries = [
   {
     href: "/equity-markets",
     label: "Equity Markets",
-    title: "Index valuations.",
-    description: "Comparable valuation snapshots across the main market indexes."
+    title: "Analysis archive.",
+    description: "Equity analysis tools, calculators, and valuation workups collected in one research archive."
   }
 ];
 
@@ -45,23 +53,38 @@ export default function HomePage() {
         <Text color="muted" textStyle="eyebrow">
           Featured analysis
         </Text>
-        <Stack
-          bg="surface"
-          borderColor="edge"
-          borderWidth="1px"
-          gap="3"
-          minH="12rem"
-          justify="center"
-          p={{ base: "6", md: "7" }}
-          rounded="panel"
-        >
-          <Heading as="h2" textStyle="title">
-            No featured analysis yet.
-          </Heading>
-          <Text color="muted" maxW="2xl" textStyle="body">
-            Published analyses will appear here once the first macro or market work is ready to be highlighted on the front page.
-          </Text>
-        </Stack>
+        <Link asChild display="block" textDecoration="none" w="full" _hover={{ textDecoration: "none" }}>
+          <NextLink href={featuredAnalysis.href}>
+            <Stack
+              bg="surface"
+              borderColor="edge"
+              borderWidth="1px"
+              gap="4"
+              minH="12rem"
+              justify="center"
+              p={{ base: "6", md: "7" }}
+              rounded="panel"
+              transition="border-color 0.2s ease, transform 0.2s ease"
+              _hover={{
+                borderColor: "accent",
+                transform: "translateY(-2px)"
+              }}
+            >
+              <Text color="accent" textStyle="eyebrow">
+                {featuredAnalysis.eyebrow}
+              </Text>
+              <Heading as="h2" textStyle="title">
+                {featuredAnalysis.title}
+              </Heading>
+              <Text color="muted" maxW="2xl" textStyle="body">
+                {featuredAnalysis.summary}
+              </Text>
+              <Text color="subtle" maxW="2xl" textStyle="small">
+                {featuredAnalysis.cue}
+              </Text>
+            </Stack>
+          </NextLink>
+        </Link>
       </Stack>
 
       <Stack gap="5">
