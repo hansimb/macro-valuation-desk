@@ -36,6 +36,10 @@ function expectTextBefore(leftText: string, rightText: string) {
   expect(left.compareDocumentPosition(right) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
 }
 
+function expectTextVisible(value: string) {
+  expect(screen.getAllByText(value).length).toBeGreaterThan(0);
+}
+
 function expectLabelBefore(leftLabel: string, rightLabel: string) {
   const left = screen.getByLabelText(leftLabel);
   const right = screen.getByLabelText(rightLabel);
@@ -65,8 +69,8 @@ describe("Equity return expectation page", () => {
     fireEvent.change(screen.getByLabelText("Expected annual growth"), { target: { value: "6" } });
 
     expect(screen.getAllByText("11.00%").length).toBeGreaterThan(0);
-    expect(screen.getByText("5.00%")).toBeInTheDocument();
-    expect(screen.getByText("6.00%")).toBeInTheDocument();
+    expectTextVisible("5.00%");
+    expectTextVisible("6.00%");
 
     await waitFor(() => {
       expect(window.localStorage.getItem("equity-return-expectation-v1")).toContain("\"peRatio\":\"20\"");
@@ -91,20 +95,20 @@ describe("Equity return expectation page", () => {
     expect(screen.queryByRole("button", { name: "Cash flow statement input" })).not.toBeInTheDocument();
     expect(screen.getByText(/Historical FCF growth uses the same 4-year window/i)).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "2 years" })).not.toBeInTheDocument();
-    expect(screen.getByText("20.57%")).toBeInTheDocument();
-    expect(screen.getByText("10.50%")).toBeInTheDocument();
-    expect(screen.getByText("10.07%")).toBeInTheDocument();
-    expect(screen.getByText("9.5x")).toBeInTheDocument();
+    expectTextVisible("20.57%");
+    expectTextVisible("10.50%");
+    expectTextVisible("10.07%");
+    expectTextVisible("9.5x");
 
     fireEvent.click(screen.getByRole("button", { name: "Calculated latest year" }));
     fireEvent.change(screen.getByLabelText("Latest operating cash flow"), { target: { value: "180" } });
     fireEvent.change(screen.getByLabelText("Latest capital expenditures"), { target: { value: "60" } });
     fireEvent.click(screen.getByRole("button", { name: "Direct FCF growth estimate" }));
     fireEvent.change(screen.getByLabelText("Direct FCF growth estimate"), { target: { value: "5" } });
-    expect(screen.getByText("17.00%")).toBeInTheDocument();
-    expect(screen.getByText("12.00%")).toBeInTheDocument();
-    expect(screen.getByText("5.00%")).toBeInTheDocument();
-    expect(screen.getByText("8.3x")).toBeInTheDocument();
+    expectTextVisible("17.00%");
+    expectTextVisible("12.00%");
+    expectTextVisible("5.00%");
+    expectTextVisible("8.3x");
   });
 
   it("uses direct FCF growth estimate with direct FCF yield and does not show EPS or revenue growth choices", () => {
@@ -121,8 +125,8 @@ describe("Equity return expectation page", () => {
     expect(screen.queryByRole("button", { name: "Historical growth" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Direct growth estimate" })).not.toBeInTheDocument();
     expect(screen.getAllByText("11.00%").length).toBeGreaterThan(0);
-    expect(screen.getByText("7.00%")).toBeInTheDocument();
-    expect(screen.getByText("4.00%")).toBeInTheDocument();
+    expectTextVisible("7.00%");
+    expectTextVisible("4.00%");
     expect(screen.queryByText("FCF Yield · latest fiscal year FCF + FCF growth estimate")).not.toBeInTheDocument();
   });
 
@@ -238,6 +242,57 @@ describe("Equity return expectation page", () => {
     expect(screen.queryByText("FCF Yield Â· direct FCF yield + FCF growth estimate")).not.toBeInTheDocument();
   });
 
+  it("shows a metric summary between the active result and return method comparison", () => {
+    renderPage();
+
+    fireEvent.click(screen.getByRole("button", { name: "Gordon Growth" }));
+    fireEvent.click(screen.getByRole("button", { name: "Dividend amount input" }));
+    fireEvent.click(screen.getByRole("button", { name: "Historical dividend growth" }));
+    fireEvent.change(screen.getByLabelText("Annual dividend per share"), { target: { value: "1.50" } });
+    fireEvent.change(screen.getByLabelText("Share price"), { target: { value: "50" } });
+    ["1", "1.10", "1.21", "1.331", "1.4641"].forEach((value, index) => {
+      fireEvent.change(screen.getByLabelText(`Dividend year ${index + 1}`), { target: { value } });
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Earnings Yield + Growth" }));
+    fireEvent.change(screen.getByLabelText("Market capitalization"), { target: { value: "1000" } });
+    fireEvent.change(screen.getByLabelText("Net income"), { target: { value: "80" } });
+    ["100", "110", "121", "133.1", "146.41"].forEach((value, index) => {
+      fireEvent.change(screen.getByLabelText(`Year ${index + 1} value`), { target: { value } });
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Revenue growth" }));
+    ["200", "220", "242", "266.2", "292.82"].forEach((value, index) => {
+      fireEvent.change(screen.getByLabelText(`Year ${index + 1} value`), { target: { value } });
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "FCF Yield + Growth" }));
+    fireEvent.click(screen.getByRole("button", { name: "Calculated 4-year average" }));
+    fireEvent.click(screen.getByRole("button", { name: "Historical FCF growth" }));
+    ["180", "160", "140", "120"].forEach((value, index) => {
+      fireEvent.change(screen.getByLabelText(index === 0 ? "Latest operating cash flow" : `Operating cash flow year ${index + 1}`), { target: { value } });
+    });
+    ["60", "50", "40", "30"].forEach((value, index) => {
+      fireEvent.change(screen.getByLabelText(index === 0 ? "Latest capital expenditures" : `Capital expenditures year ${index + 1}`), { target: { value } });
+    });
+
+    expectTextBefore("Result", "Metric Summary");
+    expectTextBefore("Metric Summary", "Return Expectation Methods");
+    expect(screen.getByText("Yield Metrics")).toBeInTheDocument();
+    expect(screen.getByText("Historical Growth Metrics")).toBeInTheDocument();
+    expect(screen.getByText("Dividend Yield")).toBeInTheDocument();
+    expect(screen.getByText("Earnings Yield")).toBeInTheDocument();
+    expect(screen.getAllByText("FCF Yield").length).toBeGreaterThan(0);
+    expect(screen.getByText("EPS Growth History")).toBeInTheDocument();
+    expect(screen.getByText("Revenue Growth History")).toBeInTheDocument();
+    expect(screen.getByText("Dividend Growth History")).toBeInTheDocument();
+    expect(screen.getByText("FCF Growth History")).toBeInTheDocument();
+    expect(screen.getAllByText("3.00%").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("8.00%").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("10.00%").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("10.50%").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("10.07%").length).toBeGreaterThan(0);
+  });
+
   it("hydrates saved choices from local storage without a hydration mismatch", async () => {
     window.localStorage.setItem(
       "equity-return-expectation-v1",
@@ -334,7 +389,7 @@ describe("Equity return expectation page", () => {
       expect(screen.getByRole("button", { name: "Direct growth estimate" })).toHaveAttribute("aria-pressed", "true");
     });
     expect(screen.getByLabelText("Expected annual growth")).toHaveValue("");
-    expect(screen.getByText("5.00%")).toBeInTheDocument();
+    expectTextVisible("5.00%");
   });
 
   it("can calculate Gordon dividend growth from four or five years of dividend history", () => {
@@ -350,9 +405,9 @@ describe("Equity return expectation page", () => {
       fireEvent.change(screen.getByLabelText(`Dividend year ${index + 1}`), { target: { value } });
     });
 
-    expect(screen.getByText("13.00%")).toBeInTheDocument();
-    expect(screen.getByText("3.00%")).toBeInTheDocument();
-    expect(screen.getByText("10.00%")).toBeInTheDocument();
+    expectTextVisible("13.00%");
+    expectTextVisible("3.00%");
+    expectTextVisible("10.00%");
   });
 
   it("can calculate Gordon dividend yield from dividend amount and share price", () => {
@@ -365,9 +420,9 @@ describe("Equity return expectation page", () => {
     fireEvent.change(screen.getByLabelText("Share price"), { target: { value: "50" } });
     fireEvent.change(screen.getByLabelText("Dividend growth"), { target: { value: "5" } });
 
-    expect(screen.getByText("8.00%")).toBeInTheDocument();
-    expect(screen.getByText("3.00%")).toBeInTheDocument();
-    expect(screen.getByText("5.00%")).toBeInTheDocument();
+    expectTextVisible("8.00%");
+    expectTextVisible("3.00%");
+    expectTextVisible("5.00%");
   });
 
   it("saves named analyses locally and restores them from the saved analyses menu", async () => {
@@ -386,14 +441,14 @@ describe("Equity return expectation page", () => {
     expect(screen.getByRole("option", { name: "ADOBE" })).toBeInTheDocument();
 
     fireEvent.change(screen.getByLabelText("P/E ratio"), { target: { value: "10" } });
-    expect(screen.getByText("17.00%")).toBeInTheDocument();
+    expectTextVisible("17.00%");
 
     fireEvent.change(screen.getByLabelText("Selected analysis"), { target: { value: "ADOBE" } });
 
     expect(screen.getByLabelText("Analysis name")).toHaveValue("ADOBE");
     expect(screen.getByLabelText("Selected analysis")).toHaveValue("ADOBE");
     expect(screen.getByDisplayValue("25")).toBeInTheDocument();
-    expect(screen.getByText("11.00%")).toBeInTheDocument();
+    expectTextVisible("11.00%");
     expect(window.localStorage.getItem("equity-return-expectation-analyses-v1")).toContain("ADOBE");
   });
 

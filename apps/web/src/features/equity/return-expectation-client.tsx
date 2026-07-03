@@ -551,6 +551,12 @@ type ReturnComparisonRow = {
   value: number;
 };
 
+type MetricSummaryRow = {
+  label: string;
+  note: string;
+  value: string;
+};
+
 function validComparisonRow(label: string, value: number | null): ReturnComparisonRow | null {
   return value === null || !Number.isFinite(value) ? null : { label, value };
 }
@@ -631,6 +637,60 @@ function returnComparisonRows(state: CalculatorState) {
   }
 
   return rows;
+}
+
+function metricSummaryRows(state: CalculatorState) {
+  const yieldRows: MetricSummaryRow[] = [
+    {
+      label: "Dividend Yield",
+      note: state.gordon.dividendYieldMode === "direct" ? "Direct input" : "Dividend per share / share price",
+      value: formatPct(dividendYieldPct(state)),
+    },
+    {
+      label: "Earnings Yield",
+      note: state.earnings.yieldMode === "pe" ? "Inverse P/E" : "Net income / market capitalization",
+      value: formatPct(earningsYieldPct(state)),
+    },
+    {
+      label: "FCF Yield",
+      note: fcfYieldComparisonLabel(state.fcf.yieldMode),
+      value: formatPct(fcfYieldPct(state)),
+    },
+    {
+      label: "Implied P/E",
+      note: "Earnings yield diagnostic",
+      value: formatMultiple(impliedEarningsPe(state)),
+    },
+    {
+      label: "Implied P/FCF",
+      note: "FCF yield diagnostic",
+      value: formatMultiple(impliedPriceToFcf(state)),
+    },
+  ];
+  const growthRows: MetricSummaryRow[] = [
+    {
+      label: "EPS Growth History",
+      note: `${state.growth.byBasis.eps.years}-year average annual growth`,
+      value: formatPct(averageHistoricalGrowth(state.growth.byBasis.eps.historicalValues, state.growth.byBasis.eps.years)),
+    },
+    {
+      label: "Revenue Growth History",
+      note: `${state.growth.byBasis.revenue.years}-year average annual growth`,
+      value: formatPct(averageHistoricalGrowth(state.growth.byBasis.revenue.historicalValues, state.growth.byBasis.revenue.years)),
+    },
+    {
+      label: "Dividend Growth History",
+      note: `${state.gordon.dividendYears}-year average annual growth`,
+      value: formatPct(averageHistoricalGrowth(state.gordon.dividendHistory, state.gordon.dividendYears)),
+    },
+    {
+      label: "FCF Growth History",
+      note: `${selectedFcfGrowthWindow(state)}-year average annual growth`,
+      value: formatPct(fcfHistoricalGrowthPct(state)),
+    },
+  ];
+
+  return { yieldRows, growthRows };
 }
 
 function SegmentedButton<T extends string>({
@@ -883,6 +943,7 @@ export function EquityReturnExpectationClient() {
   const [savedAnalyses, setSavedAnalyses] = useState<SavedAnalysis[]>([]);
   const results = calculatorResults(state);
   const comparisonRows = returnComparisonRows(state);
+  const metricSummary = metricSummaryRows(state);
   const selectedSavedAnalysis = savedAnalyses.find((analysis) => analysis.name === selectedAnalysisName);
   const trimmedAnalysisName = analysisName.trim();
   const isUnnamedDraft = !trimmedAnalysisName && !statesEqual(state, DEFAULT_STATE);
@@ -1520,6 +1581,51 @@ export function EquityReturnExpectationClient() {
               value={results.impliedMultiple}
             />
           </SimpleGrid>
+        </Stack>
+      </Box>
+
+      <Box bg="surface" borderColor="edge" borderWidth="1px" p={{ base: "6", md: "7" }} rounded="panel">
+        <Stack gap="6">
+          <Stack gap="2">
+            <Text color="accent" textStyle="eyebrow">
+              Metric Summary
+            </Text>
+            <Heading as="h2" textStyle="title">
+              Return Expectation Inputs
+            </Heading>
+          </Stack>
+          <Stack gap="4">
+            <Stack gap="3">
+              <Text color="muted" fontWeight="semibold" textStyle="body">
+                Yield Metrics
+              </Text>
+              <SimpleGrid columns={{ base: 1, md: 2, xl: 3 }} gap="4">
+                {metricSummary.yieldRows.map((row) => (
+                  <AnalysisMetricCard
+                    key={row.label}
+                    label={row.label}
+                    note={row.note}
+                    value={row.value}
+                  />
+                ))}
+              </SimpleGrid>
+            </Stack>
+            <Stack gap="3">
+              <Text color="muted" fontWeight="semibold" textStyle="body">
+                Historical Growth Metrics
+              </Text>
+              <SimpleGrid columns={{ base: 1, md: 2, xl: 4 }} gap="4">
+                {metricSummary.growthRows.map((row) => (
+                  <AnalysisMetricCard
+                    key={row.label}
+                    label={row.label}
+                    note={row.note}
+                    value={row.value}
+                  />
+                ))}
+              </SimpleGrid>
+            </Stack>
+          </Stack>
         </Stack>
       </Box>
 
