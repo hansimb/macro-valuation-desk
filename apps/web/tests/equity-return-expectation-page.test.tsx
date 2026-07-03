@@ -124,6 +124,7 @@ describe("Equity return expectation page", () => {
     expect(screen.queryByRole("button", { name: "Revenue growth" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Historical growth" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Direct growth estimate" })).not.toBeInTheDocument();
+    expect(screen.getByText("Expected return = free cash flow yield + FCF growth")).toBeInTheDocument();
     expect(screen.getAllByText("11.00%").length).toBeGreaterThan(0);
     expectTextVisible("7.00%");
     expectTextVisible("4.00%");
@@ -180,6 +181,33 @@ describe("Equity return expectation page", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Earnings Yield + Growth" }));
     expect(screen.getByLabelText("Market capitalization")).toHaveValue("1000");
+  });
+
+  it("calculates shared market capitalization from shares outstanding and share price", () => {
+    renderPage();
+
+    fireEvent.click(screen.getByRole("button", { name: "Earnings Yield + Growth" }));
+    fireEvent.click(screen.getByRole("button", { name: "Shares x price" }));
+    fireEvent.change(screen.getByLabelText("Shares outstanding"), { target: { value: "100" } });
+    fireEvent.change(screen.getByLabelText("Share price for market cap"), { target: { value: "10" } });
+    fireEvent.change(screen.getByLabelText("Net income"), { target: { value: "80" } });
+
+    expect(screen.getByText("Earnings yield = net income / market capitalization")).toBeInTheDocument();
+    expect(screen.getByText("Calculated Market Capitalization")).toBeInTheDocument();
+    expect(screen.getByText("Calculated Earnings Yield")).toBeInTheDocument();
+    expect(screen.getByText("Calculated P/E")).toBeInTheDocument();
+    expectTextVisible("1000");
+    expectTextVisible("8.00%");
+    expectTextVisible("12.5x");
+
+    fireEvent.click(screen.getByRole("button", { name: "FCF Yield + Growth" }));
+
+    expect(screen.getByRole("button", { name: "Shares x price" })).toHaveAttribute("aria-pressed", "true");
+    fireEvent.change(screen.getByLabelText("Latest operating cash flow"), { target: { value: "100" } });
+    fireEvent.change(screen.getByLabelText("Latest capital expenditures"), { target: { value: "20" } });
+
+    expectTextVisible("8.00%");
+    expectTextVisible("12.5x");
   });
 
   it("compares valid return expectation methods and prefers historical growth over estimates", () => {

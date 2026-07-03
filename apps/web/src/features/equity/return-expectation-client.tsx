@@ -15,6 +15,7 @@ type EarningsYieldMode = "pe" | "amounts";
 type FcfYieldMode = "latest" | "average2" | "average4" | "direct";
 type FcfGrowthMode = "direct" | "historical";
 type FcfWindow = "2" | "4";
+type MarketCapMode = "direct" | "shares";
 
 type GrowthInputsState = {
   mode: GrowthMode;
@@ -26,7 +27,10 @@ type GrowthInputsState = {
 type CalculatorState = {
   model: ReturnModel;
   common: {
+    marketCapMode: MarketCapMode;
     marketCap: string;
+    sharesOutstanding: string;
+    sharePrice: string;
   };
   growth: {
     basis: GrowthBasis;
@@ -76,7 +80,10 @@ const SESSION_STORAGE_KEY = "equity-return-expectation-session-v1";
 const DEFAULT_STATE: CalculatorState = {
   model: "earnings",
   common: {
+    marketCapMode: "direct",
     marketCap: "",
+    sharesOutstanding: "",
+    sharePrice: "",
   },
   growth: {
     basis: "eps",
@@ -182,6 +189,7 @@ function normalizeCalculatorState(value: Partial<CalculatorState>): CalculatorSt
     value.earnings?.marketCap ??
     legacyValue.fcf?.marketCap ??
     DEFAULT_STATE.common.marketCap;
+  const commonMarketCapMode = value.common?.marketCapMode === "shares" ? "shares" : DEFAULT_STATE.common.marketCapMode;
   const gordon = {
     ...DEFAULT_STATE.gordon,
     ...value.gordon,
@@ -235,7 +243,10 @@ function normalizeCalculatorState(value: Partial<CalculatorState>): CalculatorSt
     common: {
       ...DEFAULT_STATE.common,
       ...value.common,
+      marketCapMode: commonMarketCapMode,
       marketCap: commonMarketCap,
+      sharesOutstanding: value.common?.sharesOutstanding ?? DEFAULT_STATE.common.sharesOutstanding,
+      sharePrice: value.common?.sharePrice ?? DEFAULT_STATE.common.sharePrice,
     },
     growth: {
       ...DEFAULT_STATE.growth,
@@ -349,6 +360,14 @@ function formatMultiple(value: number | null) {
   return value === null || !Number.isFinite(value) ? "N/A" : `${value.toFixed(1)}x`;
 }
 
+function formatPlainNumber(value: number | null) {
+  if (value === null || !Number.isFinite(value)) {
+    return "N/A";
+  }
+
+  return Number.isInteger(value) ? value.toFixed(0) : value.toFixed(2);
+}
+
 function averageHistoricalGrowth(values: string[], years: YearCount) {
   const selectedValues = values.slice(0, Number.parseInt(years, 10)).map(positiveNumber);
   if (selectedValues.some((value) => value === null)) {
@@ -443,13 +462,27 @@ function selectedGrowthPct(state: CalculatorState) {
   return averageHistoricalGrowth(activeGrowth.historicalValues, activeGrowth.years);
 }
 
+function calculatedMarketCap(state: CalculatorState) {
+  if (state.common.marketCapMode === "shares") {
+    const sharesOutstanding = positiveNumber(state.common.sharesOutstanding);
+    const sharePrice = positiveNumber(state.common.sharePrice);
+    return sharesOutstanding === null || sharePrice === null ? null : sharesOutstanding * sharePrice;
+  }
+
+  return positiveNumber(state.common.marketCap);
+}
+
+function marketCapInputNote(state: CalculatorState) {
+  return state.common.marketCapMode === "shares" ? "Shares outstanding x share price" : "Direct market capitalization";
+}
+
 function earningsYieldPct(state: CalculatorState) {
   if (state.earnings.yieldMode === "pe") {
     const pe = positiveNumber(state.earnings.peRatio);
     return pe === null ? null : 100 / pe;
   }
 
-  const marketCap = positiveNumber(state.common.marketCap);
+  const marketCap = calculatedMarketCap(state);
   const netIncome = toNumber(state.earnings.netIncome);
   return marketCap === null || netIncome === null ? null : (netIncome / marketCap) * 100;
 }
@@ -459,7 +492,7 @@ function impliedEarningsPe(state: CalculatorState) {
     return positiveNumber(state.earnings.peRatio);
   }
 
-  const marketCap = positiveNumber(state.common.marketCap);
+  const marketCap = calculatedMarketCap(state);
   const netIncome = positiveNumber(state.earnings.netIncome);
   return marketCap === null || netIncome === null ? null : marketCap / netIncome;
 }
@@ -469,7 +502,7 @@ function fcfYieldPct(state: CalculatorState) {
     return toNumber(state.fcf.directYieldPct);
   }
 
-  const marketCap = positiveNumber(state.common.marketCap);
+  const marketCap = calculatedMarketCap(state);
   const freeCashFlow = selectedCalculatedFcf(state);
   return marketCap === null || freeCashFlow === null ? null : (freeCashFlow / marketCap) * 100;
 }
@@ -490,7 +523,7 @@ function impliedPriceToFcf(state: CalculatorState) {
     return directYield === null ? null : 100 / directYield;
   }
 
-  const marketCap = positiveNumber(state.common.marketCap);
+  const marketCap = calculatedMarketCap(state);
   const freeCashFlow = selectedCalculatedFcf(state);
   return marketCap === null || freeCashFlow === null ? null : marketCap / freeCashFlow;
 }
@@ -648,12 +681,12 @@ function metricSummaryRows(state: CalculatorState) {
     },
     {
       label: "Earnings Yield",
-      note: state.earnings.yieldMode === "pe" ? "Inverse P/E" : "Net income / market capitalization",
+      note: state.earnings.yieldMode === "pe" ? "Inverse P/E" : `Net income / market capitalization (${marketCapInputNote(state)})`,
       value: formatPct(earningsYieldPct(state)),
     },
     {
       label: "FCF Yield",
-      note: fcfYieldComparisonLabel(state.fcf.yieldMode),
+      note: state.fcf.yieldMode === "direct" ? fcfYieldComparisonLabel(state.fcf.yieldMode) : `${fcfYieldComparisonLabel(state.fcf.yieldMode)} / market capitalization`,
       value: formatPct(fcfYieldPct(state)),
     },
     {
@@ -752,6 +785,76 @@ function NumberField({
         rounded="control"
         value={value}
       />
+    </Stack>
+  );
+}
+
+function MarketCapInputs({
+  state,
+  updateState,
+}: {
+  state: CalculatorState;
+  updateState: React.Dispatch<React.SetStateAction<CalculatorState>>;
+}) {
+  function updateMarketCap(marketCap: string) {
+    updateState((current) => ({
+      ...current,
+      common: { ...current.common, marketCap, marketCapMode: "direct" },
+      earnings: { ...current.earnings, marketCap },
+    }));
+  }
+
+  function updateCommon(updater: (common: CalculatorState["common"]) => CalculatorState["common"]) {
+    updateState((current) => ({ ...current, common: updater(current.common) }));
+  }
+
+  return (
+    <Stack gap="4">
+      <Grid gap="2" templateColumns={{ base: "1fr", md: "repeat(2, minmax(0, 14rem))" }}>
+        <SegmentedButton
+          activeValue={state.common.marketCapMode}
+          onSelect={(marketCapMode) => updateCommon((common) => ({ ...common, marketCapMode }))}
+          value="direct"
+        >
+          Direct market cap
+        </SegmentedButton>
+        <SegmentedButton
+          activeValue={state.common.marketCapMode}
+          onSelect={(marketCapMode) => updateCommon((common) => ({ ...common, marketCapMode }))}
+          value="shares"
+        >
+          Shares x price
+        </SegmentedButton>
+      </Grid>
+      {state.common.marketCapMode === "shares" ? (
+        <Stack gap="4">
+          <SimpleGrid columns={{ base: 1, md: 2 }} gap="4">
+            <NumberField
+              label="Shares outstanding"
+              onChange={(sharesOutstanding) => updateCommon((common) => ({ ...common, sharesOutstanding, marketCapMode: "shares" }))}
+              value={state.common.sharesOutstanding}
+            />
+            <NumberField
+              label="Share price for market cap"
+              onChange={(sharePrice) => updateCommon((common) => ({ ...common, sharePrice, marketCapMode: "shares" }))}
+              value={state.common.sharePrice}
+            />
+          </SimpleGrid>
+          <SimpleGrid columns={{ base: 1, md: 2 }} gap="4">
+            <AnalysisMetricCard
+              label="Market Capitalization"
+              note="Shares outstanding x share price"
+              value={formatPlainNumber(calculatedMarketCap(state))}
+            />
+          </SimpleGrid>
+        </Stack>
+      ) : (
+        <NumberField
+          label="Market capitalization"
+          onChange={updateMarketCap}
+          value={state.common.marketCap}
+        />
+      )}
     </Stack>
   );
 }
@@ -1041,14 +1144,6 @@ export function EquityReturnExpectationClient() {
     setSelectedAnalysisName("");
     persistCurrentState(nextState);
     persistSessionContext({ analysisName: "", selectedAnalysisName: "" });
-  }
-
-  function updateMarketCap(marketCap: string) {
-    updateState((current) => ({
-      ...current,
-      common: { ...current.common, marketCap },
-      earnings: { ...current.earnings, marketCap },
-    }));
   }
 
   return (
@@ -1366,18 +1461,38 @@ export function EquityReturnExpectationClient() {
                   value={state.earnings.peRatio}
                 />
               ) : (
-                <SimpleGrid columns={{ base: 1, md: 2 }} gap="4">
-                  <NumberField
-                    label="Market capitalization"
-                    onChange={updateMarketCap}
-                    value={state.common.marketCap}
-                  />
+                <Stack gap="4">
+                  <MarketCapInputs state={state} updateState={updateState} />
                   <NumberField
                     label="Net income"
                     onChange={(netIncome) => updateState((current) => ({ ...current, earnings: { ...current.earnings, netIncome } }))}
                     value={state.earnings.netIncome}
                   />
-                </SimpleGrid>
+                  <Box bg="canvas" borderColor="edge" borderWidth="1px" p="4" rounded="panel">
+                    <Stack gap="4">
+                      <Text color="muted" textStyle="body">
+                        Earnings yield = net income / market capitalization
+                      </Text>
+                      <SimpleGrid columns={{ base: 1, md: 2, xl: 3 }} gap="4">
+                        <AnalysisMetricCard
+                          label="Calculated Market Capitalization"
+                          note={marketCapInputNote(state)}
+                          value={formatPlainNumber(calculatedMarketCap(state))}
+                        />
+                        <AnalysisMetricCard
+                          label="Calculated Earnings Yield"
+                          note="Net income / market capitalization"
+                          value={formatPct(earningsYieldPct(state))}
+                        />
+                        <AnalysisMetricCard
+                          label="Calculated P/E"
+                          note="Market capitalization / net income"
+                          value={formatMultiple(impliedEarningsPe(state))}
+                        />
+                      </SimpleGrid>
+                    </Stack>
+                  </Box>
+                </Stack>
               )}
             </Stack>
           </Box>
@@ -1434,11 +1549,7 @@ export function EquityReturnExpectationClient() {
                   value={state.fcf.directYieldPct}
                 />
               ) : (
-                <NumberField
-                  label="Market capitalization"
-                  onChange={updateMarketCap}
-                  value={state.common.marketCap}
-                />
+                <MarketCapInputs state={state} updateState={updateState} />
               )}
             </Stack>
           </Box>
