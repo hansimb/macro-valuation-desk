@@ -1,53 +1,47 @@
 # Macro Valuation Desk
 
-Macro Valuation Desk is a macro and valuation workspace for a value investor. This repository contains the first monorepo foundation for the web app, API, pipelines, shared contracts, and local infrastructure.
+Macro Valuation Desk is a local-first research workspace for macro, currency, and equity valuation analysis. The repository is organized as a monorepo with a web app, product API, data pipelines, shared contracts, documentation, and local infrastructure.
 
-## Core Stack
+The project is intentionally built around reusable analysis surfaces rather than one-off pages. Current work includes macro dashboards, Taylor-rule style policy analysis, currency valuation tools, and equity return-expectation workflows.
 
-- Next.js for the web shell
-- Fastify for the product API
-- Prefect for pipeline orchestration
-- PostgreSQL as the source of truth
-- Docker Compose for the local multi-service stack
+## Stack
 
-## Repository Structure
-
-```text
-apps/
-  web/
-  api/
-  pipelines/
-packages/
-  shared/
-infra/
-docs/
-```
+- `apps/web`: Next.js UI for analysis pages and interactive calculators
+- `apps/api`: Fastify API for product-facing data routes
+- `apps/pipelines`: Python pipeline code for ingestion, transforms, and database loading
+- `packages/shared`: shared TypeScript contracts
+- `infra`: local infrastructure configuration
+- `docs`: architecture notes, product plans, and agent-facing implementation guidance
 
 ## Local Development
 
-The project is designed around Docker Compose first. The intended local runtime shape is:
+Install dependencies from the repository root:
 
-- `web` serves the Macro Valuation Desk UI
-- `api` exposes product-facing endpoints backed by PostgreSQL
-- `pipelines` owns ingestion and Prefect-driven flow execution
-- `postgres` stores raw, staging, warehouse, and marts-oriented data
+```bash
+npm install
+```
 
-Local scripts:
+Common commands:
 
-- `npm run dev:db` starts PostgreSQL only in docker
-- `npm run dev` starts `api` and `web` dev servers
-- `npm run dev:pipeline` runs a pipeline flow once
-- `npm run dev:stack` starts the full Compose stack
+```bash
+npm run dev:db       # start PostgreSQL only
+npm run dev          # start API and web dev servers
+npm run dev:web      # start the web app
+npm run dev:api      # start the API
+npm run dev:pipeline # run the pipeline entrypoint
+npm run dev:stack    # start the compose stack
+npm test             # run Vitest suites
+```
 
-## First Vertical Slice
+## Runtime Shape
 
-The initial end-to-end slice is a `Macro` overview flow:
+The local stack is designed around clear service boundaries:
 
-1. pipelines prepare a macro seed payload
-2. PostgreSQL stores macro series data
-3. the Fastify API exposes `/macro/overview`
-4. the web app reads that route for the Macro page
+- the web app presents analysis workflows and browser-local inputs where appropriate
+- the API serves product data from the database
+- the pipeline layer fetches, transforms, and loads source data
+- PostgreSQL stores raw, staging, warehouse, and mart-style datasets
 
-## Current Goal
+## Development Notes
 
-The current milestone is a serious skeleton, not full feature breadth. The main focus is proving service boundaries, data flow, and a cloud-shaped local architecture before the product deepens.
+Prefer small, testable changes that preserve the service boundaries above. Keep long-lived implementation detail in `docs/` instead of overloading this README with feature-specific status, so the front page can remain stable as the product evolves.
