@@ -321,6 +321,25 @@ describe("Equity return expectation page", () => {
     expect(screen.getAllByText("10.07%").length).toBeGreaterThan(0);
   });
 
+  it("shows model interpretation guidance before results and updates it by model", () => {
+    renderPage();
+
+    expect(screen.getByText(/This is a rough valuation-at-entry estimate/i)).toBeInTheDocument();
+    expectTextBefore("Model Interpretation", "Result");
+    expect(screen.getByText(/Earnings yield models are most useful when current earnings are representative/i)).toBeInTheDocument();
+    expect(screen.getByText(/The selected growth input should be treated as the fragile assumption/i)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Gordon Growth" }));
+
+    expect(screen.getByText(/Gordon Growth works best for mature dividend payers/i)).toBeInTheDocument();
+    expect(screen.getByText(/Dividend history can look stable until payout policy changes/i)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "FCF Yield + Growth" }));
+
+    expect(screen.getByText(/FCF yield plus FCF growth is most useful when free cash flow is durable/i)).toBeInTheDocument();
+    expect(screen.getByText(/Working-capital swings, cycle peaks, buybacks, debt, and reinvestment needs/i)).toBeInTheDocument();
+  });
+
   it("hydrates saved choices from local storage without a hydration mismatch", async () => {
     window.localStorage.setItem(
       "equity-return-expectation-v1",

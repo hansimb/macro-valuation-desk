@@ -917,6 +917,117 @@ function FormulaBlock({ model }: { model: ReturnModel }) {
   );
 }
 
+function RoughEstimateNotice() {
+  return (
+    <Box bg="surface" borderColor="edge" borderWidth="1px" p={{ base: "6", md: "7" }} rounded="panel">
+      <Stack gap="2">
+        <Text color="accent" textStyle="eyebrow">
+          Read First
+        </Text>
+        <Heading as="h2" textStyle="title">
+          Rough Valuation Lens
+        </Heading>
+        <Text color="muted" textStyle="body">
+          This is a rough valuation-at-entry estimate. It is best for checking whether today's starting valuation and normalized
+          near-term inputs look sensible, not for treating the output as a precise long-term return forecast.
+        </Text>
+      </Stack>
+    </Box>
+  );
+}
+
+function modelInterpretationCopy(state: CalculatorState) {
+  if (state.model === "gordon") {
+    return {
+      fit: "Gordon Growth works best for mature dividend payers with durable payout policies, stable profitability, and modest reinvestment needs.",
+      weakness: "Dividend history can look stable until payout policy changes, leverage rises, earnings fall, or management redirects cash toward buybacks or reinvestment.",
+      inputs: state.gordon.dividendGrowthMode === "historical"
+        ? "Historical dividend growth should be checked against payout ratio, earnings growth, and balance sheet capacity before assuming it can continue."
+        : "A direct dividend growth estimate is a judgment call; keep it anchored to sustainable earnings and cash flow growth, not only past dividend increases.",
+    };
+  }
+
+  if (state.model === "fcf") {
+    const yieldInput = state.fcf.yieldMode === "direct"
+      ? "Direct FCF yield is useful when you already have a normalized free cash flow estimate."
+      : `${fcfYieldComparisonLabel(state.fcf.yieldMode)} can smooth or expose the current cash generation level, but it still depends on clean cash flow and market capitalization inputs.`;
+    const growthInput = state.fcf.growthMode === "historical"
+      ? "Historical FCF growth can be noisy when the starting or ending year is unusually high or low."
+      : "Direct FCF growth should reflect reinvestment needs and competitive durability, not just revenue ambition.";
+
+    return {
+      fit: "FCF yield plus FCF growth is most useful when free cash flow is durable, recurring, and close to owner earnings.",
+      weakness: "Working-capital swings, cycle peaks, buybacks, debt, and reinvestment needs can make the simple yield plus growth estimate look more accurate than it is.",
+      inputs: `${yieldInput} ${growthInput}`,
+    };
+  }
+
+  const growthLabel = state.growth.basis === "eps" ? "EPS" : "revenue";
+  const yieldInput = state.earnings.yieldMode === "pe"
+    ? "P/E input is quick, but it hides the earnings base, margin cycle, debt level, and one-off adjustments behind one multiple."
+    : `Market cap input uses ${marketCapInputNote(state).toLowerCase()}; net income should be normalized so one-off gains, losses, and cycle peaks do not dominate the estimate.`;
+  const growthInput = state.growth.byBasis[state.growth.basis].mode === "historical"
+    ? `${growthLabel} history describes what happened, not what the business can sustainably compound from today's base.`
+    : `The direct ${growthLabel.toLowerCase()} growth estimate should be cross-checked against margins, reinvestment, dilution, and the size of the market opportunity.`;
+
+  return {
+    fit: "Earnings yield models are most useful when current earnings are representative and the chosen growth assumption is close to sustainable normalized growth.",
+    weakness: "The selected growth input should be treated as the fragile assumption: small changes in growth or normalized earnings can move the output a lot.",
+    inputs: `${yieldInput} ${growthInput}`,
+  };
+}
+
+function ModelInterpretation({ state }: { state: CalculatorState }) {
+  const copy = modelInterpretationCopy(state);
+
+  return (
+    <Box bg="surface" borderColor="edge" borderWidth="1px" p={{ base: "6", md: "7" }} rounded="panel">
+      <Stack gap="5">
+        <Stack gap="2">
+          <Text color="accent" textStyle="eyebrow">
+            Model Interpretation
+          </Text>
+          <Heading as="h2" textStyle="title">
+            Use the Result With Context
+          </Heading>
+        </Stack>
+        <SimpleGrid columns={{ base: 1, md: 3 }} gap="4">
+          <Box bg="canvas" borderColor="edge" borderWidth="1px" p="4" rounded="panel">
+            <Stack gap="2">
+              <Text color="text" fontWeight="semibold" textStyle="body">
+                Best fit
+              </Text>
+              <Text color="muted" textStyle="body">
+                {copy.fit}
+              </Text>
+            </Stack>
+          </Box>
+          <Box bg="canvas" borderColor="edge" borderWidth="1px" p="4" rounded="panel">
+            <Stack gap="2">
+              <Text color="text" fontWeight="semibold" textStyle="body">
+                Main weakness
+              </Text>
+              <Text color="muted" textStyle="body">
+                {copy.weakness}
+              </Text>
+            </Stack>
+          </Box>
+          <Box bg="canvas" borderColor="edge" borderWidth="1px" p="4" rounded="panel">
+            <Stack gap="2">
+              <Text color="text" fontWeight="semibold" textStyle="body">
+                Selected inputs
+              </Text>
+              <Text color="muted" textStyle="body">
+                {copy.inputs}
+              </Text>
+            </Stack>
+          </Box>
+        </SimpleGrid>
+      </Stack>
+    </Box>
+  );
+}
+
 function cashFlowStatementLabel(index: number, metric: "operating cash flow" | "capital expenditures") {
   const metricLabel = metric === "operating cash flow" ? "Operating cash flow" : "Capital expenditures";
   return index === 0 ? `Latest ${metric}` : `${metricLabel} year ${index + 1}`;
@@ -1255,6 +1366,8 @@ export function EquityReturnExpectationClient() {
           </SimpleGrid>
         </Stack>
       </Box>
+
+      <RoughEstimateNotice />
 
       <Box bg="surface" borderColor="edge" borderWidth="1px" p={{ base: "6", md: "7" }} rounded="panel">
         <Stack gap="4">
@@ -1659,6 +1772,8 @@ export function EquityReturnExpectationClient() {
           ) : null}
         </>
       ) : null}
+
+      <ModelInterpretation state={state} />
 
       <Box bg="surface" borderColor="edge" borderWidth="1px" p={{ base: "6", md: "7" }} rounded="panel">
         <Stack gap="5">
