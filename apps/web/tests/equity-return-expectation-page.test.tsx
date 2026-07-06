@@ -11,6 +11,7 @@ import { ThemeProvider } from "../src/features/theme/provider";
 afterEach(() => {
   cleanup();
   window.localStorage.clear();
+  vi.useRealTimers();
   vi.restoreAllMocks();
 });
 
@@ -45,6 +46,15 @@ function expectLabelBefore(leftLabel: string, rightLabel: string) {
   const right = screen.getByLabelText(rightLabel);
 
   expect(left.compareDocumentPosition(right) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+}
+
+function readBlobText(blob: Blob) {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.addEventListener("load", () => resolve(String(reader.result)));
+    reader.addEventListener("error", () => reject(reader.error));
+    reader.readAsText(blob);
+  });
 }
 
 describe("Equity return expectation page", () => {
@@ -600,6 +610,56 @@ describe("Equity return expectation page", () => {
     await waitFor(() => {
       expect(window.localStorage.getItem("equity-return-expectation-analyses-v1")).toBe("[]");
     });
+  });
+
+  it("exports saved analyses as a dated CSV download", async () => {
+    const createObjectURL = vi.fn().mockReturnValue("blob:return-export");
+    const revokeObjectURL = vi.fn();
+    Object.defineProperty(URL, "createObjectURL", { configurable: true, value: createObjectURL });
+    Object.defineProperty(URL, "revokeObjectURL", { configurable: true, value: revokeObjectURL });
+    const originalCreateElement = document.createElement.bind(document);
+    let exportLink: HTMLAnchorElement | null = null;
+    const linkClick = vi.fn();
+    vi.spyOn(document, "createElement").mockImplementation((tagName, options) => {
+      const element = originalCreateElement(tagName, options);
+      if (tagName === "a") {
+        exportLink = element as HTMLAnchorElement;
+        vi.spyOn(exportLink, "click").mockImplementation(linkClick);
+      }
+      return element;
+    });
+
+    renderPage();
+
+    expect(screen.getByRole("button", { name: "Export CSV" })).toBeDisabled();
+
+    fireEvent.change(screen.getByLabelText("Analysis name"), { target: { value: "ADOBE" } });
+    fireEvent.click(screen.getByRole("button", { name: "Direct growth estimate" }));
+    fireEvent.click(screen.getByRole("button", { name: "P/E input" }));
+    fireEvent.change(screen.getByLabelText("P/E ratio"), { target: { value: "25" } });
+    fireEvent.change(screen.getByLabelText("Expected annual growth"), { target: { value: "7" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save analysis" }));
+
+    fireEvent.click(screen.getByRole("button", { name: "New analysis" }));
+    fireEvent.change(screen.getByLabelText("Analysis name"), { target: { value: "MSFT" } });
+    fireEvent.click(screen.getByRole("button", { name: "Direct growth estimate" }));
+    fireEvent.click(screen.getByRole("button", { name: "P/E input" }));
+    fireEvent.change(screen.getByLabelText("P/E ratio"), { target: { value: "10" } });
+    fireEvent.change(screen.getByLabelText("Expected annual growth"), { target: { value: "3" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save analysis" }));
+
+    fireEvent.click(screen.getByRole("button", { name: "Export CSV" }));
+
+    expect(exportLink?.download).toMatch(/^return-expectation-analyses-\d{4}-\d{2}-\d{2}\.csv$/);
+    expect(exportLink?.href).toBe("blob:return-export");
+    expect(linkClick).toHaveBeenCalledTimes(1);
+    expect(revokeObjectURL).toHaveBeenCalledWith("blob:return-export");
+
+    const exportedBlob = createObjectURL.mock.calls[0]?.[0] as Blob;
+    const exportedCsv = await readBlobText(exportedBlob);
+    expect(exportedCsv).toContain("Analysis name,Model,Expected return");
+    expect(exportedCsv).toContain("ADOBE,Earnings Yield + Growth,11.00%");
+    expect(exportedCsv).toContain("MSFT,Earnings Yield + Growth,13.00%");
   });
 
   it("keeps separate saved historical growth values for EPS and revenue assumptions", () => {

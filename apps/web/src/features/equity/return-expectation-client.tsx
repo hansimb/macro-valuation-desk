@@ -4,6 +4,11 @@ import React, { useEffect, useState } from "react";
 import { Box, Button, Grid, Heading, Input, SimpleGrid, Stack, Text } from "@chakra-ui/react";
 
 import { AnalysisMetricCard } from "../macro/components/analysis-metric-card";
+import {
+  buildReturnExpectationCsv,
+  datedReturnExpectationExportFilename,
+  type ReturnExpectationCsvRow,
+} from "./return-expectation-export";
 
 type ReturnModel = "gordon" | "earnings" | "fcf";
 type GrowthBasis = "eps" | "revenue";
@@ -726,6 +731,46 @@ function metricSummaryRows(state: CalculatorState) {
   return { yieldRows, growthRows };
 }
 
+function modelLabel(model: ReturnModel) {
+  if (model === "gordon") {
+    return "Gordon Growth";
+  }
+
+  if (model === "fcf") {
+    return "FCF Yield + Growth";
+  }
+
+  return "Earnings Yield + Growth";
+}
+
+function metricValue(rows: MetricSummaryRow[], label: string) {
+  return rows.find((row) => row.label === label)?.value ?? "N/A";
+}
+
+function savedAnalysisCsvRow(analysis: SavedAnalysis): ReturnExpectationCsvRow {
+  const results = calculatorResults(analysis.state);
+  const summary = metricSummaryRows(analysis.state);
+
+  return {
+    analysisName: analysis.name,
+    model: modelLabel(analysis.state.model),
+    expectedReturn: formatPct(results.expectedReturn),
+    primaryComponentLabel: results.primaryComponentLabel,
+    primaryComponent: formatPct(results.primaryComponent),
+    growthLabel: results.growthLabel,
+    growth: formatPct(results.growthPct),
+    impliedMultipleLabel: results.impliedMultipleLabel,
+    impliedMultiple: results.impliedMultiple,
+    dividendYield: metricValue(summary.yieldRows, "Dividend Yield"),
+    earningsYield: metricValue(summary.yieldRows, "Earnings Yield"),
+    fcfYield: metricValue(summary.yieldRows, "FCF Yield"),
+    epsGrowthHistory: metricValue(summary.growthRows, "EPS Growth History"),
+    revenueGrowthHistory: metricValue(summary.growthRows, "Revenue Growth History"),
+    dividendGrowthHistory: metricValue(summary.growthRows, "Dividend Growth History"),
+    fcfGrowthHistory: metricValue(summary.growthRows, "FCF Growth History"),
+  };
+}
+
 function SegmentedButton<T extends string>({
   activeValue,
   children,
@@ -1257,6 +1302,23 @@ export function EquityReturnExpectationClient() {
     persistSessionContext({ analysisName: "", selectedAnalysisName: "" });
   }
 
+  function exportSavedAnalyses() {
+    if (!savedAnalyses.length) {
+      return;
+    }
+
+    const csv = buildReturnExpectationCsv(savedAnalyses.map(savedAnalysisCsvRow));
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = datedReturnExpectationExportFilename();
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  }
+
   return (
     <Stack gap={{ base: "8", md: "10" }}>
       <Box bg="surface" borderColor="edge" borderWidth="1px" p={{ base: "6", md: "7" }} rounded="panel">
@@ -1287,7 +1349,7 @@ export function EquityReturnExpectationClient() {
               New analysis
             </Button>
           </Stack>
-          <SimpleGrid columns={{ base: 1, md: 4 }} gap="4">
+          <SimpleGrid columns={{ base: 1, md: 5 }} gap="4">
             <TextField label="Analysis name" onChange={updateAnalysisName} value={analysisName} />
             <Stack gap="2">
               <label htmlFor="saved-analyses">
@@ -1361,6 +1423,25 @@ export function EquityReturnExpectationClient() {
                 variant="outline"
               >
                 Delete analysis
+              </Button>
+            </Stack>
+            <Stack gap="2" justify="end">
+              <Text aria-hidden="true" color="muted" textStyle="body">
+                &nbsp;
+              </Text>
+              <Button
+                bg="canvas"
+                borderColor="edge"
+                borderWidth="1px"
+                color="text"
+                disabled={!savedAnalyses.length}
+                minH="2.5rem"
+                onClick={exportSavedAnalyses}
+                rounded="control"
+                size="sm"
+                variant="outline"
+              >
+                Export CSV
               </Button>
             </Stack>
           </SimpleGrid>
