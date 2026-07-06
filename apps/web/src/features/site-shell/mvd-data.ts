@@ -48,6 +48,13 @@ export const macroAnalyses: MacroAnalysisEntry[] = [
 
 export const equityAnalyses: EquityAnalysisEntry[] = [
   {
+    slug: "market-valuation",
+    title: "Market Valuation Dashboard",
+    summary: "Placeholder interface for weighted index and ETF valuation ratios across major regions.",
+    cue: "Global matrix for P/E, P/B, P/S, P/FCF, and dividend yield with backend handoff guardrails.",
+    eyebrow: "Market Valuation"
+  },
+  {
     slug: "return-expectation",
     title: "Stock Return Expectation",
     summary: "Frontend-only calculator for dividend, earnings-yield, and free-cash-flow return models.",

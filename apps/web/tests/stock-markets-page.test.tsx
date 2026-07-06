@@ -17,8 +17,9 @@ describe("Equity Markets page", () => {
     expect(screen.getByText("Equity Workspace")).toBeInTheDocument();
     expect(screen.getByText("Analysis")).toBeInTheDocument();
     expect(screen.queryByText("No analysis yet")).not.toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /Highest P\/S Stocks/i })).toBeInTheDocument();
-    expect(screen.getByText(/Separate U\.S\. and Europe leaderboards for the highest price-to-sales names in major large-cap indices/i)).toBeInTheDocument();
-    expect(screen.getByText(/Theory-first comparison of top multiple baskets, benchmark averages, and index-weight concentration/i)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /Market Valuation Dashboard/i })).toBeInTheDocument();
+    expect(screen.getByText(/Placeholder interface for weighted index and ETF valuation ratios across major regions/i)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /Stock Return Expectation/i })).toBeInTheDocument();
+    expect(screen.getByText(/Frontend-only calculator for dividend, earnings-yield, and free-cash-flow return models/i)).toBeInTheDocument();
   });
 });
