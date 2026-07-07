@@ -125,6 +125,7 @@ def test_schema_sql_reads_split_schema_files_in_order():
         "002_etl.sql",
         "010_macro.sql",
         "020_currency.sql",
+        "030_equity_market_valuation.sql",
     ]
 
     sql = _schema_sql()
@@ -132,6 +133,9 @@ def test_schema_sql_reads_split_schema_files_in_order():
     assert sql.index("create schema if not exists core") < sql.index("create schema if not exists etl")
     assert sql.index("create table if not exists mart.taylor_rule_inputs") < sql.index(
         "create table if not exists mart.currency_ppp_snapshots"
+    )
+    assert sql.index("create table if not exists mart.currency_data_availability") < sql.index(
+        "create table if not exists marts.equity_market_valuation_snapshot"
     )
 
 

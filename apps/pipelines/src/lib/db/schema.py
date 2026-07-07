@@ -9,6 +9,7 @@ SCHEMA_FILE_NAMES = [
     "002_etl.sql",
     "010_macro.sql",
     "020_currency.sql",
+    "030_equity_market_valuation.sql",
 ]
 
 SCHEMA_DIR = Path(__file__).resolve().parents[2] / "sql" / "schema"
