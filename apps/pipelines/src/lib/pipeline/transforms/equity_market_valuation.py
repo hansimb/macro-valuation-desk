@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from datetime import date
-
 from src.lib.pipeline.equity_market_universe import MarketDefinition
 from src.lib.source.equity_market_valuation import EquityMarketValuationSnapshot
 
@@ -18,8 +16,8 @@ def to_equity_market_valuation_row(
         "measured_name": definition.measured_name,
         "measured_type": definition.measured_type,
         "provider": snapshot.provider,
-        "source": f"{definition.provider}_fundamentals",
-        "as_of_date": date.today().isoformat(),
+        "source_url": snapshot.source_url,
+        "as_of": snapshot.as_of,
         "trailing_pe": snapshot.trailing_pe,
         "price_to_book": snapshot.price_to_book,
         "price_to_sales": snapshot.price_to_sales,

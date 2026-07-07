@@ -55,8 +55,8 @@ def replace_equity_market_valuation_snapshots(connection, rows: list[dict[str, o
                 measured_name,
                 measured_type,
                 provider,
-                source,
-                as_of_date,
+                source_url,
+                as_of,
                 trailing_pe,
                 price_to_book,
                 price_to_sales,
@@ -75,8 +75,8 @@ def replace_equity_market_valuation_snapshots(connection, rows: list[dict[str, o
                 %(measured_name)s,
                 %(measured_type)s,
                 %(provider)s,
-                %(source)s,
-                %(as_of_date)s,
+                %(source_url)s,
+                %(as_of)s,
                 %(trailing_pe)s,
                 %(price_to_book)s,
                 %(price_to_sales)s,
@@ -87,7 +87,7 @@ def replace_equity_market_valuation_snapshots(connection, rows: list[dict[str, o
                 %(price_to_free_cash_flow_method)s,
                 %(missing_fields)s::jsonb
             )
-            on conflict (market_id, as_of_date) do update
+            on conflict (market_id, as_of) do update
             set
                 region = excluded.region,
                 market_name = excluded.market_name,
@@ -95,7 +95,7 @@ def replace_equity_market_valuation_snapshots(connection, rows: list[dict[str, o
                 measured_name = excluded.measured_name,
                 measured_type = excluded.measured_type,
                 provider = excluded.provider,
-                source = excluded.source,
+                source_url = excluded.source_url,
                 trailing_pe = excluded.trailing_pe,
                 price_to_book = excluded.price_to_book,
                 price_to_sales = excluded.price_to_sales,

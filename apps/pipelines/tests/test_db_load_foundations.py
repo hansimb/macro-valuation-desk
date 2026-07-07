@@ -137,6 +137,8 @@ def test_schema_sql_reads_split_schema_files_in_order():
     assert sql.index("create table if not exists mart.currency_data_availability") < sql.index(
         "create table if not exists marts.equity_market_valuation_snapshot"
     )
+    assert "source_url text not null" in sql
+    assert "as_of date not null" in sql
 
 
 def test_bootstrap_taylor_rule_schema_creates_required_schemas_and_tables():

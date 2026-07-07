@@ -8,7 +8,7 @@ from src.tasks import run_equity_market_valuation_etl as etl_module
 
 
 def _snapshot(symbol: str) -> EquityMarketValuationSnapshot:
-    return EquityMarketValuationSnapshot(
+    snapshot = EquityMarketValuationSnapshot(
         provider="eodhd",
         symbol=symbol.split(".")[0],
         exchange="US",
@@ -24,6 +24,13 @@ def _snapshot(symbol: str) -> EquityMarketValuationSnapshot:
         price_to_free_cash_flow_method="provider_exact_price_to_free_cash_flow_unavailable",
         missing_fields=[],
     )
+    object.__setattr__(
+        snapshot,
+        "source_url",
+        f"https://eodhd.com/api/fundamentals/{symbol}?fmt=json",
+    )
+    object.__setattr__(snapshot, "as_of", "2026-07-06")
+    return snapshot
 
 
 def _payload(symbol: str) -> dict:

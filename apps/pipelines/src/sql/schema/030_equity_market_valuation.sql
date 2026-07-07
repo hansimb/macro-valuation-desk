@@ -18,8 +18,8 @@ create table if not exists marts.equity_market_valuation_snapshot (
     measured_name text not null,
     measured_type text not null,
     provider text not null,
-    source text not null,
-    as_of_date date not null,
+    source_url text not null,
+    as_of date not null,
     trailing_pe numeric,
     price_to_book numeric,
     price_to_sales numeric,
@@ -31,5 +31,5 @@ create table if not exists marts.equity_market_valuation_snapshot (
     missing_fields jsonb not null default '[]'::jsonb,
     created_at timestamptz not null default now(),
     updated_at timestamptz not null default now(),
-    primary key (market_id, as_of_date)
+    primary key (market_id, as_of)
 );
