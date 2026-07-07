@@ -58,10 +58,17 @@ def run_equity_market_valuation_etl(
             )
         rows.append(to_equity_market_valuation_row(result.snapshot, definition))
 
-    if payload_rows:
-        upsert_equity_market_valuation_payloads(connection, payload_rows)
-    if rows:
-        replace_equity_market_valuation_snapshots(connection, rows)
+    try:
+        if payload_rows:
+            upsert_equity_market_valuation_payloads(connection, payload_rows)
+        if rows:
+            replace_equity_market_valuation_snapshots(connection, rows)
+        if connection is not None and (payload_rows or rows):
+            connection.commit()
+    except Exception:
+        if connection is not None:
+            connection.rollback()
+        raise
 
     return {
         "status": "failed" if errors else "success",

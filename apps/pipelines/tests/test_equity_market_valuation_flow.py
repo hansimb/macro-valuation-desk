@@ -4,6 +4,7 @@ from src.lib.source.equity_market_valuation import (
     EquityMarketValuationResult,
     EquityMarketValuationSnapshot,
 )
+from src.tasks import run_equity_market_valuation_etl as etl_module
 
 
 def _snapshot(symbol: str) -> EquityMarketValuationSnapshot:
@@ -109,6 +110,9 @@ class _FakeCursor:
     def __init__(self):
         self.commands = []
 
+    def execute(self, query, params=None):
+        self.commands.append((str(query), params))
+
     def executemany(self, query, rows):
         self.commands.append((str(query), list(rows)))
 
@@ -123,12 +127,16 @@ class _FakeConnection:
     def __init__(self):
         self.cursor_instance = _FakeCursor()
         self.commit_count = 0
+        self.rollback_count = 0
 
     def cursor(self):
         return self.cursor_instance
 
     def commit(self):
         self.commit_count += 1
+
+    def rollback(self):
+        self.rollback_count += 1
 
 
 def test_upsert_equity_market_valuation_payloads_inserts_raw_payload_rows():
@@ -149,4 +157,47 @@ def test_upsert_equity_market_valuation_payloads_inserts_raw_payload_rows():
     commands = connection.cursor_instance.commands
     assert any("insert into raw.equity_market_valuation_payloads" in query.lower() for query, _ in commands)
     assert commands[0][1][0]["payload_json"] == '{"General": {"Code": "VTI"}}'
+    assert connection.commit_count == 0
+
+
+def test_run_equity_market_valuation_flow_bootstraps_schema_before_etl(monkeypatch):
+    connection = object()
+    calls = []
+
+    monkeypatch.setattr("src.flows.equity_market_valuation_flow.get_connection", lambda: connection)
+    monkeypatch.setattr(
+        "src.flows.equity_market_valuation_flow.bootstrap_taylor_rule_schema",
+        lambda received_connection: calls.append(("bootstrap", received_connection)),
+    )
+    monkeypatch.setattr(
+        "src.tasks.run_equity_market_valuation_etl.run_equity_market_valuation_etl",
+        lambda received_connection, **_kwargs: calls.append(("etl", received_connection)) or {"status": "success"},
+    )
+
+    result = run_equity_market_valuation_flow()
+
+    assert result == {"status": "success"}
+    assert calls == [("bootstrap", connection), ("etl", connection)]
+
+
+def test_run_equity_market_valuation_etl_commits_raw_and_mart_writes_once(monkeypatch):
+    adapter = _FakeAdapter()
+    connection = _FakeConnection()
+    definitions = [
+        definition
+        for definition in run_equity_market_valuation_flow.__globals__["EQUITY_MARKET_UNIVERSE"]
+        if definition.market_id == "us_total_market"
+    ]
+
+    result = etl_module.run_equity_market_valuation_etl.fn(
+        connection,
+        definitions=definitions,
+        adapter_factories={"eodhd": lambda: adapter},
+    )
+
+    commands = connection.cursor_instance.commands
+    assert result["status"] == "success"
+    assert any("insert into raw.equity_market_valuation_payloads" in query.lower() for query, _ in commands)
+    assert any("insert into marts.equity_market_valuation_snapshot" in query.lower() for query, _ in commands)
     assert connection.commit_count == 1
+    assert connection.rollback_count == 0

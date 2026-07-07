@@ -30,7 +30,6 @@ def upsert_equity_market_valuation_payloads(connection, rows: list[dict[str, obj
             """,
             db_rows,
         )
-    connection.commit()
 
 
 def replace_equity_market_valuation_snapshots(connection, rows: list[dict[str, object]]) -> None:
@@ -109,4 +108,3 @@ def replace_equity_market_valuation_snapshots(connection, rows: list[dict[str, o
             """,
             db_rows,
         )
-    connection.commit()
