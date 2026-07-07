@@ -1,0 +1,53 @@
+from __future__ import annotations
+
+from prefect import task
+
+from src.lib.db.equity_market_valuation import replace_equity_market_valuation_snapshots
+from src.lib.pipeline.equity_market_universe import EQUITY_MARKET_UNIVERSE, MarketDefinition
+from src.lib.pipeline.transforms.equity_market_valuation import to_equity_market_valuation_row
+from src.lib.source.adapters.eodhd import EodhdAdapter
+
+
+def _adapter_for_provider(provider: str, adapter_factories=None):
+    if adapter_factories and provider in adapter_factories:
+        return adapter_factories[provider]()
+
+    if provider == "eodhd":
+        return EodhdAdapter()
+
+    raise ValueError(f"Unsupported equity market valuation provider: {provider}")
+
+
+@task
+def run_equity_market_valuation_etl(
+    connection=None,
+    *,
+    definitions: list[MarketDefinition] | None = None,
+    adapter_factories=None,
+) -> dict[str, object]:
+    universe = definitions or EQUITY_MARKET_UNIVERSE
+    adapters = {}
+    rows: list[dict[str, object]] = []
+    errors: list[str] = []
+
+    for definition in universe:
+        adapter = adapters.setdefault(
+            definition.provider,
+            _adapter_for_provider(definition.provider, adapter_factories),
+        )
+        result = adapter.fetch_fundamentals_snapshot(definition.measured_symbol)
+        if not result.ok or result.snapshot is None:
+            message = result.error.message if result.error is not None else "provider fetch failed"
+            errors.append(f"{definition.market_id}: {message}")
+            continue
+
+        rows.append(to_equity_market_valuation_row(result.snapshot, definition))
+
+    if rows:
+        replace_equity_market_valuation_snapshots(connection, rows)
+
+    return {
+        "status": "failed" if errors else "success",
+        "mart_rows": len(rows),
+        "errors": errors,
+    }
