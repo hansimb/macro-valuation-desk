@@ -126,6 +126,7 @@ def test_eodhd_adapter_fetches_and_parses_snapshot(monkeypatch):
 
     assert result.ok is True
     assert result.error is None
+    assert result.payload_json == _representative_payload()
     assert result.snapshot is not None
     assert result.snapshot.symbol == "SPY"
     assert result.snapshot.trailing_pe == 22.38

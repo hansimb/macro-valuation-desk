@@ -30,11 +30,17 @@ class EquityMarketValuationSnapshot:
 class EquityMarketValuationResult:
     ok: bool
     snapshot: EquityMarketValuationSnapshot | None = None
+    payload_json: dict[str, Any] | None = None
     error: SourceError | None = None
 
     @classmethod
-    def success(cls, snapshot: EquityMarketValuationSnapshot) -> "EquityMarketValuationResult":
-        return cls(ok=True, snapshot=snapshot, error=None)
+    def success(
+        cls,
+        snapshot: EquityMarketValuationSnapshot,
+        *,
+        payload_json: dict[str, Any] | None = None,
+    ) -> "EquityMarketValuationResult":
+        return cls(ok=True, snapshot=snapshot, payload_json=payload_json, error=None)
 
     @classmethod
     def failure(
@@ -49,6 +55,7 @@ class EquityMarketValuationResult:
         return cls(
             ok=False,
             snapshot=None,
+            payload_json=None,
             error=SourceError(
                 provider=provider,
                 key=key,

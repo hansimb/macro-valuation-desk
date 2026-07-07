@@ -3,6 +3,36 @@ from __future__ import annotations
 import json
 
 
+def upsert_equity_market_valuation_payloads(connection, rows: list[dict[str, object]]) -> None:
+    if connection is None:
+        return
+
+    db_rows = [{**row, "payload_json": json.dumps(row["payload_json"])} for row in rows]
+
+    with connection.cursor() as cursor:
+        cursor.executemany(
+            """
+            insert into raw.equity_market_valuation_payloads (
+                provider,
+                external_symbol,
+                fetched_at,
+                payload_json
+            )
+            values (
+                %(provider)s,
+                %(external_symbol)s,
+                %(fetched_at)s,
+                %(payload_json)s::jsonb
+            )
+            on conflict (provider, external_symbol, fetched_at) do update
+            set
+                payload_json = excluded.payload_json
+            """,
+            db_rows,
+        )
+    connection.commit()
+
+
 def replace_equity_market_valuation_snapshots(connection, rows: list[dict[str, object]]) -> None:
     if connection is None:
         return

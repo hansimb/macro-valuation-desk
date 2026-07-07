@@ -85,4 +85,7 @@ class EodhdAdapter:
                 message=str(exc),
             )
 
-        return EquityMarketValuationResult.success(parse_eodhd_fundamentals_snapshot(payload))
+        return EquityMarketValuationResult.success(
+            parse_eodhd_fundamentals_snapshot(payload),
+            payload_json=payload,
+        )

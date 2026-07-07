@@ -2,7 +2,11 @@ from __future__ import annotations
 
 from prefect import task
 
-from src.lib.db.equity_market_valuation import replace_equity_market_valuation_snapshots
+from src.lib.db.equity_market_valuation import (
+    replace_equity_market_valuation_snapshots,
+    upsert_equity_market_valuation_payloads,
+)
+from src.lib.pipeline.checkpoints import utc_now_iso
 from src.lib.pipeline.equity_market_universe import EQUITY_MARKET_UNIVERSE, MarketDefinition
 from src.lib.pipeline.transforms.equity_market_valuation import to_equity_market_valuation_row
 from src.lib.source.adapters.eodhd import EodhdAdapter
@@ -27,6 +31,8 @@ def run_equity_market_valuation_etl(
 ) -> dict[str, object]:
     universe = definitions or EQUITY_MARKET_UNIVERSE
     adapters = {}
+    fetched_at = utc_now_iso()
+    payload_rows: list[dict[str, object]] = []
     rows: list[dict[str, object]] = []
     errors: list[str] = []
 
@@ -41,13 +47,26 @@ def run_equity_market_valuation_etl(
             errors.append(f"{definition.market_id}: {message}")
             continue
 
+        if result.payload_json is not None:
+            payload_rows.append(
+                {
+                    "provider": result.snapshot.provider,
+                    "external_symbol": definition.measured_symbol,
+                    "fetched_at": fetched_at,
+                    "payload_json": result.payload_json,
+                }
+            )
         rows.append(to_equity_market_valuation_row(result.snapshot, definition))
 
+    if payload_rows:
+        upsert_equity_market_valuation_payloads(connection, payload_rows)
     if rows:
         replace_equity_market_valuation_snapshots(connection, rows)
 
     return {
         "status": "failed" if errors else "success",
         "mart_rows": len(rows),
+        "raw_payload_rows": len(payload_rows),
+        "fetched_at": fetched_at,
         "errors": errors,
     }
