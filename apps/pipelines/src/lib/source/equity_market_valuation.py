@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+"""EODHD ETF fundamentals are point-in-time snapshots, not time series."""
+
 from dataclasses import dataclass
 from typing import Any
 
@@ -69,7 +71,10 @@ _VALUATION_FIELDS = {
 def _optional_float(value: Any) -> float | None:
     if value is None or value == "":
         return None
-    return float(value)
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
 
 
 def parse_eodhd_fundamentals_snapshot(payload: dict[str, Any]) -> EquityMarketValuationSnapshot:
@@ -79,12 +84,13 @@ def parse_eodhd_fundamentals_snapshot(payload: dict[str, Any]) -> EquityMarketVa
     parsed_values: dict[str, float | None] = {}
     missing_fields: list[str] = []
     for provider_field, snapshot_field in _VALUATION_FIELDS.items():
-        if provider_field not in valuations or valuations[provider_field] in (None, ""):
+        parsed_value = _optional_float(valuations.get(provider_field))
+        if parsed_value is None:
             parsed_values[snapshot_field] = None
             missing_fields.append(f"ETF_Data.Valuations_Growth.{provider_field}")
             continue
 
-        parsed_values[snapshot_field] = _optional_float(valuations[provider_field])
+        parsed_values[snapshot_field] = parsed_value
 
     return EquityMarketValuationSnapshot(
         provider="eodhd",

@@ -77,6 +77,23 @@ def test_parse_eodhd_fundamentals_snapshot_records_missing_valuation_fields():
     ]
 
 
+def test_parse_eodhd_fundamentals_snapshot_treats_malformed_numbers_as_missing():
+    payload = _representative_payload()
+    valuations = payload["ETF_Data"]["Valuations_Growth"]
+    valuations["Price/Prospective Earnings"] = "N/A"
+    valuations["Price/Sales"] = "--"
+
+    snapshot = parse_eodhd_fundamentals_snapshot(payload)
+
+    assert snapshot.trailing_pe is None
+    assert snapshot.price_to_sales is None
+    assert snapshot.price_to_book == 4.76
+    assert snapshot.missing_fields == [
+        "ETF_Data.Valuations_Growth.Price/Prospective Earnings",
+        "ETF_Data.Valuations_Growth.Price/Sales",
+    ]
+
+
 def test_eodhd_adapter_returns_config_failure_when_api_token_is_missing(monkeypatch):
     monkeypatch.delenv("EODHD_API_TOKEN", raising=False)
     monkeypatch.setattr("src.lib.source.adapters.eodhd.load_project_env", lambda: None)
