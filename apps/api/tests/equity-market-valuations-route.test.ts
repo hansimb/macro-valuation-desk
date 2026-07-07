@@ -74,8 +74,13 @@ describe("equity market valuations route", () => {
     const response = await app.inject({ method: "GET", url: "/equity-markets/valuations" });
 
     expect(response.statusCode).toBe(200);
-    expect(queryMock).toHaveBeenCalledWith(expect.stringContaining("from marts.equity_market_valuation_snapshot"));
-    expect(queryMock).toHaveBeenCalledWith(expect.stringContaining("order by region asc, market_name asc"));
+    const sql = queryMock.mock.calls[0]?.[0] as string;
+    expect(sql).toContain("source_url");
+    expect(sql).toContain("as_of::text as as_of");
+    expect(sql).not.toContain("as_of_date");
+    expect(sql).not.toContain("source as");
+    expect(sql).toContain("from marts.equity_market_valuation_snapshot");
+    expect(sql).toContain("order by region asc, market_name asc");
     expect(response.json()).toEqual({
       asOf: "2026-07-06",
       markets: [

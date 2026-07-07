@@ -54,7 +54,7 @@ export async function registerEquityMarketValuationsRoute(app: FastifyInstance) 
         measured_type,
         provider,
         source_url,
-        as_of::text,
+        as_of::text as as_of,
         trailing_pe::text,
         price_to_book::text,
         price_to_sales::text,
