@@ -42,6 +42,10 @@ function uniqueReferences(rows: EquityMarketValuationSnapshotRow[]) {
   });
 }
 
+function latestAsOf(rows: EquityMarketValuationSnapshotRow[]) {
+  return rows.reduce<string | null>((latest, row) => (latest === null || row.as_of > latest ? row.as_of : latest), null);
+}
+
 export async function registerEquityMarketValuationsRoute(app: FastifyInstance) {
   app.get("/equity-markets/valuations", async (): Promise<EquityMarketValuationsResponse> => {
     const result = await getDbPool().query<EquityMarketValuationSnapshotRow>(`
@@ -98,7 +102,7 @@ export async function registerEquityMarketValuationsRoute(app: FastifyInstance) 
     }));
 
     return {
-      asOf: markets[0]?.asOf ?? null,
+      asOf: latestAsOf(result.rows),
       markets,
       references: uniqueReferences(result.rows),
     };
