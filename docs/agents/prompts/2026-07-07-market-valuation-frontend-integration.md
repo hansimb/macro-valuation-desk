@@ -12,6 +12,8 @@ Use the shared contract:
 packages/shared/src/contracts/equity-market-valuation.ts
 ```
 
+Treat that shared contract as the source of truth. Do not modify it unless the backend/API contract is intentionally changed in the same task.
+
 ## Goal
 
 Integrate the market valuation API into the existing Equity Markets area. Build a usable overview that helps the user scan broad market valuation levels across countries and regions.
@@ -33,18 +35,22 @@ Follow existing Next.js App Router and Chakra UI v3 patterns.
 
 Render market valuation snapshots from the API:
 
+- response-level latest as-of date from `asOf`;
 - market name;
 - region;
 - measured object symbol;
 - measured object name;
 - measured object type;
-- as-of date;
-- P/E;
-- P/B;
-- P/S;
-- P/CF proxy;
-- exact P/FCF when available;
-- dividend yield.
+- per-market as-of date from `market.asOf`;
+- source URL from `market.sourceUrl`;
+- P/E from `market.metrics.trailingPe`;
+- P/B from `market.metrics.priceToBook`;
+- P/S from `market.metrics.priceToSales`;
+- P/CF proxy from `market.metrics.priceToCashFlow`;
+- exact P/FCF when available from `market.metrics.priceToFreeCashFlow`;
+- dividend yield from `market.metrics.dividendYieldPct`.
+
+The top-level `asOf` is the latest available valuation date across all returned markets. Each market row still has its own `market.asOf`, and those dates may differ by provider symbol.
 
 When `markets` is empty, render an explicit missing-data state. Do not add fake fallback valuation data.
 
@@ -58,6 +64,8 @@ Be precise in labels:
 
 Make the measured object visible. The user must be able to see whether the data describes an ETF proxy or an index-native series.
 
+Use `references` as the deduplicated source list for methodology/source links. Row-level `sourceUrl` can be shown inline when that is more useful for the market table or detail view.
+
 ## Testing Requirements
 
 Add or update web tests that verify:
@@ -67,12 +75,16 @@ Add or update web tests that verify:
 - P/CF is labeled as a proxy;
 - exact P/FCF is shown as unavailable when null;
 - measured ETF/index proxy metadata is visible.
+- response-level `asOf` and per-market `market.asOf` can both render without being treated as the same thing.
+- source links can render from `references` or row-level `sourceUrl`.
 
 Run:
 
 ```powershell
 npm.cmd run test --workspace @mvd/web -- stock-markets-page.test.tsx
 ```
+
+If the Equity Markets implementation lives under a more specific test file after your changes, run that focused file instead or in addition.
 
 Then run:
 
@@ -85,7 +97,7 @@ npm.cmd test
 Use atomic commits. Recommended commit:
 
 ```powershell
-git -c safe.directory='C:/Users/IMBERI/Desktop/dev/projects2/macro-valuation-desk' add apps/web packages/shared docs/agents
+git -c safe.directory='C:/Users/IMBERI/Desktop/dev/projects2/macro-valuation-desk' add apps/web docs/agents
 git -c safe.directory='C:/Users/IMBERI/Desktop/dev/projects2/macro-valuation-desk' commit -m "feat: integrate market valuation overview"
 ```
 
