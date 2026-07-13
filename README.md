@@ -33,6 +33,16 @@ npm run dev:stack    # start the compose stack
 npm test             # run Vitest suites
 ```
 
+Live market valuation snapshots require an EODHD fundamentals token. Keep the real value outside git, either in the repository-local `.env` used by the pipeline loader or in your shell before running the valuation flow:
+
+```powershell
+$env:EODHD_API_TOKEN="<real token>"
+cd apps/pipelines
+python -m src.flows.equity_market_valuation_flow
+```
+
+Without `EODHD_API_TOKEN`, the pipeline should fail honestly with zero market valuation rows written and a diagnostic summary in the flow result.
+
 ## Runtime Shape
 
 The local stack is designed around clear service boundaries:
