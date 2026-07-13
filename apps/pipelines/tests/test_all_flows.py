@@ -91,3 +91,24 @@ def test_run_all_flows_collects_multiple_child_flow_errors(monkeypatch):
         "taylor_rule: eu_policy_rate: blocked",
         "equity_market_valuation: norway_large_cap: provider unavailable",
     ]
+
+
+def test_run_all_flows_prefers_child_failure_summary_when_available(monkeypatch):
+    monkeypatch.setattr("src.flows.all_flows.run_macro_seed_flow", lambda: {"rows_loaded": 3})
+    monkeypatch.setattr("src.flows.all_flows.run_taylor_rule_flow", lambda: {"status": "success"})
+    monkeypatch.setattr("src.flows.all_flows.run_currency_analysis_flow", lambda: {"status": "success"})
+    monkeypatch.setattr(
+        "src.flows.all_flows.run_equity_market_valuation_flow",
+        lambda: {
+            "status": "failed",
+            "failure_summary": "Equity market valuation ETL failed for all 14 markets; first error: missing token.",
+            "errors": ["us_total_market: missing token", "us_large_cap: missing token"],
+        },
+    )
+
+    result = run_all_flows()
+
+    assert result["status"] == "failed"
+    assert result["errors"] == [
+        "equity_market_valuation: Equity market valuation ETL failed for all 14 markets; first error: missing token."
+    ]

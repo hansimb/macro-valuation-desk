@@ -65,6 +65,17 @@ class _FakeAdapter:
         return EquityMarketValuationResult.success(_snapshot(symbol), payload_json=_payload(symbol))
 
 
+class _ConfigFailureAdapter:
+    def fetch_fundamentals_snapshot(self, symbol: str):
+        return EquityMarketValuationResult.failure(
+            provider="eodhd",
+            key=symbol,
+            external_series_id=symbol,
+            error_type="config_error",
+            message="EODHD_API_TOKEN is required for EODHD fundamentals requests.",
+        )
+
+
 def test_run_equity_market_valuation_flow_fetches_transforms_loads_and_reports_failures(monkeypatch):
     adapter = _FakeAdapter()
     loaded_payload_rows = []
@@ -111,6 +122,33 @@ def test_run_equity_market_valuation_flow_fetches_transforms_loads_and_reports_f
     assert len(loaded_rows) == 1
     assert loaded_rows[0]["market_id"] == "us_total_market"
     assert loaded_rows[0]["measured_symbol"] == "VTI.US"
+
+
+def test_run_equity_market_valuation_etl_reports_clear_summary_when_all_markets_fail():
+    connection = _FakeConnection()
+    definitions = [
+        definition
+        for definition in run_equity_market_valuation_flow.__globals__["EQUITY_MARKET_UNIVERSE"]
+        if definition.market_id in {"us_total_market", "europe_developed"}
+    ]
+
+    result = etl_module.run_equity_market_valuation_etl.fn(
+        connection,
+        definitions=definitions,
+        adapter_factories={"eodhd": _ConfigFailureAdapter},
+    )
+
+    assert result["status"] == "failed"
+    assert result["mart_rows"] == 0
+    assert result["raw_payload_rows"] == 0
+    assert result["failure_summary"] == (
+        "Equity market valuation ETL failed for all 2 markets; wrote 0 mart rows and "
+        "0 raw payload rows. First error: us_total_market: EODHD_API_TOKEN is required "
+        "for EODHD fundamentals requests."
+    )
+    assert connection.cursor_instance.commands == []
+    assert connection.commit_count == 0
+    assert connection.rollback_count == 0
 
 
 class _FakeCursor:

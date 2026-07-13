@@ -19,6 +19,10 @@ def _collect_child_flow_errors(name: str, result: dict[str, object]) -> list[str
     if result.get("status") != "failed":
         return []
 
+    failure_summary = result.get("failure_summary")
+    if isinstance(failure_summary, str) and failure_summary:
+        return [f"{name}: {failure_summary}"]
+
     errors = result.get("errors")
     if isinstance(errors, list) and errors:
         return [f"{name}: {error}" for error in errors]

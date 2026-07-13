@@ -22,6 +22,27 @@ def _adapter_for_provider(provider: str, adapter_factories=None):
     raise ValueError(f"Unsupported equity market valuation provider: {provider}")
 
 
+def _failure_summary(
+    *,
+    market_count: int,
+    error_count: int,
+    mart_rows: int,
+    raw_payload_rows: int,
+    errors: list[str],
+) -> str | None:
+    if not errors:
+        return None
+
+    if error_count == market_count:
+        scope = f"all {market_count} markets"
+    else:
+        scope = f"{error_count} of {market_count} markets"
+    return (
+        f"Equity market valuation ETL failed for {scope}; wrote {mart_rows} mart rows and "
+        f"{raw_payload_rows} raw payload rows. First error: {errors[0]}"
+    )
+
+
 @task
 def run_equity_market_valuation_etl(
     connection=None,
@@ -70,10 +91,22 @@ def run_equity_market_valuation_etl(
             connection.rollback()
         raise
 
-    return {
+    result = {
         "status": "failed" if errors else "success",
         "mart_rows": len(rows),
         "raw_payload_rows": len(payload_rows),
         "fetched_at": fetched_at,
         "errors": errors,
     }
+
+    summary = _failure_summary(
+        market_count=len(universe),
+        error_count=len(errors),
+        mart_rows=len(rows),
+        raw_payload_rows=len(payload_rows),
+        errors=errors,
+    )
+    if summary is not None:
+        result["failure_summary"] = summary
+
+    return result
