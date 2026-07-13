@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import sys
 from collections.abc import Callable
 
@@ -68,5 +69,11 @@ def all_flows() -> dict[str, object]:
     return run_all_flows()
 
 
+def main(run_flow: Callable[[], dict[str, object]] = all_flows) -> int:
+    result = run_flow()
+    print(json.dumps(result, indent=2, default=str))
+    return 1 if result.get("status") == "failed" else 0
+
+
 if __name__ == "__main__":
-    all_flows()
+    raise SystemExit(main())

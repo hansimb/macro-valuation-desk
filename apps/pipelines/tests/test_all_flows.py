@@ -1,3 +1,6 @@
+import json
+
+from src.flows import all_flows as all_flows_module
 from src.flows.all_flows import run_all_flows
 
 
@@ -112,3 +115,16 @@ def test_run_all_flows_prefers_child_failure_summary_when_available(monkeypatch)
     assert result["errors"] == [
         "equity_market_valuation: Equity market valuation ETL failed for all 14 markets; first error: missing token."
     ]
+
+
+def test_all_flows_cli_prints_result_and_exits_nonzero_when_flow_status_failed(capsys):
+    result = {
+        "status": "failed",
+        "errors": ["equity_market_valuation: missing token"],
+    }
+
+    exit_code = all_flows_module.main(lambda: result)
+
+    captured = capsys.readouterr()
+    assert json.loads(captured.out) == result
+    assert exit_code == 1
