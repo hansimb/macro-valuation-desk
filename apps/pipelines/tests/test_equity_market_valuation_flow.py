@@ -53,7 +53,7 @@ class _FakeAdapter:
 
     def fetch_fundamentals_snapshot(self, symbol: str):
         self.fetched_symbols.append(symbol)
-        if symbol == "VGK.US":
+        if symbol == "IEUR.US":
             return EquityMarketValuationResult.failure(
                 provider="eodhd",
                 key=symbol,
@@ -92,7 +92,7 @@ def test_run_equity_market_valuation_flow_fetches_transforms_loads_and_reports_f
         definitions,
     )
     monkeypatch.setattr(
-        "src.flows.equity_market_valuation_flow.YahooFinanceAdapter",
+        "src.flows.equity_market_valuation_flow.IssuerPagesAdapter",
         lambda: adapter,
     )
     monkeypatch.setattr(
@@ -106,7 +106,7 @@ def test_run_equity_market_valuation_flow_fetches_transforms_loads_and_reports_f
 
     result = run_equity_market_valuation_flow()
 
-    assert adapter.fetched_symbols == ["VTI.US", "VGK.US"]
+    assert adapter.fetched_symbols == ["ITOT.US", "IEUR.US"]
     assert result["status"] == "failed"
     assert result["mart_rows"] == 1
     assert result["raw_payload_rows"] == 1
@@ -114,14 +114,14 @@ def test_run_equity_market_valuation_flow_fetches_transforms_loads_and_reports_f
     assert loaded_payload_rows == [
         {
             "provider": "eodhd",
-            "external_symbol": "VTI.US",
+            "external_symbol": "ITOT.US",
             "fetched_at": result["fetched_at"],
-            "payload_json": _payload("VTI.US"),
+            "payload_json": _payload("ITOT.US"),
         }
     ]
     assert len(loaded_rows) == 1
     assert loaded_rows[0]["market_id"] == "us_total_market"
-    assert loaded_rows[0]["measured_symbol"] == "VTI.US"
+    assert loaded_rows[0]["measured_symbol"] == "ITOT.US"
 
 
 def test_run_equity_market_valuation_etl_reports_clear_summary_when_all_markets_fail():
@@ -245,7 +245,7 @@ def test_run_equity_market_valuation_etl_commits_raw_and_mart_writes_once(monkey
     result = etl_module.run_equity_market_valuation_etl.fn(
         connection,
         definitions=definitions,
-        adapter_factories={"yahoo_finance": lambda: adapter},
+        adapter_factories={"issuer_pages": lambda: adapter},
     )
 
     commands = connection.cursor_instance.commands
@@ -277,4 +277,19 @@ def test_run_equity_market_valuation_etl_supports_yahoo_finance_provider(monkeyp
     )
 
     assert result["status"] == "success"
-    assert adapter.fetched_symbols == ["VTI.US"]
+    assert adapter.fetched_symbols == ["ITOT.US"]
+
+
+def test_run_equity_market_valuation_etl_supports_issuer_pages_provider(monkeypatch):
+    adapter = _FakeAdapter()
+    connection = _FakeConnection()
+    definition = run_equity_market_valuation_flow.__globals__["EQUITY_MARKET_UNIVERSE"][0]
+
+    result = etl_module.run_equity_market_valuation_etl.fn(
+        connection,
+        definitions=[definition],
+        adapter_factories={"issuer_pages": lambda: adapter},
+    )
+
+    assert result["status"] == "success"
+    assert adapter.fetched_symbols == ["ITOT.US"]

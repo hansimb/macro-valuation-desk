@@ -10,6 +10,7 @@ from src.lib.pipeline.checkpoints import utc_now_iso
 from src.lib.pipeline.equity_market_universe import EQUITY_MARKET_UNIVERSE, MarketDefinition
 from src.lib.pipeline.transforms.equity_market_valuation import to_equity_market_valuation_row
 from src.lib.source.adapters.eodhd import EodhdAdapter
+from src.lib.source.adapters.issuer_pages import IssuerPagesAdapter
 from src.lib.source.adapters.yahoo_finance import YahooFinanceAdapter
 
 
@@ -19,6 +20,9 @@ def _adapter_for_provider(provider: str, adapter_factories=None):
 
     if provider == "eodhd":
         return EodhdAdapter()
+
+    if provider == "issuer_pages":
+        return IssuerPagesAdapter()
 
     if provider == "yahoo_finance":
         return YahooFinanceAdapter()
