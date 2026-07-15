@@ -33,14 +33,14 @@ npm run dev:stack    # start the compose stack
 npm test             # run Vitest suites
 ```
 
-Market valuation snapshots use Yahoo Finance quote summary data by default and do not require an API key:
+Market valuation snapshots use public ETF issuer pages by default and do not require an API key:
 
 ```powershell
 cd apps/pipelines
 python -m src.flows.equity_market_valuation_flow
 ```
 
-The paid EODHD adapter remains available in code, but it is not the default local-development source.
+The paid EODHD adapter and experimental Yahoo Finance adapter remain available in code, but neither is the default local-development source.
 
 ## Runtime Shape
 
