@@ -92,7 +92,7 @@ def test_run_equity_market_valuation_flow_fetches_transforms_loads_and_reports_f
         definitions,
     )
     monkeypatch.setattr(
-        "src.flows.equity_market_valuation_flow.EodhdAdapter",
+        "src.flows.equity_market_valuation_flow.YahooFinanceAdapter",
         lambda: adapter,
     )
     monkeypatch.setattr(
@@ -127,7 +127,15 @@ def test_run_equity_market_valuation_flow_fetches_transforms_loads_and_reports_f
 def test_run_equity_market_valuation_etl_reports_clear_summary_when_all_markets_fail():
     connection = _FakeConnection()
     definitions = [
-        definition
+        type(definition)(
+            market_id=definition.market_id,
+            region=definition.region,
+            market_name=definition.market_name,
+            measured_symbol=definition.measured_symbol,
+            measured_name=definition.measured_name,
+            measured_type=definition.measured_type,
+            provider="eodhd",
+        )
         for definition in run_equity_market_valuation_flow.__globals__["EQUITY_MARKET_UNIVERSE"]
         if definition.market_id in {"us_total_market", "europe_developed"}
     ]
@@ -237,7 +245,7 @@ def test_run_equity_market_valuation_etl_commits_raw_and_mart_writes_once(monkey
     result = etl_module.run_equity_market_valuation_etl.fn(
         connection,
         definitions=definitions,
-        adapter_factories={"eodhd": lambda: adapter},
+        adapter_factories={"yahoo_finance": lambda: adapter},
     )
 
     commands = connection.cursor_instance.commands
@@ -246,3 +254,27 @@ def test_run_equity_market_valuation_etl_commits_raw_and_mart_writes_once(monkey
     assert any("insert into marts.equity_market_valuation_snapshot" in query.lower() for query, _ in commands)
     assert connection.commit_count == 1
     assert connection.rollback_count == 0
+
+
+def test_run_equity_market_valuation_etl_supports_yahoo_finance_provider(monkeypatch):
+    adapter = _FakeAdapter()
+    connection = _FakeConnection()
+    definition = run_equity_market_valuation_flow.__globals__["EQUITY_MARKET_UNIVERSE"][0]
+    yahoo_definition = type(definition)(
+        market_id=definition.market_id,
+        region=definition.region,
+        market_name=definition.market_name,
+        measured_symbol=definition.measured_symbol,
+        measured_name=definition.measured_name,
+        measured_type=definition.measured_type,
+        provider="yahoo_finance",
+    )
+
+    result = etl_module.run_equity_market_valuation_etl.fn(
+        connection,
+        definitions=[yahoo_definition],
+        adapter_factories={"yahoo_finance": lambda: adapter},
+    )
+
+    assert result["status"] == "success"
+    assert adapter.fetched_symbols == ["VTI.US"]

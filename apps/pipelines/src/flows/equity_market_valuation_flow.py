@@ -8,7 +8,7 @@ from prefect import flow
 
 from src.lib.db import bootstrap_taylor_rule_schema, get_connection
 from src.lib.pipeline.equity_market_universe import EQUITY_MARKET_UNIVERSE
-from src.lib.source.adapters.eodhd import EodhdAdapter
+from src.lib.source.adapters.yahoo_finance import YahooFinanceAdapter
 from src.tasks import run_equity_market_valuation_etl as etl_module
 
 
@@ -28,7 +28,7 @@ def run_equity_market_valuation_flow() -> dict[str, object]:
         etl_module.run_equity_market_valuation_etl,
         connection,
         definitions=EQUITY_MARKET_UNIVERSE,
-        adapter_factories={"eodhd": EodhdAdapter},
+        adapter_factories={"yahoo_finance": YahooFinanceAdapter},
     )
 
 

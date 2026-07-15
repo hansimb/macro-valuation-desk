@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-"""EODHD ETF fundamentals are point-in-time snapshots, not time series."""
+"""ETF fundamentals are point-in-time snapshots, not time series."""
 
 from dataclasses import dataclass
 from typing import Any
@@ -24,6 +24,8 @@ class EquityMarketValuationSnapshot:
     price_to_cash_flow_method: str
     price_to_free_cash_flow_method: str
     missing_fields: list[str]
+    source_url: str = ""
+    as_of: str = ""
 
 
 @dataclass(frozen=True)
