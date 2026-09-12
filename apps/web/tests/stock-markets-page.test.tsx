@@ -83,21 +83,21 @@ describe("Equity Markets page", () => {
 
     expect(screen.getByRole("heading", { name: "Market Valuation Dashboard" })).toBeInTheDocument();
     expect(screen.getByText("Latest valuation date: 2026-07-07")).toBeInTheDocument();
-    expect(screen.getByText("Row as of 2026-07-05")).toBeInTheDocument();
+    expect(screen.getByText("Valuation as of 2026-07-05")).toBeInTheDocument();
     expect(screen.getByText("United States broad market")).toBeInTheDocument();
     expect(screen.getByText("US")).toBeInTheDocument();
     expect(screen.getByText("VTI.US")).toBeInTheDocument();
     expect(screen.getByText("Vanguard Total Stock Market ETF")).toBeInTheDocument();
     expect(screen.getByText("ETF proxy")).toBeInTheDocument();
-    expect(screen.getByRole("columnheader", { name: "P/CF proxy" })).toBeInTheDocument();
-    expect(screen.getByRole("columnheader", { name: "Exact P/FCF" })).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { hidden: true, name: "P/CF proxy" })).toBeInTheDocument();
+    expect(screen.queryByRole("columnheader", { hidden: true, name: "Exact P/FCF" })).not.toBeInTheDocument();
     expect(screen.getByText("14.40")).toBeInTheDocument();
-    expect(screen.getByText("Unavailable")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "EODHD fundamentals" })).toHaveAttribute(
+    expect(screen.queryByText("Unavailable")).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /EODHD fundamentals/ })).toHaveAttribute(
       "href",
       "https://eodhd.com/financial-apis/stock-etf-fundamental-data-feeds/",
     );
-    expect(screen.getByRole("link", { name: "Row source" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "[2]" })).toHaveAttribute(
       "href",
       "https://eodhd.com/api/fundamentals/VTI.US",
     );

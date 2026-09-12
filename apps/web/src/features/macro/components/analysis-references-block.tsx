@@ -26,9 +26,9 @@ export function AnalysisReferencesBlock({
           References
         </Text>
         {items.map((item) => (
-          <Box key={item.key}>
+          <Box key={item.key} minW="0" css={{ overflowWrap: "anywhere" }}>
             {item.href ? (
-              <Link color="text" href={item.href} target="_blank">
+              <Link color="text" display="inline" href={item.href} target="_blank">
                 {item.text}
               </Link>
             ) : (

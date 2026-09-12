@@ -1,11 +1,13 @@
 import React from "react";
-import { Badge, Box, Heading, Link, Stack, Text } from "@chakra-ui/react";
+import { Box, chakra, Heading, Stack, Text } from "@chakra-ui/react";
 
 import type {
   EquityMarketValuationMetric,
   EquityMarketValuationRow,
   EquityMarketValuationsResponse,
 } from "../../../../../../packages/shared/src/contracts/equity-market-valuation";
+import { AnalysisCitationLinks, type AnalysisCitationRef } from "../../../features/macro/components/analysis-citation-links";
+import { AnalysisReferencesBlock } from "../../../features/macro/components/analysis-references-block";
 import { BackLink } from "../../../features/site-shell/back-link";
 
 const emptyValuations: EquityMarketValuationsResponse = {
@@ -19,7 +21,6 @@ const metricColumns = [
   { key: "priceToBook", label: "P/B" },
   { key: "priceToSales", label: "P/S" },
   { key: "priceToCashFlow", label: "P/CF proxy" },
-  { key: "priceToFreeCashFlow", label: "Exact P/FCF" },
   { key: "dividendYieldPct", label: "Dividend yield" },
 ] as const;
 
@@ -61,77 +62,90 @@ function measuredTypeLabel(row: EquityMarketValuationRow) {
   return `${row.measuredType} series`;
 }
 
-function MarketValuationTable({ markets }: { markets: EquityMarketValuationRow[] }) {
+function buildReferences(data: EquityMarketValuationsResponse) {
+  const sources = new Map<string, string>();
+  for (const reference of data.references) {
+    if (reference.url && !sources.has(reference.url)) sources.set(reference.url, reference.label);
+  }
+  for (const row of data.markets) {
+    if (row.sourceUrl && !sources.has(row.sourceUrl)) sources.set(row.sourceUrl, row.measuredName);
+  }
+  const knownProviders: Record<string, string> = {
+    eodhd: "EODHD", ishares: "BlackRock iShares", spdr: "State Street SPDR",
+    "ishares.com": "BlackRock iShares", "ssga.com": "State Street SPDR", "eodhd.com": "EODHD",
+  };
+  return Array.from(sources, ([href, label], index) => {
+    const rows = data.markets.filter((row) => row.sourceUrl === href);
+    let hostname = "Source provider";
+    try { hostname = new URL(href).hostname.replace(/^www\./, ""); } catch { /* Keep supplied URL without inventing metadata. */ }
+    const provider = rows.find((row) => row.provider.trim())?.provider;
+    const institution = (provider && knownProviders[provider.toLowerCase()]) || knownProviders[hostname] || provider || hostname;
+    const titles = Array.from(new Set(rows.map((row) =>
+      row.measuredName ? `${row.measuredName}${row.measuredSymbol ? ` (${row.measuredSymbol})` : ""}` : row.measuredSymbol,
+    ).filter(Boolean)));
+    const title = titles.length ? titles.join("; ") : label || "Source document";
+    return { number: index + 1, href, key: href, text: `[${index + 1}] ${institution}, "${title}." [Online]. Available: ${href}.` };
+  });
+}
+
+function MarketValuationTable({ markets, citations }: { markets: EquityMarketValuationRow[]; citations: Map<string, AnalysisCitationRef> }) {
+  const visibleColumns = metricColumns.filter((column) =>
+    markets.some((row) => row.metrics[column.key].value !== null),
+  );
+
   return (
-    <Box overflowX="auto">
-      <Box
-        as="table"
-        aria-label="Market valuation overview"
-        borderCollapse="collapse"
-        minW="76rem"
-        w="100%"
-      >
-        <Box as="thead">
-          <Box as="tr" borderBottomColor="edge" borderBottomWidth="1px">
-            {["Market", "Measured object", ...metricColumns.map((column) => column.label), "Sources"].map(
-              (heading) => (
-                <Box
-                  as="th"
-                  color="muted"
-                  key={heading}
-                  p="3"
-                  textAlign={heading === "Market" || heading === "Measured object" || heading === "Sources" ? "left" : "right"}
-                  textStyle="eyebrow"
-                  verticalAlign="bottom"
-                >
-                  {heading}
-                </Box>
-              ),
-            )}
-          </Box>
-        </Box>
-        <Box as="tbody">
-          {markets.map((row) => (
-            <Box as="tr" borderBottomColor="edge" borderBottomWidth="1px" key={row.marketId}>
-              <Box as="th" p="3" textAlign="left" verticalAlign="top">
-                <Stack gap="1">
-                  <Text fontWeight="700" textStyle="body">
-                    {row.marketName}
-                  </Text>
-                  <Text color="muted" textStyle="caption">
-                    {row.region}
-                  </Text>
-                  <Text color="muted" textStyle="caption">
-                    Row as of {row.asOf}
-                  </Text>
-                </Stack>
-              </Box>
-              <Box as="td" p="3" verticalAlign="top">
-                <Stack gap="1">
-                  <Text fontWeight="700" textStyle="body">
-                    {row.measuredSymbol}
-                  </Text>
-                  <Text color="muted" textStyle="caption">
-                    {row.measuredName}
-                  </Text>
-                  <Badge alignSelf="flex-start" colorPalette="blue" variant="surface">
-                    {measuredTypeLabel(row)}
-                  </Badge>
-                </Stack>
-              </Box>
-              {metricColumns.map((column) => (
-                <Box as="td" key={column.key} p="3" textAlign="right" textStyle="body" verticalAlign="top">
-                  {formatMetric(row.metrics[column.key], column.key)}
-                </Box>
-              ))}
-              <Box as="td" p="3" textAlign="left" verticalAlign="top">
-                <Link color="accent" href={row.sourceUrl} textStyle="caption">
-                  Row source
-                </Link>
-              </Box>
-            </Box>
+    <Box
+      as="table"
+      role="table"
+      aria-label="Market valuation overview"
+      borderCollapse="collapse"
+      tableLayout="fixed"
+      display={{ base: "block", lg: "table" }}
+      w="100%"
+      css={{ overflowWrap: "anywhere" }}
+    >
+      <Box as="thead" role="rowgroup" display={{ base: "none", lg: "table-header-group" }}>
+        <Box as="tr" role="row" borderBottomColor="edge" borderBottomWidth="1px">
+          <chakra.th role="columnheader" scope="col" w={visibleColumns.length ? "34%" : "100%"} p="3" textAlign="left" color="muted" textStyle="eyebrow">
+            Market / measured object
+          </chakra.th>
+          {visibleColumns.map((column) => (
+            <chakra.th role="columnheader" scope="col" key={column.key} p="3" textAlign="right" color="muted" textStyle="eyebrow" verticalAlign="bottom">
+              {column.label}
+            </chakra.th>
           ))}
         </Box>
+      </Box>
+      <Box as="tbody" role="rowgroup" display={{ base: "block", lg: "table-row-group" }}>
+        {markets.map((row) => (
+          <Box as="tr" role="row" display={{ base: "grid", lg: "table-row" }} gridTemplateColumns="repeat(2, minmax(0, 1fr))" borderBottomColor="edge" borderBottomWidth="1px" py={{ base: "4", lg: "0" }} key={row.marketId}>
+            <chakra.th role="rowheader" scope="row" gridColumn="1 / -1" minW="0" p="3" textAlign="left" verticalAlign="top">
+              <Stack gap="1">
+                <Text fontWeight="700" textStyle="body">
+                  {row.marketName} <Text as="span" color="muted" textStyle="caption">{row.region}</Text>
+                </Text>
+                <Text color="muted" textStyle="caption">
+                  <Text as="span" color="text" fontWeight="700" title={row.measuredName}>{row.measuredSymbol}</Text>
+                  {" | "}<Text as="span">{measuredTypeLabel(row)}</Text>
+                  {citations.has(row.sourceUrl) ? <AnalysisCitationLinks refs={[citations.get(row.sourceUrl)!]} /> : null}
+                  <Text as="span" display="block">{row.measuredName}</Text>
+                </Text>
+                <Text color="muted" textStyle="caption">Valuation as of {row.asOf}</Text>
+              </Stack>
+            </chakra.th>
+            {visibleColumns.map((column) => (
+              <Box as="td" role="cell" key={column.key} minW="0" p="3" textAlign={{ base: "left", lg: "right" }} textStyle="body" verticalAlign="top">
+                <Text as="span" display={{ base: "block", lg: "none" }} color="muted" textStyle="caption" mb="1">
+                  {column.label}
+                </Text>
+                {formatMetric(row.metrics[column.key], column.key)}
+                {column.key === "trailingPe" && row.metrics[column.key].value !== null && row.metrics[column.key].method.includes("prospective") ? (
+                  <Text color="muted" textStyle="caption">Prospective earnings</Text>
+                ) : null}
+              </Box>
+            ))}
+          </Box>
+        ))}
       </Box>
     </Box>
   );
@@ -139,6 +153,8 @@ function MarketValuationTable({ markets }: { markets: EquityMarketValuationRow[]
 
 export default async function MarketValuationPage() {
   const { data, unavailable } = await getMarketValuations();
+  const references = buildReferences(data);
+  const citations = new Map(references.map((reference) => [reference.href, { number: reference.number, href: reference.href }]));
 
   return (
     <Stack gap={{ base: "8", md: "10" }}>
@@ -166,8 +182,14 @@ export default async function MarketValuationPage() {
           </Text>
           <Text color="muted" textStyle="body">
             The measured object is shown for every row so ETF proxies and index-native series stay
-            visible. P/CF is labeled as a proxy. Exact P/FCF is shown only when the API provides a
-            non-null exact value.
+            visible. P/CF is a cash-flow proxy, not exact P/FCF. Metrics with no available values
+            across the returned markets are omitted; unavailable values in other rows stay explicit.
+          </Text>
+          <Text color="muted" textStyle="body">
+            Dividend yield follows each provider's definition: iShares reports 12-month fund
+            distribution yield; SPDR reports indicated index dividend yield. The iShares yield
+            may predate the valuation ratios; see the linked source for its reporting date.
+            P/E values based on prospective earnings are identified alongside the ratio.
           </Text>
         </Stack>
       </Box>
@@ -202,29 +224,16 @@ export default async function MarketValuationPage() {
               </Heading>
               <Text color="muted" maxW="3xl" textStyle="body">
                 One row per covered market with provider valuation metrics, measured object
-                metadata, per-market dates, and row-level source links.
+                metadata, per-market dates, and numbered source citations.
               </Text>
             </Stack>
 
-            <MarketValuationTable markets={data.markets} />
+            <MarketValuationTable markets={data.markets} citations={citations} />
           </Stack>
         </Box>
       )}
 
-      {data.references.length > 0 ? (
-        <Box bg="surface" borderColor="edge" borderWidth="1px" p={{ base: "5", md: "6" }} rounded="panel">
-          <Stack gap="3">
-            <Text color="accent" textStyle="eyebrow">
-              References
-            </Text>
-            {data.references.map((reference) => (
-              <Link color="accent" href={reference.url} key={reference.url} textStyle="body">
-                {reference.label}
-              </Link>
-            ))}
-          </Stack>
-        </Box>
-      ) : null}
+      <AnalysisReferencesBlock items={references} />
     </Stack>
   );
 }
