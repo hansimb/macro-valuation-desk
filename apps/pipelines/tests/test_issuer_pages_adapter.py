@@ -37,7 +37,7 @@ def test_parse_ishares_snapshot_reads_embedded_fundamentals():
     html = """
     "priceBook":{"visible":true,"label":"P/B Ratio","formattedValue":"2.10","formattedAsOfDate":"Jul 14, 2026"},
     "priceEarnings":{"visible":true,"label":"P/E Ratio","formattedValue":"18.32","formattedAsOfDate":"Jul 14, 2026"},
-    "distributionYield":{"visible":true,"formattedValue":"2.14","formattedAsOfDate":"Jul 14, 2026"}
+    "twelveMonTrlYld":{"visible":true,"formattedValue":"2.14","formattedAsOfDate":"Jul 14, 2026"}
     """
 
     snapshot = parse_ishares_snapshot(
@@ -86,7 +86,8 @@ def test_parse_spdr_snapshot_reads_key_value_table():
 
     assert snapshot.provider == "issuer_pages"
     assert snapshot.symbol == "SPY"
-    assert snapshot.trailing_pe == 22.64
+    assert snapshot.trailing_pe is None
+    assert "issuer_page.trailingPe_unavailable_FY1_is_forward" in snapshot.missing_fields
     assert snapshot.price_to_book == 5.44
     assert snapshot.dividend_yield_pct == 1.12
 
@@ -111,3 +112,50 @@ def test_issuer_pages_adapter_fetches_ishares_without_api_token():
     assert result.ok is True
     assert result.snapshot is not None
     assert result.snapshot.trailing_pe == 18.32
+
+
+def test_spdr_reads_index_cash_flow_proxy_without_claiming_exact_fcf():
+    page = """
+    <tr><th>Price/Earnings Ratio FY1</th><td class="data">20.97</td></tr>
+    <tr><th>Price/Cash Flow</th><td class="data">18.02</td></tr>
+    <tr><th>Price/Earnings</th><td class="data">24.69</td></tr>
+    """
+    snapshot = parse_spdr_snapshot(page, symbol="SPY", source_url="https://www.ssga.com/spy")
+    assert snapshot.price_to_cash_flow == 18.02
+    assert snapshot.price_to_cash_flow_method == "issuer_index_price_to_cash_flow_proxy"
+    assert snapshot.price_to_free_cash_flow is None
+    assert snapshot.trailing_pe is None
+    assert "issuer_page.priceToCashFlow" not in snapshot.missing_fields
+
+
+def test_spdr_missing_cash_flow_does_not_consume_next_rows_number():
+    page = """
+    <tr><th>Price/Cash Flow</th><td class="data">-</td></tr>
+    <tr><th>Price/Book Ratio</th><td class="data">5.25</td></tr>
+    """
+    snapshot = parse_spdr_snapshot(page, symbol="SPY", source_url="https://www.ssga.com/spy")
+    assert snapshot.price_to_cash_flow is None
+    assert snapshot.price_to_cash_flow_method == "provider_price_to_cash_flow_unavailable"
+
+
+def test_ishares_reads_current_twelve_month_trailing_yield_field():
+    page = '\"twelveMonTrlYld\":{\"formattedValue\":\"1.88%\",\"formattedAsOfDate\":\"Aug 31, 2026\"}'
+    snapshot = parse_ishares_snapshot(page, symbol="EWG", source_url="https://www.ishares.com/ewg")
+    assert snapshot.dividend_yield_pct == 1.88
+    assert snapshot.as_of == "2026-08-31"
+
+
+def test_spdr_uses_index_characteristics_date_over_http_modification_date():
+    page = """
+    <section><h2>Fund Characteristics <span class="date">as of Sep 11 2026</span></h2></section>
+    <section><h2>Index Characteristics <span class="date">as of Sep 10 2026</span></h2>
+    <tr><th>Price/Cash Flow</th><td class="data">18.02</td></tr></section>
+    """
+    snapshot = parse_spdr_snapshot(page, symbol="SPY", source_url="https://www.ssga.com/spy", as_of="2026-09-12")
+    assert snapshot.as_of == "2026-09-10"
+
+
+def test_ishares_does_not_substitute_a_different_distribution_yield_basis():
+    page = '\"distributionYield\":{\"formattedValue\":\"3.5\",\"formattedAsOfDate\":\"Sep 10, 2026\"}'
+    snapshot = parse_ishares_snapshot(page, symbol="EWG", source_url="https://www.ishares.com/ewg")
+    assert snapshot.dividend_yield_pct is None

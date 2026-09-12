@@ -95,11 +95,11 @@ def parse_ishares_snapshot(
 ) -> EquityMarketValuationSnapshot:
     trailing_pe = _embedded_value(page_html, "priceEarnings")
     price_to_book = _embedded_value(page_html, "priceBook")
-    dividend_yield_pct = _embedded_value(page_html, "distributionYield")
+    dividend_yield_pct = _embedded_value(page_html, "twelveMonTrlYld")
     as_of = _as_of_from_ishares_date(
         _embedded_date(page_html, "priceEarnings")
         or _embedded_date(page_html, "priceBook")
-        or _embedded_date(page_html, "distributionYield")
+        or _embedded_date(page_html, "twelveMonTrlYld")
     )
     missing_fields = []
     if trailing_pe is None:
@@ -107,7 +107,7 @@ def parse_ishares_snapshot(
     if price_to_book is None:
         missing_fields.append("issuer_page.priceBook")
     if dividend_yield_pct is None:
-        missing_fields.append("issuer_page.distributionYield")
+        missing_fields.append("issuer_page.twelveMonTrlYld")
 
     return _snapshot(
         symbol=symbol,
@@ -136,12 +136,24 @@ def parse_spdr_snapshot(
     source_url: str,
     as_of: str | None = None,
 ) -> EquityMarketValuationSnapshot:
-    trailing_pe = _spdr_table_value(page_html, "Price/Earnings Ratio FY1")
+    index_date = re.search(
+        r'Index Characteristics\s*<span[^>]*class="date"[^>]*>as of ([A-Za-z]{3} \d{1,2} \d{4})</span>',
+        page_html,
+    )
+    if index_date:
+        try:
+            as_of = datetime.strptime(index_date.group(1), "%b %d %Y").date().isoformat()
+        except ValueError:
+            pass
+    # FY1 is forecast earnings; generic index P/E is not documented here as TTM.
+    # Neither can truthfully populate the existing trailing_pe contract.
+    trailing_pe = None
+    price_to_cash_flow = _spdr_table_value(page_html, "Price/Cash Flow")
     price_to_book = _spdr_table_value(page_html, "Price/Book Ratio")
     dividend_yield_pct = _spdr_table_value(page_html, "Index Dividend Yield")
     missing_fields = []
     if trailing_pe is None:
-        missing_fields.append("issuer_page.Price/Earnings Ratio FY1")
+        missing_fields.append("issuer_page.trailingPe_unavailable_FY1_is_forward")
     if price_to_book is None:
         missing_fields.append("issuer_page.Price/Book Ratio")
     if dividend_yield_pct is None:
@@ -151,6 +163,7 @@ def parse_spdr_snapshot(
         symbol=symbol,
         source_url=source_url,
         as_of=as_of or datetime.now(UTC).date().isoformat(),
+        price_to_cash_flow=price_to_cash_flow,
         trailing_pe=trailing_pe,
         price_to_book=price_to_book,
         dividend_yield_pct=dividend_yield_pct,
@@ -167,6 +180,7 @@ def _snapshot(
     price_to_book: float | None,
     dividend_yield_pct: float | None,
     missing_fields: list[str],
+    price_to_cash_flow: float | None = None,
 ) -> EquityMarketValuationSnapshot:
     return EquityMarketValuationSnapshot(
         provider="issuer_pages",
@@ -177,12 +191,18 @@ def _snapshot(
         trailing_pe=trailing_pe,
         price_to_book=price_to_book,
         price_to_sales=None,
-        price_to_cash_flow=None,
+        price_to_cash_flow=price_to_cash_flow,
         dividend_yield_pct=dividend_yield_pct,
         price_to_free_cash_flow=None,
-        price_to_cash_flow_method="provider_price_to_cash_flow_unavailable",
+        price_to_cash_flow_method=(
+            "issuer_index_price_to_cash_flow_proxy" if price_to_cash_flow is not None
+            else "provider_price_to_cash_flow_unavailable"
+        ),
         price_to_free_cash_flow_method="provider_exact_price_to_free_cash_flow_unavailable",
-        missing_fields=[*missing_fields, "issuer_page.priceToSales", "issuer_page.priceToCashFlow"],
+        missing_fields=[
+            *missing_fields, "issuer_page.priceToSales", "issuer_page.priceToFreeCashFlow",
+            *(["issuer_page.priceToCashFlow"] if price_to_cash_flow is None else []),
+        ],
         source_url=source_url,
         as_of=as_of,
     )
