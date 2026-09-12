@@ -47,7 +47,6 @@ Render market valuation snapshots from the API:
 - P/B from `market.metrics.priceToBook`;
 - P/S from `market.metrics.priceToSales`;
 - P/CF proxy from `market.metrics.priceToCashFlow`;
-- exact P/FCF when available from `market.metrics.priceToFreeCashFlow`;
 - dividend yield from `market.metrics.dividendYieldPct`.
 
 The top-level `asOf` is the latest available valuation date across all returned markets. Each market row still has its own `market.asOf`, and those dates may differ by provider symbol.
@@ -60,11 +59,13 @@ Be precise in labels:
 
 - `priceToCashFlow` is a `P/CF proxy`.
 - `priceToFreeCashFlow` is exact P/FCF only when its value is not null.
-- If exact P/FCF is null, show it as unavailable rather than silently substituting P/CF.
+- Exact P/FCF remains a distinct API field; omit its separate UI column under the current display scope. Never relabel P/CF as exact P/FCF.
 
 Make the measured object visible. The user must be able to see whether the data describes an ETF proxy or an index-native series.
 
-Use `references` as the deduplicated source list for methodology/source links. Row-level `sourceUrl` can be shown inline when that is more useful for the market table or detail view.
+Follow [the analysis UI instructions, section 12](../../analysis/FOR-AGENTS-UI-BUILD-INSTRUCTIONS.md#12-references-must-match-the-taylor-style). Build one reference registry from `references`, deduplicate by source identity, and append any missing row-level `sourceUrl` using row metadata. Render compact numbered citations beside measured objects and matching academic-style references with institution/provider, ETF or series title, and online URL. Do not render a separate `Sources` column, generic `Row source` links, or a plain link list.
+
+Current UI scope (2026-09-12): omit the separate Exact P/FCF column; retain the P/CF proxy only when data is available. Hide any metric column with no available values across the returned markets. Use a responsive layout that fits without horizontal scrolling while retaining measured-object identity, per-row dates, and citations.
 
 ## Testing Requirements
 
@@ -73,10 +74,12 @@ Add or update web tests that verify:
 - the Equity Markets page renders populated API data;
 - the page renders the empty-data state when `markets` is empty;
 - P/CF is labeled as a proxy;
-- exact P/FCF is shown as unavailable when null;
+- the separate exact P/FCF column is omitted;
+- wholly unavailable metric columns are hidden, while zero counts as available;
 - measured ETF/index proxy metadata is visible.
 - response-level `asOf` and per-market `market.asOf` can both render without being treated as the same thing.
-- source links can render from `references` or row-level `sourceUrl`.
+- numbered row citations match descriptive references, including repeated source URLs and row URLs absent from `references`;
+- desktop and narrow-screen layouts fit without horizontal scrolling, including long reference URLs.
 
 Run:
 

@@ -92,6 +92,16 @@ State openly:
 - what assumptions or proxies exist
 - what the output can and cannot mean
 
+## Citation And Reference Planning
+
+Plan source provenance together with the inputs, not after the UI is built. Follow section 12 of [the analysis UI instructions](FOR-AGENTS-UI-BUILD-INSTRUCTIONS.md) for the exact citation and bibliography rules.
+
+- Carry the actual provider, source URL, measured object or series, observation date, and metric/proxy definitions through the data contract.
+- Keep methodology references separate in meaning from observation sources, while using one reference numbering scope per page or self-contained method block.
+- Place numbered citations beside the supported information and end the scope with matching descriptive, numbered references. A list of links alone is insufficient.
+- If metrics come from different sources, preserve enough field-level provenance to cite each correctly. Do not overwrite a row's source URL with a supplementary source that supplied only one metric.
+- Do not invent missing reference metadata or imply that a source establishes more than it actually provides.
+
 ## No Fake Fallback Rule
 
 Never use:

@@ -21,6 +21,8 @@ source -> pipeline -> postgres -> api -> web
 
 ## Default Reading Order For Analysis Changes
 
+For analysis UI work, first read [the analysis UI instructions](../analysis/FOR-AGENTS-UI-BUILD-INSTRUCTIONS.md). Section 12 defines the shared numbered citations and descriptive references required on all analysis pages, including Market Valuation.
+
 1. `docs/agents/features/<feature>.md`, if it exists.
 2. Shared contract in `packages/shared`.
 3. API route in `apps/api`.
@@ -35,3 +37,7 @@ Avoid starting with build output, caches, generated artifacts, dependency folder
 ## Important Rule
 
 Do not add fake fallback data to live analysis paths. If live analysis data is missing or invalid, surface that state explicitly through the real data/API flow.
+
+## Commit Discipline
+
+Use atomic commits. Each commit must contain one coherent, independently reviewable change and its relevant tests or documentation. Do not mix unrelated pipeline, API, UI, and documentation changes in the same commit.

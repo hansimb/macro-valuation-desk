@@ -127,6 +127,8 @@ References should include:
 - primary data sources
 - any important proxy or assumption source
 
+Use compact numbered citations beside the information they support, with matching numbered, descriptive references at the end. The exact formatting, shared components, source identity, and verification rules are in [section 12 of the analysis UI instructions](FOR-AGENTS-UI-BUILD-INSTRUCTIONS.md#12-references-must-match-the-taylor-style).
+
 ### 6. Honest Proxies
 
 If an ideal variable is not available, a proxy can be used, but it must be stated explicitly.

@@ -293,22 +293,48 @@ If the pipeline used a different imputation policy for a more market-sensitive s
 
 ## 12. References Must Match The Taylor Style
 
-References are not raw link dumps.
+Use the shared citation and reference components and the numbered academic/IEEE-style pattern from the Taylor Rule page. These rules apply to every analysis, including Market Valuation.
 
-They must be rendered in the same academic/IEEE-style pattern used on the Taylor Rule page.
+### 12.1 Citations Belong Beside The Supported Information
 
-Rules:
+- Put a compact numbered citation such as `[1]` beside the sourced input, table row, chart caption, or methodology statement.
+- For a market valuation table, place the citation beside the measured ETF/index name or symbol in the market cell. A separate `Sources` column or repeated `Row source` link wastes space and is not the citation pattern.
+- One row citation is enough when the same source supplies all its metrics. If metrics have different sources, cite the affected metrics individually using their actual provenance.
+- A data-source citation supports the supplied observations; it does not automatically support an analytical conclusion, a formula, or a claim that a market is cheap.
+- Methodology sources and data sources use the same numbering scope, but each must be cited where it is relevant.
 
-- numbered references
-- source institution named
-- series label named
-- URL included as online availability
+### 12.2 Build One Reference Registry Before Rendering
 
-Bad:
+- Build one ordered registry for the page, or for a self-contained methodology block with its own reference list. Start numbering at 1. Reuse its number everywhere within that scope.
+- Use source identity (normally the exact supplied URL) to match citations to references, not array positions calculated separately or generic labels such as `valuation source`.
+- Deduplicate repeated uses of the same source. Preserve distinct documents or series even when they come from the same institution. Use separate identities for distinct datasets sharing a landing page when necessary.
+- Preserve API `references` order when it is supplied. Add a row's actual `sourceUrl` if the API reference list omits it, using that row's metadata. Never invent a URL or citation number 0.
+- Every displayed citation must have exactly one matching reference entry and the same destination URL. Missing source metadata must be handled honestly without assigning an unrelated source.
+- Do not renumber citations independently when metric columns disappear. Derive the citations and final reference list from the same registry.
 
-- plain naked link list
-- provider URLs without source description
-- inconsistent format per analysis
+### 12.3 Reference Entry Format
+
+End the page or methodology block with entries in this format:
+
+`[1] Institution/provider, "Series, dataset, or document title." [Online]. Available: actual source URL.`
+
+- Name the actual institution/provider and the specific ETF, index, series, or document. `United States valuation source` alone is not a sufficient title when the ETF identity is known.
+- Prefer supplied metadata. A maintained mapping of known provider identifiers or source hosts to display names is acceptable; fetching or parsing provider pages belongs in the pipeline, not the UI.
+- If institution metadata is missing, use the known provider or hostname transparently. Do not fabricate authors, publication years, document titles, or access dates.
+- Include the actual source URL as online availability. Keep URLs clickable and allow long URLs to wrap without widening the page.
+- Keep valuation `asOf` dates beside the associated rows. A latest page-level date is not every row's observation date, and a fetch date is not a publication or valuation date.
+- Put proxy definitions and limitations in visible methodology text or a reference note. Preserve distinctions between trailing and forward P/E, P/CF and exact P/FCF, and dividend-yield definitions supplied by the data layer.
+
+### 12.4 Reuse And Verification
+
+Reuse these components rather than introducing another reference style:
+
+- `apps/web/src/features/macro/components/analysis-citation-links.tsx` (`AnalysisCitationLinks`)
+- `apps/web/src/features/macro/components/analysis-references-block.tsx` (`AnalysisReferencesBlock`)
+
+They accept prepared citation numbers and reference text; the caller owns the shared registry and accurate metadata. Their current location under `macro` does not limit them to macro pages.
+
+Verify populated data, repeated URLs, a row source omitted from API references, and missing metadata. Check that citations and entries agree, descriptive source names render, and long reference URLs fit at desktop and mobile widths. Do not claim correct references based only on a visible `References` heading.
 
 ## 13. Typography And Labeling Rules
 
