@@ -1,5 +1,5 @@
 import React from "react";
-import { Box, Heading, Stack, Text } from "@chakra-ui/react";
+import { Box, Flex, Heading, Stack, Text } from "@chakra-ui/react";
 
 import type {
   EquityMarketValuationMetric,
@@ -62,6 +62,28 @@ function measuredTypeLabel(row: EquityMarketValuationRow) {
   return `${row.measuredType} series`;
 }
 
+const marketFlags: Record<string, { emoji: string; label: string }> = {
+  china: { emoji: "🇨🇳", label: "China" },
+  denmark: { emoji: "🇩🇰", label: "Denmark" },
+  europe: { emoji: "🇪🇺", label: "Europe" },
+  fi: { emoji: "🇫🇮", label: "Finland" },
+  finland: { emoji: "🇫🇮", label: "Finland" },
+  france: { emoji: "🇫🇷", label: "France" },
+  germany: { emoji: "🇩🇪", label: "Germany" },
+  japan: { emoji: "🇯🇵", label: "Japan" },
+  norway: { emoji: "🇳🇴", label: "Norway" },
+  "south korea": { emoji: "🇰🇷", label: "South Korea" },
+  sweden: { emoji: "🇸🇪", label: "Sweden" },
+  taiwan: { emoji: "🇹🇼", label: "Taiwan" },
+  uk: { emoji: "🇬🇧", label: "United Kingdom" },
+  "united kingdom": { emoji: "🇬🇧", label: "United Kingdom" },
+  us: { emoji: "🇺🇸", label: "United States" },
+};
+
+function marketFlag(region: string) {
+  return marketFlags[region.trim().toLowerCase()] ?? { emoji: "🌐", label: region };
+}
+
 function buildReferences(data: EquityMarketValuationsResponse) {
   const sources = new Map<string, string>();
   for (const reference of data.references) {
@@ -89,9 +111,10 @@ function buildReferences(data: EquityMarketValuationsResponse) {
 }
 
 function MarketValuationTable({ markets, citations }: { markets: EquityMarketValuationRow[]; citations: Map<string, AnalysisCitationRef> }) {
-  const visibleColumns = metricColumns.filter((column) =>
-    markets.some((row) => row.metrics[column.key].value !== null),
-  );
+  const visibleColumns = metricColumns.filter((column) => {
+    const availableCount = markets.filter((row) => row.metrics[column.key].value !== null).length;
+    return availableCount * 2 >= markets.length;
+  });
 
   return (
     <Box
@@ -117,12 +140,18 @@ function MarketValuationTable({ markets, citations }: { markets: EquityMarketVal
         </Box>
       </Box>
       <Box as="tbody" role="rowgroup" display={{ base: "block", lg: "table-row-group" }}>
-        {markets.map((row) => (
+        {markets.map((row) => {
+          const flag = marketFlag(row.region);
+          return (
           <Box as="tr" role="row" display={{ base: "grid", lg: "table-row" }} gridTemplateColumns="repeat(2, minmax(0, 1fr))" borderBottomColor="edge" borderBottomWidth="1px" py={{ base: "4", lg: "0" }} key={row.marketId}>
             <Box as="th" role="rowheader" scope="row" gridColumn="1 / -1" minW="0" p="3" textAlign="left" verticalAlign="top">
-              <Stack gap="1">
+              <Flex align="flex-start" gap="3">
+                <Box as="span" aria-label={`${flag.label} flag`} flexShrink="0" fontSize="xl" lineHeight="1" role="img">
+                  {flag.emoji}
+                </Box>
+                <Stack gap="1" minW="0">
                 <Text fontWeight="700" textStyle="body">
-                  {row.marketName} <Text as="span" color="muted" textStyle="caption">{row.region}</Text>
+                  {row.marketName}
                 </Text>
                 <Text color="muted" textStyle="caption">
                   <Text as="span" color="text" fontWeight="700" title={row.measuredName}>{row.measuredSymbol}</Text>
@@ -131,7 +160,8 @@ function MarketValuationTable({ markets, citations }: { markets: EquityMarketVal
                   <Text as="span" display="block">{row.measuredName}</Text>
                 </Text>
                 <Text color="muted" textStyle="caption">Valuation as of {row.asOf}</Text>
-              </Stack>
+                </Stack>
+              </Flex>
             </Box>
             {visibleColumns.map((column) => (
               <Box as="td" role="cell" key={column.key} minW="0" p="3" textAlign={{ base: "left", lg: "right" }} textStyle="body" verticalAlign="top">
@@ -145,7 +175,8 @@ function MarketValuationTable({ markets, citations }: { markets: EquityMarketVal
               </Box>
             ))}
           </Box>
-        ))}
+          );
+        })}
       </Box>
     </Box>
   );
@@ -182,8 +213,8 @@ export default async function MarketValuationPage() {
           </Text>
           <Text color="muted" textStyle="body">
             The measured object is shown for every row so ETF proxies and index-native series stay
-            visible. P/CF is a cash-flow proxy, not exact P/FCF. Metrics with no available values
-            across the returned markets are omitted; unavailable values in other rows stay explicit.
+            visible. P/CF is a cash-flow proxy, not exact P/FCF. Metrics unavailable for a majority
+            of the returned markets are omitted; occasional missing values stay explicit.
           </Text>
           <Text color="muted" textStyle="body">
             Dividend yield follows each provider's definition: iShares reports 12-month fund

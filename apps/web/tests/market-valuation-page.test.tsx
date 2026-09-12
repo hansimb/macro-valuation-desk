@@ -25,7 +25,7 @@ describe("Market valuation page", () => {
   it.each([
     ["ishares.com", "BlackRock iShares"],
     ["ssga.com", "State Street SPDR"],
-  ])("keeps sparse zero metrics and cites issuer sources for %s", async (host, institution) => {
+  ])("keeps a majority-available zero metric and cites issuer sources for %s", async (host, institution) => {
     const row = {
       marketId: "one", marketName: "Market one", region: "EU", measuredSymbol: "ONE",
       measuredName: "First index", measuredType: "index", provider: "issuer_pages",
@@ -34,7 +34,7 @@ describe("Market valuation page", () => {
         trailingPe: { value: null, method: "unavailable" },
         priceToBook: { value: null, method: "unavailable" },
         priceToSales: { value: null, method: "unavailable" },
-        priceToCashFlow: { value: null, method: "unavailable" },
+        priceToCashFlow: { value: "11", method: "provider" },
         priceToFreeCashFlow: { value: null, method: "unavailable" },
         dividendYieldPct: { value: null, method: "unavailable" },
       },
@@ -42,7 +42,10 @@ describe("Market valuation page", () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: async () => ({
       asOf: "2026-07-07", references: [{ label: "Methodology", url: "https://example.com/method" }, { label: "Duplicate", url: "https://example.com/method" }], markets: [row, {
         ...row, marketId: "two", marketName: "Market two",
-        metrics: { ...row.metrics, dividendYieldPct: { value: "0", method: "provider" } },
+        metrics: { ...row.metrics, priceToCashFlow: { value: null, method: "unavailable" }, dividendYieldPct: { value: "0", method: "provider" } },
+      }, {
+        ...row, marketId: "three", marketName: "Market three",
+        metrics: { ...row.metrics, priceToCashFlow: { value: null, method: "unavailable" }, dividendYieldPct: { value: "1.2", method: "provider" } },
       }],
     }) }));
     render(<ThemeProvider>{await MarketValuationPage()}</ThemeProvider>);
@@ -52,11 +55,11 @@ describe("Market valuation page", () => {
     expect(screen.queryByRole("columnheader", { hidden: true, name: "P/CF proxy" })).not.toBeInTheDocument();
     expect(screen.getByRole("columnheader", { hidden: true, name: "Dividend yield" })).toBeInTheDocument();
     expect(screen.getByText("0%")).toBeInTheDocument();
-    expect(screen.getAllByRole("link", { name: "[2]" })).toHaveLength(2);
+    expect(screen.getAllByRole("link", { name: "[2]" })).toHaveLength(3);
     expect(screen.getByRole("link", { name: `[2] ${institution}, "First index (ONE)." [Online]. Available: https://www.${host}/one.` })).toHaveAttribute("href", `https://www.${host}/one`);
     expect(screen.getAllByRole("link", { name: /\[1\] example.com, "Methodology."/ })).toHaveLength(1);
     expect(screen.getByText("Unavailable")).toBeInTheDocument();
-    expect(screen.getAllByText("Valuation as of 2026-07-06")).toHaveLength(2);
+    expect(screen.getAllByText("Valuation as of 2026-07-06")).toHaveLength(3);
   });
 
   it("renders API-backed valuation data instead of placeholder seed rows", async () => {
@@ -100,6 +103,8 @@ describe("Market valuation page", () => {
     expect(screen.getByRole("table", { name: "Market valuation overview" })).toBeInTheDocument();
     expect(screen.getByText("Finland large cap")).toBeInTheDocument();
     expect(screen.getByText("EFNL.US")).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "Finland flag" })).toHaveTextContent("🇫🇮");
+    expect(screen.queryByText("FI")).not.toBeInTheDocument();
     expect(screen.getByText("11.30")).toBeInTheDocument();
     expect(screen.queryByText("10.90")).not.toBeInTheDocument();
     expect(screen.queryByText("Placeholder data only")).not.toBeInTheDocument();
