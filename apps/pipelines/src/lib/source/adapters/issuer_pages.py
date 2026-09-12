@@ -2,10 +2,11 @@ from __future__ import annotations
 
 import html
 import re
+import time
 from datetime import UTC, datetime
 from email.utils import parsedate_to_datetime
 from typing import Any
-from urllib.error import HTTPError
+from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
 from src.lib.source.equity_market_valuation import (
@@ -18,6 +19,8 @@ ISHARES_LIST_URL = "https://www.ishares.com/us/products/etf-investments#!type=is
 SPDR_SPY_URL = "https://www.ssga.com/us/en/intermediary/etfs/spdr-sp-500-etf-trust-spy"
 ISHARES_BASE_URL = "https://www.ishares.com"
 REQUEST_HEADERS = {"User-Agent": "Mozilla/5.0 (compatible; macro-valuation-desk/0.1)"}
+REQUEST_TIMEOUT_SECONDS = 30
+REQUEST_ATTEMPTS = 3
 
 
 def _issuer_symbol(symbol: str) -> str:
@@ -209,14 +212,32 @@ def _snapshot(
 
 
 class IssuerPagesAdapter:
-    def __init__(self, *, opener=None) -> None:
+    def __init__(self, *, opener=None, retry_delay_seconds: float = 0.25) -> None:
         self.opener = opener
+        self.retry_delay_seconds = retry_delay_seconds
+        self._ishares_product_list_html: str | None = None
 
     def _read_url(self, url: str):
         opener = self.opener or urlopen
         request = Request(url, headers=REQUEST_HEADERS)
-        with opener(request) as response:
-            return response.read().decode("utf-8", "replace"), getattr(response, "headers", None)
+        for attempt in range(REQUEST_ATTEMPTS):
+            try:
+                response_context = opener(request) if self.opener else opener(request, timeout=REQUEST_TIMEOUT_SECONDS)
+                with response_context as response:
+                    return response.read().decode("utf-8", "replace"), getattr(response, "headers", None)
+            except HTTPError:
+                raise
+            except (URLError, TimeoutError, ConnectionError, OSError):
+                if attempt == REQUEST_ATTEMPTS - 1:
+                    raise
+                time.sleep(self.retry_delay_seconds * (attempt + 1))
+
+        raise RuntimeError("Issuer page request retry loop ended unexpectedly.")
+
+    def _ishares_product_list(self) -> str:
+        if self._ishares_product_list_html is None:
+            self._ishares_product_list_html, _headers = self._read_url(ISHARES_LIST_URL)
+        return self._ishares_product_list_html
 
     def fetch_fundamentals_snapshot(self, symbol: str) -> EquityMarketValuationResult:
         issuer_symbol = _issuer_symbol(symbol)
@@ -234,7 +255,7 @@ class IssuerPagesAdapter:
                     payload_json={"source": "spdr_page", "source_url": SPDR_SPY_URL},
                 )
 
-            product_list_html, _headers = self._read_url(ISHARES_LIST_URL)
+            product_list_html = self._ishares_product_list()
             source_url = parse_ishares_url_from_product_list(product_list_html, issuer_symbol)
             page_html, _headers = self._read_url(source_url)
             snapshot = parse_ishares_snapshot(page_html, symbol=issuer_symbol, source_url=source_url)

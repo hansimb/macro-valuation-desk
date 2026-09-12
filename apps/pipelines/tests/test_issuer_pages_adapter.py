@@ -1,3 +1,5 @@
+from urllib.error import URLError
+
 from src.lib.source.adapters.issuer_pages import (
     IssuerPagesAdapter,
     parse_ishares_snapshot,
@@ -159,3 +161,44 @@ def test_ishares_does_not_substitute_a_different_distribution_yield_basis():
     page = '\"distributionYield\":{\"formattedValue\":\"3.5\",\"formattedAsOfDate\":\"Sep 10, 2026\"}'
     snapshot = parse_ishares_snapshot(page, symbol="EWG", source_url="https://www.ishares.com/ewg")
     assert snapshot.dividend_yield_pct is None
+
+
+def test_issuer_pages_adapter_retries_a_transient_product_page_timeout():
+    product_list_html = '<a href="/us/products/239650/ishares-msci-germany-etf">EWG</a>'
+    product_html = '"priceEarnings":{"formattedValue":"18.32","formattedAsOfDate":"Sep 10, 2026"}'
+    product_attempts = 0
+
+    def fake_opener(request):
+        nonlocal product_attempts
+        if "etf-investments" in request.full_url:
+            return _FakeResponse(product_list_html.encode())
+        product_attempts += 1
+        if product_attempts == 1:
+            raise URLError(TimeoutError("timed out"))
+        return _FakeResponse(product_html.encode())
+
+    result = IssuerPagesAdapter(opener=fake_opener, retry_delay_seconds=0).fetch_fundamentals_snapshot("EWG.US")
+
+    assert result.ok is True
+    assert product_attempts == 2
+
+
+def test_issuer_pages_adapter_reuses_the_ishares_product_list():
+    product_list_html = """
+    <a href="/us/products/239650/ishares-msci-germany-etf">EWG</a>
+    <a href="/us/products/239649/ishares-msci-france-etf">EWQ</a>
+    """
+    product_html = '"priceBook":{"formattedValue":"2.10","formattedAsOfDate":"Sep 10, 2026"}'
+    product_list_requests = 0
+
+    def fake_opener(request):
+        nonlocal product_list_requests
+        if "etf-investments" in request.full_url:
+            product_list_requests += 1
+            return _FakeResponse(product_list_html.encode())
+        return _FakeResponse(product_html.encode())
+
+    adapter = IssuerPagesAdapter(opener=fake_opener)
+    assert adapter.fetch_fundamentals_snapshot("EWG.US").ok is True
+    assert adapter.fetch_fundamentals_snapshot("EWQ.US").ok is True
+    assert product_list_requests == 1
