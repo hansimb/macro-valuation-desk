@@ -1,5 +1,5 @@
 import React from "react";
-import { Box, chakra, Heading, Stack, Text } from "@chakra-ui/react";
+import { Box, Heading, Stack, Text } from "@chakra-ui/react";
 
 import type {
   EquityMarketValuationMetric,
@@ -106,20 +106,20 @@ function MarketValuationTable({ markets, citations }: { markets: EquityMarketVal
     >
       <Box as="thead" role="rowgroup" display={{ base: "none", lg: "table-header-group" }}>
         <Box as="tr" role="row" borderBottomColor="edge" borderBottomWidth="1px">
-          <chakra.th role="columnheader" scope="col" w={visibleColumns.length ? "34%" : "100%"} p="3" textAlign="left" color="muted" textStyle="eyebrow">
+          <Box as="th" role="columnheader" scope="col" w={visibleColumns.length ? "34%" : "100%"} p="3" textAlign="left" color="muted" textStyle="eyebrow">
             Market / measured object
-          </chakra.th>
+          </Box>
           {visibleColumns.map((column) => (
-            <chakra.th role="columnheader" scope="col" key={column.key} p="3" textAlign="right" color="muted" textStyle="eyebrow" verticalAlign="bottom">
+            <Box as="th" role="columnheader" scope="col" key={column.key} p="3" textAlign="right" color="muted" textStyle="eyebrow" verticalAlign="bottom">
               {column.label}
-            </chakra.th>
+            </Box>
           ))}
         </Box>
       </Box>
       <Box as="tbody" role="rowgroup" display={{ base: "block", lg: "table-row-group" }}>
         {markets.map((row) => (
           <Box as="tr" role="row" display={{ base: "grid", lg: "table-row" }} gridTemplateColumns="repeat(2, minmax(0, 1fr))" borderBottomColor="edge" borderBottomWidth="1px" py={{ base: "4", lg: "0" }} key={row.marketId}>
-            <chakra.th role="rowheader" scope="row" gridColumn="1 / -1" minW="0" p="3" textAlign="left" verticalAlign="top">
+            <Box as="th" role="rowheader" scope="row" gridColumn="1 / -1" minW="0" p="3" textAlign="left" verticalAlign="top">
               <Stack gap="1">
                 <Text fontWeight="700" textStyle="body">
                   {row.marketName} <Text as="span" color="muted" textStyle="caption">{row.region}</Text>
@@ -132,7 +132,7 @@ function MarketValuationTable({ markets, citations }: { markets: EquityMarketVal
                 </Text>
                 <Text color="muted" textStyle="caption">Valuation as of {row.asOf}</Text>
               </Stack>
-            </chakra.th>
+            </Box>
             {visibleColumns.map((column) => (
               <Box as="td" role="cell" key={column.key} minW="0" p="3" textAlign={{ base: "left", lg: "right" }} textStyle="body" verticalAlign="top">
                 <Text as="span" display={{ base: "block", lg: "none" }} color="muted" textStyle="caption" mb="1">
