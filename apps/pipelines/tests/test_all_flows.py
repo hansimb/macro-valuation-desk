@@ -128,3 +128,15 @@ def test_all_flows_cli_prints_result_and_exits_nonzero_when_flow_status_failed(c
     captured = capsys.readouterr()
     assert json.loads(captured.out) == result
     assert exit_code == 1
+
+
+def test_all_flows_does_not_hide_child_fetch_errors(monkeypatch):
+    monkeypatch.setattr("src.flows.all_flows.run_macro_seed_flow", lambda: {"rows_loaded": 3})
+    monkeypatch.setattr("src.flows.all_flows.run_taylor_rule_flow", lambda: {"status": "success"})
+    monkeypatch.setattr("src.flows.all_flows.run_currency_analysis_flow", lambda: {
+        "status": "success", "fetch_errors": ["eur_3m_rate: TLS failure"], "irp_snapshot_rows": 0,
+    })
+    monkeypatch.setattr("src.flows.all_flows.run_equity_market_valuation_flow", lambda: {"status": "success"})
+    result = run_all_flows()
+    assert result["status"] == "failed"
+    assert result["errors"] == ["currency_analysis: eur_3m_rate: TLS failure"]

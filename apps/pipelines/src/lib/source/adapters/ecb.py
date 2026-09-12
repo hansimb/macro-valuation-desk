@@ -2,10 +2,14 @@ from __future__ import annotations
 
 import csv
 import io
+import os
+import ssl
 import re
-from urllib.error import HTTPError
+from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
+
+import truststore
 
 from src.lib.source.adapters.base import SourceAdapter
 from src.lib.source.types import FetchOptions, FetchResult, Observation, SeriesDefinition, StandardizedSeries
@@ -102,7 +106,14 @@ class EcbAdapter(SourceAdapter):
         )
 
         try:
-            with urlopen(request) as response:
+            context = truststore.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+            # Native trust builds certificate chains using the OS store (including
+            # missing intermediates on Windows), without disabling verification.
+            if cafile := os.environ.get("SSL_CERT_FILE"):
+                context.load_verify_locations(cafile=cafile)
+            if capath := os.environ.get("SSL_CERT_DIR"):
+                context.load_verify_locations(capath=capath)
+            with urlopen(request, context=context, timeout=30) as response:
                 payload = response.read().decode("utf-8")
         except HTTPError as exc:
             return FetchResult.failure(
@@ -113,12 +124,22 @@ class EcbAdapter(SourceAdapter):
                 message=_format_http_error(exc),
             )
         except Exception as exc:
+            reason = exc.reason if isinstance(exc, URLError) else exc
+            tls_error = isinstance(reason, ssl.SSLCertVerificationError)
+            message = str(exc)
+            if tls_error:
+                message = (
+                    f"TLS certificate verification failed for {request.full_url}: {reason}. "
+                    "Update the system certificate store; if your network uses a private CA, "
+                    "install its approved certificate in that store or set SSL_CERT_FILE "
+                    "to an approved PEM CA bundle. Certificate verification remains enabled."
+                )
             return FetchResult.failure(
                 provider=series_definition.provider,
                 key=series_definition.key,
                 external_series_id=series_definition.external_series_id,
-                error_type="fetch_error",
-                message=str(exc),
+                error_type="tls_error" if tls_error else "fetch_error",
+                message=message,
             )
 
         reader = csv.DictReader(io.StringIO(payload))

@@ -17,8 +17,9 @@ from src.flows.taylor_rule_flow import run_taylor_rule_flow
 
 
 def _collect_child_flow_errors(name: str, result: dict[str, object]) -> list[str]:
+    fetch_errors = result.get("fetch_errors")
     if result.get("status") != "failed":
-        return []
+        return [f"{name}: {error}" for error in fetch_errors] if isinstance(fetch_errors, list) else []
 
     failure_summary = result.get("failure_summary")
     if isinstance(failure_summary, str) and failure_summary:

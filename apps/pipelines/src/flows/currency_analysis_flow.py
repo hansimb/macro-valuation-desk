@@ -90,7 +90,8 @@ def run_currency_analysis_flow() -> dict[str, object]:
     )
 
     return {
-        "status": "success",
+        "status": "failed" if failures else "success",
+        "errors": failures,
         "series_fetched": len(fetch_results),
         "staging_rows": len(prepared_staging_rows),
         "ppp_snapshot_rows": len(ppp_outputs["snapshot_rows"]),

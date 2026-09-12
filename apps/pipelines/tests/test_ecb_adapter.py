@@ -41,7 +41,7 @@ def test_ecb_adapter_returns_standardized_success(monkeypatch):
     writer.writerow({"TIME_PERIOD": "2026-03", "OBS_VALUE": "2.20"})
     writer.writerow({"TIME_PERIOD": "2026-04", "OBS_VALUE": "2.10"})
 
-    def fake_urlopen(request):
+    def fake_urlopen(request, **kwargs):
         assert "service/data/FM/D.U2.EUR.4F.KR.DFR.LEV" in request.full_url
         assert "service/data/FM/FM.D.U2.EUR.4F.KR.DFR.LEV" not in request.full_url
         assert "startPeriod=2026-01-01" in request.full_url
@@ -72,7 +72,7 @@ def test_ecb_adapter_normalizes_monthly_start_period(monkeypatch):
     writer.writeheader()
     writer.writerow({"TIME_PERIOD": "2026-03", "OBS_VALUE": "2.20"})
 
-    def fake_urlopen(request):
+    def fake_urlopen(request, **kwargs):
         assert "startPeriod=2026-01" in request.full_url
         assert "startPeriod=2026-01-01" not in request.full_url
         return _FakeResponse(output.getvalue().encode("utf-8"))
@@ -93,7 +93,7 @@ def test_ecb_adapter_normalizes_quarterly_start_period(monkeypatch):
     writer.writeheader()
     writer.writerow({"TIME_PERIOD": "2026-Q1", "OBS_VALUE": "12000"})
 
-    def fake_urlopen(request):
+    def fake_urlopen(request, **kwargs):
         assert "startPeriod=2026-Q1" in request.full_url
         assert "startPeriod=2026-01-01" not in request.full_url
         return _FakeResponse(output.getvalue().encode("utf-8"))
@@ -109,7 +109,7 @@ def test_ecb_adapter_normalizes_quarterly_start_period(monkeypatch):
 
 
 def test_ecb_adapter_includes_request_url_and_response_body_in_http_errors(monkeypatch):
-    def fake_urlopen(request):
+    def fake_urlopen(request, **kwargs):
         raise HTTPError(
             url=request.full_url,
             code=400,
@@ -140,7 +140,7 @@ def test_ecb_adapter_summarizes_html_block_pages(monkeypatch):
     </body></html>
     """.encode("utf-8")
 
-    def fake_urlopen(request):
+    def fake_urlopen(request, **kwargs):
         raise HTTPError(
             url=request.full_url,
             code=400,
@@ -160,3 +160,43 @@ def test_ecb_adapter_summarizes_html_block_pages(monkeypatch):
     assert result.error is not None
     assert "Your access has been blocked due to security concerns." in result.error.message
     assert "<html" not in result.error.message
+
+
+def test_ecb_uses_verified_native_tls_context_and_timeout(monkeypatch):
+    import ssl
+    import truststore
+
+    def fake_urlopen(request, **kwargs):
+        context = kwargs.get("context")
+        assert isinstance(context, truststore.SSLContext)
+        assert context.verify_mode == ssl.CERT_REQUIRED
+        assert context.check_hostname is True
+        assert kwargs.get("timeout") == 30
+        return _FakeResponse(b"TIME_PERIOD,OBS_VALUE\n2026-09-11,2.17\n")
+
+    monkeypatch.setattr("src.lib.source.adapters.ecb.urlopen", fake_urlopen)
+    result = EcbAdapter().fetch_series(
+        _series_definition("eur_3m_rate", "EST.B.EU000A2QQF32.CR", "daily"), FetchOptions()
+    )
+    assert result.ok is True
+
+
+def test_ecb_certificate_failure_explains_secure_remediation_without_retry(monkeypatch):
+    import ssl
+    from urllib.error import URLError
+    calls = []
+
+    def fake_urlopen(request, **kwargs):
+        calls.append(request.full_url)
+        raise URLError(ssl.SSLCertVerificationError(1, "unable to get local issuer certificate"))
+
+    monkeypatch.setattr("src.lib.source.adapters.ecb.urlopen", fake_urlopen)
+    result = EcbAdapter().fetch_series(
+        _series_definition("eur_3m_rate", "EST.B.EU000A2QQF32.CR", "daily"), FetchOptions()
+    )
+    assert result.ok is False
+    assert result.error.error_type == "tls_error"
+    assert "system certificate store" in result.error.message
+    assert "SSL_CERT_FILE" in result.error.message
+    assert "data-api.ecb.europa.eu" in result.error.message
+    assert len(calls) == 1

@@ -211,7 +211,7 @@ def test_run_currency_analysis_flow_handles_required_input_failure_without_check
     assert written_checkpoints == []
 
 
-def test_run_currency_analysis_flow_tolerates_optional_irp_fetch_failures_when_ppp_still_builds(monkeypatch):
+def test_run_currency_analysis_flow_reports_failure_but_preserves_ppp_when_irp_fetch_fails(monkeypatch):
     fetch_results = [
         FetchResult.success(
             _build_series(
@@ -340,7 +340,8 @@ def test_run_currency_analysis_flow_tolerates_optional_irp_fetch_failures_when_p
 
     result = run_currency_analysis_flow()
 
-    assert result["status"] == "success"
+    assert result["status"] == "failed"
+    assert result["errors"] == result["fetch_errors"]
     assert result["ppp_snapshot_rows"] == 2
     assert result["irp_snapshot_rows"] == 0
     assert result["availability_rows"] == 4
