@@ -1,0 +1,128 @@
+{
+  "cik": 320193,
+  "entityName": "Apple Inc.",
+  "facts": {
+    "us-gaap": {
+      "Revenues": {
+        "label": "Revenue",
+        "description": "Sales revenue",
+        "units": {
+          "USD": [
+            {
+              "start": "2024-09-29",
+              "end": "2025-09-27",
+              "val": 416161000000,
+              "accn": "0000320193-25-000079",
+              "fy": 2025,
+              "fp": "FY",
+              "form": "10-K",
+              "filed": "2025-10-31",
+              "accepted": "2025-10-31T16:30:00Z",
+              "published": "2025-10-31T16:35:00Z",
+              "frame": "CY2025",
+              "context": "FY2025",
+              "dimensions": {"LegalEntityAxis": "AppleIncMember"}
+            },
+            {
+              "start": "2024-09-29",
+              "end": "2025-09-27",
+              "val": 416161000000,
+              "accn": "0000320193-25-000079A",
+              "fy": 2025,
+              "fp": "FY",
+              "form": "10-K/A",
+              "filed": "2025-11-07",
+              "accepted": "2025-11-07T15:20:00Z",
+              "published": "2025-11-07T15:25:00Z",
+              "frame": "CY2025",
+              "context": "FY2025",
+              "amendmentOf": "0000320193-25-000079",
+              "dimensions": {"LegalEntityAxis": "AppleIncMember"}
+            },
+            {
+              "start": "2025-06-29",
+              "end": "2025-09-27",
+              "val": 102466000000,
+              "accn": "0000320193-25-000073",
+              "fy": 2025,
+              "fp": "Q4",
+              "form": "10-Q",
+              "filed": "2025-10-31",
+              "accepted": "2025-10-31T16:30:00Z",
+              "published": "2025-10-31T16:35:00Z",
+              "frame": "CY2025Q3",
+              "context": "Q42025"
+            }
+          ]
+        }
+      },
+      "ForeignAnnualMetric": {
+        "label": "Foreign annual metric",
+        "units": {
+          "USD": [
+            {
+              "start": "2024-01-01",
+              "end": "2024-12-31",
+              "val": 100,
+              "accn": "0000320193-25-000020",
+              "fy": 2024,
+              "fp": "FY",
+              "form": "20-F",
+              "filed": "2025-03-01",
+              "accepted": "2025-03-01T12:00:00Z",
+              "published": "2025-03-01T12:05:00Z",
+              "frame": "CY2024"
+            },
+            {
+              "start": "2024-01-01",
+              "end": "2024-12-31",
+              "val": 101,
+              "accn": "0000320193-25-000040",
+              "fy": 2024,
+              "fp": "FY",
+              "form": "40-F",
+              "filed": "2025-03-15",
+              "accepted": "2025-03-15T12:00:00Z",
+              "published": "2025-03-15T12:05:00Z",
+              "frame": "CY2024"
+            },
+            {
+              "end": "2025-09-27",
+              "val": 1,
+              "accn": "0000320193-25-000090",
+              "fy": 2025,
+              "fp": "FY",
+              "form": "8-K",
+              "filed": "2025-11-10",
+              "accepted": "2025-11-10T12:00:00Z",
+              "published": "2025-11-10T12:05:00Z"
+            }
+          ]
+        }
+      }
+    },
+    "aapl": {
+      "StoreVisits": {
+        "label": "Store visits",
+        "units": {
+          "visits": [
+            {
+              "start": "2025-06-29",
+              "end": "2025-09-27",
+              "val": 123456,
+              "accn": "0000320193-25-000073",
+              "fy": 2025,
+              "fp": "Q4",
+              "form": "10-Q",
+              "filed": "2025-10-31",
+              "accepted": "2025-10-31T16:30:00Z",
+              "published": "2025-10-31T16:35:00Z",
+              "frame": "CY2025Q3",
+              "context": "CustomMetricContext"
+            }
+          ]
+        }
+      }
+    }
+  }
+}
