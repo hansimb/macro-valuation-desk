@@ -88,6 +88,21 @@ create table if not exists core.security_listings (
     unique (market_id, exchange_code, ticker, valid_from)
 );
 
+-- The first Task 1 schema did not expose this exact listing identity as a key.
+do $upgrade_listing_identity$
+begin
+    if not exists (
+        select 1 from pg_constraint
+        where conrelid = 'core.security_listings'::regclass
+          and pg_get_constraintdef(oid) = 'UNIQUE (listing_id, security_id, market_id)'
+    ) then
+        alter table core.security_listings
+            add constraint security_listings_listing_id_security_id_market_id_key
+            unique (listing_id, security_id, market_id);
+    end if;
+end;
+$upgrade_listing_identity$;
+
 create table if not exists core.primary_security_listings (
     security_id text not null,
     market_id text not null,
@@ -101,6 +116,48 @@ create table if not exists core.primary_security_listings (
     foreign key (listing_id, security_id, market_id)
         references core.security_listings (listing_id, security_id, market_id)
 );
+
+-- CREATE TABLE IF NOT EXISTS does not upgrade the earlier undated mapping.
+-- Only rows without a start date receive listing bounds; existing history stays intact.
+alter table core.primary_security_listings
+    add column if not exists effective_from date,
+    add column if not exists effective_to date;
+
+update core.primary_security_listings as primary_listing
+set effective_from = listing.valid_from,
+    effective_to = listing.valid_to
+from core.security_listings as listing
+where primary_listing.listing_id = listing.listing_id
+  and primary_listing.security_id = listing.security_id
+  and primary_listing.market_id = listing.market_id
+  and primary_listing.effective_from is null;
+
+alter table core.primary_security_listings
+    alter column effective_from set not null;
+
+do $upgrade_primary_listing_identity$
+begin
+    if not exists (
+        select 1 from pg_constraint
+        where conrelid = 'core.primary_security_listings'::regclass
+          and conname = 'primary_security_listings_check'
+    ) then
+        alter table core.primary_security_listings
+            add constraint primary_security_listings_check
+            check (effective_to is null or effective_to >= effective_from);
+    end if;
+
+    if not exists (
+        select 1 from pg_constraint
+        where conrelid = 'core.primary_security_listings'::regclass
+          and pg_get_constraintdef(oid) = 'UNIQUE (listing_id, security_id, market_id)'
+    ) then
+        alter table core.primary_security_listings
+            add constraint primary_security_listings_listing_id_security_id_market_id_key
+            unique (listing_id, security_id, market_id);
+    end if;
+end;
+$upgrade_primary_listing_identity$;
 
 create table if not exists core.canonical_facts (
     canonical_fact_id text primary key,
@@ -164,6 +221,82 @@ create table if not exists core.country_cohort_members (
     foreign key (primary_listing_id, security_id, market_id)
         references core.primary_security_listings (listing_id, security_id, market_id)
 );
+
+alter table core.country_cohort_members
+    add column if not exists primary_listing_id text;
+
+alter table core.country_cohort_members
+    drop constraint if exists country_cohort_members_market_id_security_id_fkey,
+    drop constraint if exists country_cohort_members_security_id_fkey;
+
+-- Remove the dependent legacy FK before removing its market/security unique key.
+alter table core.primary_security_listings
+    drop constraint if exists primary_security_listings_market_id_security_id_key;
+
+do $upgrade_member_listing_identity$
+begin
+    if exists (
+        select 1 from pg_constraint
+        where conrelid = 'core.primary_security_listings'::regclass
+          and pg_get_constraintdef(oid) = 'PRIMARY KEY (security_id)'
+    ) then
+        alter table core.primary_security_listings
+            drop constraint primary_security_listings_pkey,
+            add constraint primary_security_listings_pkey primary key (listing_id);
+    end if;
+
+    if not exists (
+        select 1 from pg_constraint
+        where conrelid = 'core.country_cohort_members'::regclass
+          and contype = 'f'
+          and confrelid = 'core.primary_security_listings'::regclass
+    ) then
+        alter table core.country_cohort_members
+            add constraint country_cohort_members_primary_listing_fkey
+            foreign key (primary_listing_id, security_id, market_id)
+            references core.primary_security_listings (listing_id, security_id, market_id);
+    end if;
+end;
+$upgrade_member_listing_identity$;
+
+-- The original Task 1 revision stored primary status on the listing itself.
+-- Carry those explicit identities forward once, without replacing existing mappings.
+do $upgrade_primary_listing_flags$
+begin
+    if exists (
+        select 1 from pg_attribute
+        where attrelid = 'core.security_listings'::regclass
+          and attname = 'is_primary' and not attisdropped
+    ) then
+        insert into core.primary_security_listings (security_id, market_id, listing_id, effective_from, effective_to)
+        select security_id, market_id, listing_id, valid_from, valid_to
+        from core.security_listings
+        where is_primary
+        on conflict (listing_id) do nothing;
+
+        alter table core.security_listings drop column is_primary;
+    end if;
+end;
+$upgrade_primary_listing_flags$;
+
+-- A scalar subquery rejects ambiguous matches instead of selecting an arbitrary
+-- listing. Missing matches fail the NOT NULL constraint; recorded IDs never change.
+update core.country_cohort_members as member
+set primary_listing_id = (
+    select primary_listing.listing_id
+    from core.primary_security_listings as primary_listing
+    join core.country_cohorts as cohort
+        on cohort.market_id = member.market_id
+       and cohort.cohort_version = member.cohort_version
+    where primary_listing.security_id = member.security_id
+      and primary_listing.market_id = member.market_id
+      and primary_listing.effective_from <= cohort.effective_from
+      and (primary_listing.effective_to is null or primary_listing.effective_to >= cohort.effective_from)
+)
+where member.primary_listing_id is null;
+
+alter table core.country_cohort_members
+    alter column primary_listing_id set not null;
 
 create table if not exists core.point_in_time_fundamentals (
     security_id text not null,
@@ -291,9 +424,122 @@ create table if not exists marts.country_index_publications (
         references core.country_weekly_metrics (run_id, market_id, metric_key, week_id)
 );
 
+-- Preserve the original revision's duplicated values as archival metadata before
+-- removing its obsolete NOT NULL fields; the weekly parent supplies live values.
+do $upgrade_publication_pointer$
+begin
+    if exists (
+        select 1 from pg_attribute
+        where attrelid = 'marts.country_index_publications'::regclass
+          and attname = 'cohort_version' and not attisdropped
+    ) then
+        update marts.country_index_publications
+        set publication_metadata = publication_metadata || jsonb_build_object(
+            'task_1_legacy_metric_snapshot', jsonb_build_object(
+                'cohort_version', cohort_version,
+                'methodology_version', methodology_version,
+                'metric_value', metric_value,
+                'metric_status', metric_status
+            )
+        );
+
+        alter table marts.country_index_publications
+            drop column cohort_version,
+            drop column methodology_version,
+            drop column metric_value,
+            drop column metric_status;
+    end if;
+end;
+$upgrade_publication_pointer$;
+
 create unique index if not exists country_index_publications_current_week_idx
     on marts.country_index_publications (market_id, metric_key, week_id)
     where is_current;
+
+-- Constraint triggers only see later writes. Check rows already stored by an
+-- earlier bootstrap too, and abort the bootstrap transaction on invalid history.
+do $validate_primary_listing_history$
+begin
+    if exists (
+        select 1
+        from core.primary_security_listings as primary_listing
+        join core.security_listings as listing
+            on listing.listing_id = primary_listing.listing_id
+           and listing.security_id = primary_listing.security_id
+           and listing.market_id = primary_listing.market_id
+        where primary_listing.effective_from < listing.valid_from
+           or (listing.valid_to is not null and (
+               primary_listing.effective_to is null or primary_listing.effective_to > listing.valid_to
+           ))
+    ) then
+        raise exception 'existing primary listing interval exceeds underlying listing validity';
+    end if;
+
+    if exists (
+        select 1
+        from core.primary_security_listings as primary_listing
+        join core.primary_security_listings as other
+            on other.security_id = primary_listing.security_id
+           and other.listing_id <> primary_listing.listing_id
+        where daterange(other.effective_from, other.effective_to, '[]')
+            && daterange(primary_listing.effective_from, primary_listing.effective_to, '[]')
+    ) then
+        raise exception 'existing primary listing intervals overlap';
+    end if;
+
+    if exists (
+        select 1
+        from core.country_cohort_members as member
+        join core.country_cohorts as cohort
+            on cohort.market_id = member.market_id
+           and cohort.cohort_version = member.cohort_version
+        where not exists (
+            select 1
+            from core.primary_security_listings as primary_listing
+            where primary_listing.listing_id = member.primary_listing_id
+              and primary_listing.security_id = member.security_id
+              and primary_listing.market_id = member.market_id
+              and primary_listing.effective_from <= cohort.effective_from
+              and (primary_listing.effective_to is null or primary_listing.effective_to >= cohort.effective_from)
+        )
+    ) then
+        raise exception 'existing cohort member is not covered by its primary listing';
+    end if;
+end;
+$validate_primary_listing_history$;
+
+create or replace function core.assert_primary_listing_validity_coverage()
+returns trigger
+language plpgsql
+as $$
+begin
+    -- Both tables expose listing_id. Read the current row for deferred checks,
+    -- and prevent a concurrent validity-date update during mapping validation.
+    perform 1 from core.security_listings
+    where listing_id = new.listing_id
+    for share;
+
+    if exists (
+        select 1
+        from core.primary_security_listings as primary_listing
+        join core.security_listings as listing
+            on listing.listing_id = primary_listing.listing_id
+           and listing.security_id = primary_listing.security_id
+           and listing.market_id = primary_listing.market_id
+        where primary_listing.listing_id = new.listing_id
+          and (
+              primary_listing.effective_from < listing.valid_from
+              or (listing.valid_to is not null and (
+                  primary_listing.effective_to is null or primary_listing.effective_to > listing.valid_to
+              ))
+          )
+    ) then
+        raise exception 'primary listing % exceeds underlying listing validity', new.listing_id;
+    end if;
+
+    return new;
+end;
+$$;
 
 create or replace function core.assert_primary_listing_intervals_do_not_overlap()
 returns trigger
@@ -386,6 +632,20 @@ begin
     return new;
 end;
 $$;
+
+drop trigger if exists primary_security_listing_validity_coverage on core.primary_security_listings;
+create constraint trigger primary_security_listing_validity_coverage
+    after insert or update on core.primary_security_listings
+    deferrable initially immediate
+    for each row
+    execute function core.assert_primary_listing_validity_coverage();
+
+drop trigger if exists security_listing_primary_validity_coverage on core.security_listings;
+create constraint trigger security_listing_primary_validity_coverage
+    after insert or update on core.security_listings
+    deferrable initially immediate
+    for each row
+    execute function core.assert_primary_listing_validity_coverage();
 
 drop trigger if exists primary_security_listing_non_overlapping on core.primary_security_listings;
 create constraint trigger primary_security_listing_non_overlapping
