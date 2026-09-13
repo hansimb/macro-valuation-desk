@@ -92,9 +92,12 @@ create table if not exists core.primary_security_listings (
     security_id text not null,
     market_id text not null,
     listing_id text not null,
+    effective_from date not null,
+    effective_to date,
     created_at timestamptz not null default now(),
     primary key (listing_id),
     unique (listing_id, security_id, market_id),
+    check (effective_to is null or effective_to >= effective_from),
     foreign key (listing_id, security_id, market_id)
         references core.security_listings (listing_id, security_id, market_id)
 );
@@ -291,3 +294,123 @@ create table if not exists marts.country_index_publications (
 create unique index if not exists country_index_publications_current_week_idx
     on marts.country_index_publications (market_id, metric_key, week_id)
     where is_current;
+
+create or replace function core.assert_primary_listing_intervals_do_not_overlap()
+returns trigger
+language plpgsql
+as $$
+begin
+    if exists (
+        select 1
+        from core.primary_security_listings as other
+        where other.security_id = new.security_id
+          and other.listing_id <> new.listing_id
+          and daterange(other.effective_from, other.effective_to, '[]')
+              && daterange(new.effective_from, new.effective_to, '[]')
+    ) then
+        raise exception 'primary listing intervals cannot overlap for security %', new.security_id;
+    end if;
+
+    return new;
+end;
+$$;
+
+create or replace function core.assert_cohort_member_listing_coverage()
+returns trigger
+language plpgsql
+as $$
+begin
+    if tg_table_name = 'country_cohort_members' then
+        if not exists (
+            select 1
+            from core.primary_security_listings as primary_listing
+            join core.country_cohorts as cohort
+                on cohort.market_id = new.market_id
+               and cohort.cohort_version = new.cohort_version
+            where primary_listing.listing_id = new.primary_listing_id
+              and primary_listing.security_id = new.security_id
+              and primary_listing.market_id = new.market_id
+              and primary_listing.effective_from <= cohort.effective_from
+              and (
+                  primary_listing.effective_to is null
+                  or primary_listing.effective_to >= cohort.effective_from
+              )
+        ) then
+            raise exception 'primary listing % does not cover cohort %/% effective date',
+                new.primary_listing_id,
+                new.market_id,
+                new.cohort_version;
+        end if;
+    elsif tg_table_name = 'primary_security_listings' then
+        if exists (
+            select 1
+            from core.country_cohort_members as member
+            join core.country_cohorts as cohort
+                on cohort.market_id = member.market_id
+               and cohort.cohort_version = member.cohort_version
+            where member.primary_listing_id = new.listing_id
+              and (
+                  new.effective_from > cohort.effective_from
+                  or (
+                      new.effective_to is not null
+                      and new.effective_to < cohort.effective_from
+                  )
+              )
+        ) then
+            raise exception 'primary listing % no longer covers a cohort member', new.listing_id;
+        end if;
+    elsif tg_table_name = 'country_cohorts' then
+        if exists (
+            select 1
+            from core.country_cohort_members as member
+            join core.primary_security_listings as primary_listing
+                on primary_listing.listing_id = member.primary_listing_id
+               and primary_listing.security_id = member.security_id
+               and primary_listing.market_id = member.market_id
+            where member.market_id = new.market_id
+              and member.cohort_version = new.cohort_version
+              and (
+                  primary_listing.effective_from > new.effective_from
+                  or (
+                      primary_listing.effective_to is not null
+                      and primary_listing.effective_to < new.effective_from
+                  )
+              )
+        ) then
+            raise exception 'cohort %/% effective date is not covered by a member primary listing',
+                new.market_id,
+                new.cohort_version;
+        end if;
+    end if;
+
+    return new;
+end;
+$$;
+
+drop trigger if exists primary_security_listing_non_overlapping on core.primary_security_listings;
+create constraint trigger primary_security_listing_non_overlapping
+    after insert or update on core.primary_security_listings
+    deferrable initially immediate
+    for each row
+    execute function core.assert_primary_listing_intervals_do_not_overlap();
+
+drop trigger if exists country_cohort_member_primary_listing_coverage on core.country_cohort_members;
+create constraint trigger country_cohort_member_primary_listing_coverage
+    after insert or update on core.country_cohort_members
+    deferrable initially immediate
+    for each row
+    execute function core.assert_cohort_member_listing_coverage();
+
+drop trigger if exists primary_security_listing_membership_coverage on core.primary_security_listings;
+create constraint trigger primary_security_listing_membership_coverage
+    after insert or update on core.primary_security_listings
+    deferrable initially immediate
+    for each row
+    execute function core.assert_cohort_member_listing_coverage();
+
+drop trigger if exists country_cohort_membership_listing_coverage on core.country_cohorts;
+create constraint trigger country_cohort_membership_listing_coverage
+    after insert or update on core.country_cohorts
+    deferrable initially immediate
+    for each row
+    execute function core.assert_cohort_member_listing_coverage();

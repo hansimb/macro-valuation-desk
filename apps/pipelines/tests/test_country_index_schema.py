@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import re
+
 from src.lib.db.schema import SCHEMA_FILES, _schema_sql
 
 
@@ -80,3 +82,30 @@ def test_country_cohort_members_require_the_security_primary_listing_market():
         "foreign key (primary_listing_id, security_id, market_id) "
         "references core.primary_security_listings (listing_id, security_id, market_id)"
     ) in membership
+
+
+def test_primary_listing_intervals_and_cohort_membership_coverage_are_enforced():
+    sql = _compact(_schema_sql())
+    primary_listing = _table_definition(sql, "core.primary_security_listings")
+
+    assert "effective_from date not null" in primary_listing
+    assert "effective_to date" in primary_listing
+    assert "check (effective_to is null or effective_to >= effective_from)" in primary_listing
+    assert "create or replace function core.assert_primary_listing_intervals_do_not_overlap()" in sql
+    assert "daterange(other.effective_from, other.effective_to, '[]') && daterange(new.effective_from, new.effective_to, '[]')" in sql
+    assert "create constraint trigger primary_security_listing_non_overlapping" in sql
+    assert "deferrable initially immediate" in sql
+    assert "create or replace function core.assert_cohort_member_listing_coverage()" in sql
+    assert "primary_listing.effective_from <= cohort.effective_from" in sql
+    assert re.search(
+        r"\(\s*primary_listing\.effective_to is null\s+or\s+"
+        r"primary_listing\.effective_to >= cohort\.effective_from\s*\)",
+        sql,
+    )
+
+    for trigger_name in (
+        "country_cohort_member_primary_listing_coverage",
+        "primary_security_listing_membership_coverage",
+        "country_cohort_membership_listing_coverage",
+    ):
+        assert f"create constraint trigger {trigger_name}" in sql
