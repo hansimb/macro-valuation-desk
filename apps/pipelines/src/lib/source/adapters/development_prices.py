@@ -3,7 +3,9 @@ from __future__ import annotations
 import json
 import os
 from collections.abc import Callable, Mapping, Sequence
+from dataclasses import dataclass
 from datetime import UTC, date, datetime, time, timedelta
+from decimal import Decimal, InvalidOperation
 from math import isfinite
 from urllib.request import Request, urlopen
 
@@ -14,11 +16,12 @@ FetchJson = Callable[[str], Mapping[str, object]]
 
 
 class DevelopmentPriceAdapter:
-    """Development-only Yahoo Finance daily-price adapter.
+    """Development-only Yahoo Finance price adapter with split-only adjustments.
 
-    Yahoo Finance is used here solely as a replaceable, free development feed.
-    Its data is labelled ``development_only`` on every result and this adapter
-    never represents that feed as commercially publishable.
+    Yahoo's ``adjclose`` can include dividend adjustments.  It is deliberately
+    unused: this adapter derives ``split_adjusted_close_price`` only from raw
+    closes and reported split events, leaving dividend adjustments out of the
+    country-index price series.
     """
 
     BASE_URL = "https://query1.finance.yahoo.com/v8/finance/chart"
@@ -67,13 +70,17 @@ class DevelopmentPriceAdapter:
         normalized_ticker = ticker.strip().upper()
         if not normalized_ticker:
             raise ValueError("security ticker is required for development prices")
-        period1 = _epoch(start)
-        period2 = _epoch(end + timedelta(days=1))
-        return f"{self.BASE_URL}/{normalized_ticker}?interval=1d&period1={period1}&period2={period2}"
+        return (
+            f"{self.BASE_URL}/{normalized_ticker}?interval=1d&period1={_epoch(start)}"
+            f"&period2={_epoch(end + timedelta(days=1))}"
+        )
 
 
 def _fetch_json(url: str) -> Mapping[str, object]:
-    request = Request(url, headers={"Accept": "application/json", "User-Agent": "macro-valuation-desk/0.1"})
+    request = Request(
+        url,
+        headers={"Accept": "application/json", "User-Agent": "macro-valuation-desk/0.1"},
+    )
     with urlopen(request, timeout=30) as response:
         payload = json.loads(response.read().decode("utf-8"))
     if not isinstance(payload, Mapping):
@@ -98,46 +105,105 @@ def _parse_prices(
     timestamps = result.get("timestamp")
     if not isinstance(timestamps, Sequence) or isinstance(timestamps, (str, bytes)) or not timestamps:
         raise ValueError("development price response has missing trading dates")
-    indicators = _mapping(result.get("indicators"), "indicators")
-    quote = _single_mapping(indicators.get("quote"), "quote")
-    closes = quote.get("close")
+    closes = _single_mapping(_mapping(result.get("indicators"), "indicators").get("quote"), "quote").get("close")
     if not isinstance(closes, Sequence) or isinstance(closes, (str, bytes)) or len(closes) != len(timestamps):
         raise ValueError("development price response has invalid close prices")
-    adjusted = _adjusted_closes(indicators, len(timestamps))
-    splits = _split_metadata(result.get("events"))
 
+    observations = _observations(timestamps, closes)
+    splits = _split_events(result.get("events"))
     prices: list[DailyPrice] = []
-    seen_dates: set[date] = set()
-    for index, timestamp in enumerate(timestamps):
-        trading_date = _trading_date(timestamp)
-        if trading_date in seen_dates:
-            raise ValueError(f"development price response has duplicate trading date {trading_date.isoformat()}")
-        seen_dates.add(trading_date)
+    for trading_date, close_price in observations:
         if trading_date < start or trading_date > end:
             continue
-        close_price = closes[index]
-        if not _is_positive_number(close_price):
-            raise ValueError(f"development price response has invalid close price for {trading_date.isoformat()}")
-        adjusted_close = adjusted[index] if adjusted is not None else None
-        if adjusted_close is not None and not _is_positive_number(adjusted_close):
-            raise ValueError(
-                f"development price response has invalid split-adjusted close price for {trading_date.isoformat()}"
-            )
         prices.append(
             DailyPrice(
                 security_id=security.security_id,
                 trading_date=trading_date,
                 provider=DevelopmentPriceAdapter.PROVIDER,
                 close_price=close_price,
-                split_adjusted_close_price=adjusted_close,
+                split_adjusted_close_price=_split_adjusted_close(close_price, trading_date, splits),
                 trading_currency=security.trading_currency,
                 provider_timestamp=provider_timestamp,
                 license_class=DevelopmentPriceAdapter.LICENSE_CLASS,
-                adjustment_metadata={"split": splits[trading_date]} if trading_date in splits else {},
+                adjustment_metadata={"split": splits[trading_date].metadata}
+                if trading_date in splits
+                else {},
                 source_url=source_url,
             )
         )
     return prices
+
+
+@dataclass(frozen=True)
+class _SplitEvent:
+    date: date
+    factor: Decimal
+    metadata: Mapping[str, str]
+
+
+def _observations(timestamps: Sequence[object], closes: Sequence[object]) -> list[tuple[date, object]]:
+    observations: list[tuple[date, object]] = []
+    seen_dates: set[date] = set()
+    for timestamp, close_price in zip(timestamps, closes, strict=True):
+        trading_date = _trading_date(timestamp)
+        if trading_date in seen_dates:
+            raise ValueError(f"development price response has duplicate trading date {trading_date.isoformat()}")
+        seen_dates.add(trading_date)
+        if not _is_positive_number(close_price):
+            raise ValueError(f"development price response has invalid close price for {trading_date.isoformat()}")
+        observations.append((trading_date, close_price))
+    return observations
+
+
+def _split_events(events: object) -> dict[date, _SplitEvent]:
+    if events is None:
+        return {}
+    split_events = _mapping(events, "events").get("splits")
+    if split_events is None:
+        return {}
+    if not isinstance(split_events, Mapping):
+        raise ValueError("development price response has invalid split events")
+    parsed: dict[date, _SplitEvent] = {}
+    for split in split_events.values():
+        details = _mapping(split, "split event")
+        split_date = _trading_date(details.get("date"))
+        factor, ratio = _split_factor(details)
+        if split_date in parsed:
+            raise ValueError(f"development price response has duplicate split event {split_date.isoformat()}")
+        parsed[split_date] = _SplitEvent(
+            date=split_date,
+            factor=factor,
+            metadata={"date": split_date.isoformat(), "ratio": ratio},
+        )
+    return parsed
+
+
+def _split_factor(details: Mapping[str, object]) -> tuple[Decimal, str]:
+    numerator = details.get("numerator")
+    denominator = details.get("denominator")
+    if numerator is None or denominator is None:
+        raise ValueError("development price response has split ratio without numerator and denominator")
+    try:
+        top = Decimal(str(numerator))
+        bottom = Decimal(str(denominator))
+    except (InvalidOperation, ValueError) as exc:
+        raise ValueError("development price response has invalid split ratio") from exc
+    if not top.is_finite() or not bottom.is_finite() or top <= 0 or bottom <= 0:
+        raise ValueError("development price response has invalid split ratio")
+    ratio = str(details.get("splitRatio") or f"{numerator}:{denominator}").strip()
+    return top / bottom, ratio
+
+
+def _split_adjusted_close(
+    close_price: object,
+    trading_date: date,
+    splits: Mapping[date, _SplitEvent],
+) -> Decimal:
+    factor = Decimal(1)
+    for split_date, split in splits.items():
+        if split_date > trading_date:
+            factor *= split.factor
+    return Decimal(str(close_price)) / factor
 
 
 def _mapping(value: object, name: str) -> Mapping[str, object]:
@@ -150,39 +216,6 @@ def _single_mapping(value: object, name: str) -> Mapping[str, object]:
     if not isinstance(value, Sequence) or isinstance(value, (str, bytes)) or len(value) != 1:
         raise ValueError(f"development price response has invalid {name}")
     return _mapping(value[0], name)
-
-
-def _adjusted_closes(indicators: Mapping[str, object], expected_length: int) -> Sequence[object] | None:
-    value = indicators.get("adjclose")
-    if value is None:
-        return None
-    adjusted = _single_mapping(value, "adjclose").get("adjclose")
-    if not isinstance(adjusted, Sequence) or isinstance(adjusted, (str, bytes)) or len(adjusted) != expected_length:
-        raise ValueError("development price response has invalid split-adjusted close prices")
-    return adjusted
-
-
-def _split_metadata(events: object) -> dict[date, dict[str, str]]:
-    if events is None:
-        return {}
-    split_events = _mapping(events, "events").get("splits")
-    if split_events is None:
-        return {}
-    if not isinstance(split_events, Mapping):
-        raise ValueError("development price response has invalid split events")
-    splits: dict[date, dict[str, str]] = {}
-    for split in split_events.values():
-        details = _mapping(split, "split event")
-        split_date = _trading_date(details.get("date"))
-        ratio = str(details.get("splitRatio") or "").strip()
-        if not ratio:
-            numerator = details.get("numerator")
-            denominator = details.get("denominator")
-            if numerator is None or denominator is None:
-                raise ValueError("development price response has split event without a ratio")
-            ratio = f"{numerator}:{denominator}"
-        splits[split_date] = {"date": split_date.isoformat(), "ratio": ratio}
-    return splits
 
 
 def _trading_date(value: object) -> date:

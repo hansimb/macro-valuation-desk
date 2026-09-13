@@ -10,9 +10,9 @@ from src.lib.source.country_index_types import SecurityListing
 
 def _security() -> SecurityListing:
     return SecurityListing(
-        listing_id="sec:0000320193:AAPL",
-        security_id="sec:0000320193:AAPL",
-        issuer_id="0000320193",
+        listing_id="security-master:aapl",
+        security_id="security-master:aapl",
+        issuer_id="issuer:aapl",
         issuer_name="Apple Inc.",
         security_type="common_stock",
         market_id="us",
@@ -21,38 +21,45 @@ def _security() -> SecurityListing:
         trading_currency="USD",
         valid_from=date(1980, 12, 12),
         listing_status="active",
-        source_provider="sec",
-        source_external_id="0000320193:AAPL",
+        source_provider="security_master",
+        source_external_id="master:aapl",
     )
 
 
-def _payload(*, close: object = 100.0, timestamps: object | None = None) -> dict[str, object]:
+def _payload(
+    *,
+    closes: object = (100.0, 102.0),
+    timestamps: object = (1735689600, 1735776000),
+    splits: object | None = None,
+    adjclose: object = (-999.0, float("nan")),
+) -> dict[str, object]:
+    split_events = splits
+    if split_events is None:
+        split_events = {
+            "1735776000": {
+                "date": 1735776000,
+                "numerator": 2,
+                "denominator": 1,
+                "splitRatio": "2:1",
+            }
+        }
     return {
         "chart": {
             "result": [
                 {
-                    "timestamp": timestamps if timestamps is not None else [1735689600, 1735776000],
+                    "timestamp": timestamps,
                     "indicators": {
-                        "quote": [{"close": [close, 102.0]}],
-                        "adjclose": [{"adjclose": [95.0, 96.9]}],
+                        "quote": [{"close": closes}],
+                        "adjclose": [{"adjclose": adjclose}],
                     },
-                    "events": {
-                        "splits": {
-                            "1735776000": {
-                                "date": 1735776000,
-                                "numerator": 2,
-                                "denominator": 1,
-                                "splitRatio": "2:1",
-                            }
-                        }
-                    },
+                    "events": {"splits": split_events},
                 }
             ]
         }
     }
 
 
-def test_daily_prices_preserve_provider_license_and_split_metadata_without_network():
+def test_daily_prices_calculate_split_only_adjustments_and_ignore_dividend_adjusted_close():
     requests: list[str] = []
 
     def fetch_json(url: str) -> dict[str, object]:
@@ -64,7 +71,7 @@ def test_daily_prices_preserve_provider_license_and_split_metadata_without_netwo
 
     assert [price.trading_date for price in prices] == [date(2025, 1, 1), date(2025, 1, 2)]
     assert [price.close_price for price in prices] == [100.0, 102.0]
-    assert [price.split_adjusted_close_price for price in prices] == [95.0, 96.9]
+    assert [price.split_adjusted_close_price for price in prices] == [50.0, 102.0]
     assert all(price.provider == "yahoo_finance_development" for price in prices)
     assert all(price.license_class == "development_only" for price in prices)
     assert prices[1].adjustment_metadata == {
@@ -80,11 +87,27 @@ def test_daily_prices_preserve_provider_license_and_split_metadata_without_netwo
 @pytest.mark.parametrize(
     ("payload", "message"),
     [
-        (_payload(close=0), "close price"),
-        (_payload(timestamps=[None, 1735776000]), "missing trading dates"),
+        (_payload(closes=(0, 102.0)), "close price"),
+        (_payload(closes=(-1, 102.0)), "close price"),
+        (_payload(closes=(float("nan"), 102.0)), "close price"),
+        (_payload(closes=(float("inf"), 102.0)), "close price"),
+        (_payload(timestamps=(None, 1735776000)), "missing trading dates"),
+        (_payload(timestamps=(1735689600, 1735689600)), "duplicate trading date"),
+        (
+            _payload(
+                splits={
+                    "1735776000": {
+                        "date": 1735776000,
+                        "numerator": 0,
+                        "denominator": 1,
+                    }
+                }
+            ),
+            "split ratio",
+        ),
     ],
 )
-def test_daily_prices_reject_invalid_close_prices_and_missing_dates(payload, message):
+def test_daily_prices_reject_invalid_prices_dates_and_split_ratios(payload, message):
     adapter = DevelopmentPriceAdapter(fetch_json=lambda _url: payload)
 
     with pytest.raises(ValueError, match=message):
