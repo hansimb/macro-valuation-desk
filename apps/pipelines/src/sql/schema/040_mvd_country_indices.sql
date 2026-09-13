@@ -78,14 +78,25 @@ create table if not exists core.security_listings (
     exchange_code text not null,
     ticker text not null,
     trading_currency text not null,
-    is_primary boolean not null,
     valid_from date not null,
     valid_to date,
     listing_status text not null,
     source_provider text not null,
     source_external_id text not null,
     created_at timestamptz not null default now(),
+    unique (listing_id, security_id, market_id),
     unique (market_id, exchange_code, ticker, valid_from)
+);
+
+create table if not exists core.primary_security_listings (
+    security_id text not null,
+    market_id text not null,
+    listing_id text not null,
+    created_at timestamptz not null default now(),
+    primary key (security_id),
+    unique (market_id, security_id),
+    foreign key (listing_id, security_id, market_id)
+        references core.security_listings (listing_id, security_id, market_id)
 );
 
 create table if not exists core.canonical_facts (
@@ -146,7 +157,8 @@ create table if not exists core.country_cohort_members (
     primary key (market_id, cohort_version, security_id),
     foreign key (market_id, cohort_version)
         references core.country_cohorts (market_id, cohort_version),
-    foreign key (security_id) references core.securities (security_id)
+    foreign key (market_id, security_id)
+        references core.primary_security_listings (market_id, security_id)
 );
 
 create table if not exists core.point_in_time_fundamentals (
@@ -267,10 +279,6 @@ create table if not exists marts.country_index_publications (
     market_id text not null,
     metric_key text not null,
     week_id date not null,
-    cohort_version text not null,
-    methodology_version text not null,
-    metric_value numeric,
-    metric_status text not null,
     published_at timestamptz not null,
     is_current boolean not null default false,
     publication_metadata jsonb not null default '{}'::jsonb,
