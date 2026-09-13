@@ -72,8 +72,11 @@ def test_country_cohort_members_require_the_security_primary_listing_market():
     membership = _table_definition(sql, "core.country_cohort_members")
 
     assert "foreign key (listing_id, security_id, market_id) references core.security_listings (listing_id, security_id, market_id)" in primary_listing
-    assert "unique (market_id, security_id)" in primary_listing
+    assert "primary key (listing_id)" in primary_listing
+    assert "primary key (security_id)" not in primary_listing
+    assert "unique (listing_id, security_id, market_id)" in primary_listing
+    assert "primary_listing_id text not null" in membership
     assert (
-        "foreign key (market_id, security_id) "
-        "references core.primary_security_listings (market_id, security_id)"
+        "foreign key (primary_listing_id, security_id, market_id) "
+        "references core.primary_security_listings (listing_id, security_id, market_id)"
     ) in membership

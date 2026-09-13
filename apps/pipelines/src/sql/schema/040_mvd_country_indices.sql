@@ -93,8 +93,8 @@ create table if not exists core.primary_security_listings (
     market_id text not null,
     listing_id text not null,
     created_at timestamptz not null default now(),
-    primary key (security_id),
-    unique (market_id, security_id),
+    primary key (listing_id),
+    unique (listing_id, security_id, market_id),
     foreign key (listing_id, security_id, market_id)
         references core.security_listings (listing_id, security_id, market_id)
 );
@@ -148,6 +148,7 @@ create table if not exists core.country_cohort_members (
     market_id text not null,
     cohort_version text not null,
     security_id text not null,
+    primary_listing_id text not null,
     member_rank integer not null,
     market_cap_at_formation numeric not null,
     market_weight_at_formation numeric not null,
@@ -157,8 +158,8 @@ create table if not exists core.country_cohort_members (
     primary key (market_id, cohort_version, security_id),
     foreign key (market_id, cohort_version)
         references core.country_cohorts (market_id, cohort_version),
-    foreign key (market_id, security_id)
-        references core.primary_security_listings (market_id, security_id)
+    foreign key (primary_listing_id, security_id, market_id)
+        references core.primary_security_listings (listing_id, security_id, market_id)
 );
 
 create table if not exists core.point_in_time_fundamentals (
