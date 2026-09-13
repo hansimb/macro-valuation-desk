@@ -3,8 +3,9 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import date, datetime
 from decimal import Decimal
+from math import isfinite
 from types import MappingProxyType
-from typing import Mapping
+from collections.abc import Mapping
 
 
 Number = Decimal | float | int
@@ -16,12 +17,26 @@ def _require_timezone_aware(field_name: str, value: datetime | None) -> None:
 
 
 def _require_positive(field_name: str, value: Number) -> None:
-    if value <= 0:
-        raise ValueError(f"{field_name} must be positive")
+    try:
+        is_valid = not isinstance(value, bool) and isfinite(value) and value > 0
+    except (TypeError, ValueError):
+        is_valid = False
+    if not is_valid:
+        raise ValueError(f"{field_name} must be finite and positive")
 
 
 def _freeze_mapping(value: Mapping[str, object]) -> Mapping[str, object]:
-    return MappingProxyType(dict(value))
+    return MappingProxyType({key: _freeze_value(item) for key, item in value.items()})
+
+
+def _freeze_value(value: object) -> object:
+    if isinstance(value, Mapping):
+        return _freeze_mapping(value)
+    if isinstance(value, (list, tuple)):
+        return tuple(_freeze_value(item) for item in value)
+    if isinstance(value, (set, frozenset)):
+        return frozenset(_freeze_value(item) for item in value)
+    return value
 
 
 @dataclass(frozen=True)
