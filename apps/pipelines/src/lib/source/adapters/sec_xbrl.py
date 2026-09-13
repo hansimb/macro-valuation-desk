@@ -2,17 +2,21 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 from collections import defaultdict
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
-from datetime import date, datetime, time, timezone
+from datetime import date, datetime, time, timedelta, timezone
 from urllib.request import Request, urlopen
+from zoneinfo import ZoneInfo
 
 from src.lib.source.country_index_types import RawXbrlFact, RegulatoryFiling
 from src.lib.source.types import SourceError
 
 
 FetchJson = Callable[[str, Mapping[str, str]], Mapping[str, object]]
+SEC_FILING_TIME_ZONE = ZoneInfo("America/New_York")
+DATE_ONLY_AVAILABILITY_PRECISION = "filing_date_only_next_sec_day"
 
 
 @dataclass(frozen=True)
@@ -69,7 +73,8 @@ class _FactCandidate:
     context_id: str | None
     frame: str | None
     amendment_of_accession: str | None
-    ordinal: int
+    availability_precision: str
+    canonical_material: str
 
 
 class SecXbrlAdapter:
@@ -82,7 +87,6 @@ class SecXbrlAdapter:
 
     COMPANY_TICKERS_EXCHANGE_URL = "https://www.sec.gov/files/company_tickers_exchange.json"
     BULK_COMPANYFACTS_URL = "https://www.sec.gov/Archives/edgar/daily-index/xbrl/companyfacts.zip"
-    USER_AGENT = "Macro Valuation Desk contact@macrovaluationdesk.com"
     SUPPORTED_FORMS = frozenset({"10-K", "10-Q", "20-F", "40-F"})
 
     def __init__(
@@ -92,7 +96,7 @@ class SecXbrlAdapter:
         user_agent: str | None = None,
     ) -> None:
         self._fetch_json = fetch_json or _fetch_json
-        self._user_agent = user_agent or self.USER_AGENT
+        self._user_agent = (user_agent or os.getenv("SEC_USER_AGENT") or "").strip()
 
     def discover_company(self, cik: str) -> SecXbrlResult:
         """Find an exchange-listed SEC registrant by its normalized CIK."""
@@ -105,6 +109,10 @@ class SecXbrlAdapter:
                 error_type="validation_error",
                 message=str(exc),
             )
+
+        user_agent_error = self._user_agent_error(normalized_cik, self.COMPANY_TICKERS_EXCHANGE_URL)
+        if user_agent_error is not None:
+            return user_agent_error
 
         try:
             payload = self._fetch_json(self.COMPANY_TICKERS_EXCHANGE_URL, self._headers())
@@ -139,6 +147,9 @@ class SecXbrlAdapter:
             )
 
         source_url = self.companyfacts_url(normalized_cik)
+        user_agent_error = self._user_agent_error(normalized_cik, source_url)
+        if user_agent_error is not None:
+            return user_agent_error
         try:
             payload = self._fetch_json(source_url, self._headers())
             fetched_at = datetime.now(timezone.utc)
@@ -175,6 +186,19 @@ class SecXbrlAdapter:
 
     def _headers(self) -> dict[str, str]:
         return {"Accept": "application/json", "User-Agent": self._user_agent}
+
+    def _user_agent_error(self, cik: str, url: str) -> SecXbrlResult | None:
+        if not self._user_agent or "@" not in self._user_agent:
+            return SecXbrlResult.failure(
+                cik=cik,
+                url=url,
+                error_type="config_error",
+                message=(
+                    "SEC_USER_AGENT or an explicit user_agent with an identifiable "
+                    "organization and monitored contact email is required for SEC requests."
+                ),
+            )
+        return None
 
 
 def _fetch_json(url: str, headers: Mapping[str, str]) -> Mapping[str, object]:
@@ -241,10 +265,20 @@ def _parse_companyfacts(
 
     filings_by_accession: dict[str, RegulatoryFiling] = {}
     for accession, filing_candidates in by_accession.items():
-        representative = min(filing_candidates, key=lambda candidate: candidate.published_at)
+        canonical_candidates = sorted(
+            filing_candidates,
+            key=lambda candidate: candidate.canonical_material,
+        )
+        representative = min(
+            canonical_candidates,
+            key=lambda candidate: (candidate.published_at, candidate.canonical_material),
+        )
         content_json = {
             "cik": payload_cik,
             "entityName": entity_name,
+            "availability_precision": sorted(
+                {candidate.availability_precision for candidate in canonical_candidates}
+            ),
             "facts": [
                 {
                     "taxonomy": candidate.taxonomy,
@@ -252,7 +286,7 @@ def _parse_companyfacts(
                     "unit": candidate.unit,
                     "value": dict(candidate.observation),
                 }
-                for candidate in filing_candidates
+                for candidate in canonical_candidates
             ],
         }
         content_hash = _content_hash(content_json)
@@ -283,7 +317,8 @@ def _parse_companyfacts(
                 filing_content_hash=filing.content_hash,
                 fact_id=(
                     f"{candidate.taxonomy}:{candidate.concept_name}:"
-                    f"{candidate.accession}:{candidate.unit}:{candidate.ordinal}"
+                    f"{candidate.accession}:{candidate.unit}:"
+                    f"{_identity_hash(candidate.canonical_material)}"
                 ),
                 taxonomy=candidate.taxonomy,
                 concept_name=candidate.concept_name,
@@ -291,7 +326,7 @@ def _parse_companyfacts(
                 published_at=candidate.published_at,
                 context_id=candidate.context_id,
                 entity_id=payload_cik,
-                dimensions=_dimensions(candidate.observation),
+                dimensions=_dimensions(candidate.observation, candidate.availability_precision),
                 unit=candidate.unit,
                 decimals=_optional_text(candidate.observation.get("decimals")),
                 period_start=candidate.period_start,
@@ -318,7 +353,6 @@ def _fact_candidates(payload: Mapping[str, object]) -> list[_FactCandidate]:
         raise ValueError("SEC companyfacts payload is missing facts")
 
     candidates: list[_FactCandidate] = []
-    ordinal = 0
     for taxonomy, concepts in facts.items():
         if not isinstance(concepts, Mapping):
             raise ValueError(f"SEC taxonomy {taxonomy!r} is not an object")
@@ -343,10 +377,8 @@ def _fact_candidates(payload: Mapping[str, object]) -> list[_FactCandidate]:
                             concept_name=str(concept_name),
                             unit=str(unit),
                             observation=observation,
-                            ordinal=ordinal,
                         )
                     )
-                    ordinal += 1
     return candidates
 
 
@@ -356,7 +388,6 @@ def _candidate(
     concept_name: str,
     unit: str,
     observation: Mapping[str, object],
-    ordinal: int,
 ) -> _FactCandidate:
     accession = _required_text(observation, "accn")
     filing_form = _required_text(observation, "form")
@@ -365,8 +396,14 @@ def _candidate(
     accepted_at = _optional_timestamp(
         observation.get("accepted") or observation.get("acceptanceDateTime")
     )
-    if published_at is None:
-        published_at = accepted_at or datetime.combine(filing_date, time.min, tzinfo=timezone.utc)
+    if published_at is not None:
+        availability_precision = "published_timestamp"
+    elif accepted_at is not None:
+        published_at = accepted_at
+        availability_precision = "accepted_timestamp"
+    else:
+        published_at = _conservative_date_only_availability(filing_date)
+        availability_precision = DATE_ONLY_AVAILABILITY_PRECISION
     start = _optional_date(observation.get("start"))
     end = _optional_date(observation.get("end"))
     if end is None:
@@ -387,7 +424,15 @@ def _candidate(
         context_id=_optional_text(observation.get("context")),
         frame=_optional_text(observation.get("frame")),
         amendment_of_accession=_optional_text(observation.get("amendmentOf")),
-        ordinal=ordinal,
+        availability_precision=availability_precision,
+        canonical_material=_canonical_json(
+            {
+                "taxonomy": taxonomy,
+                "concept": concept_name,
+                "unit": unit,
+                "observation": observation,
+            }
+        ),
     )
 
 
@@ -419,8 +464,16 @@ def _amendment_links(candidates: list[_FactCandidate]) -> dict[str, str]:
 
 
 def _content_hash(content: Mapping[str, object]) -> str:
-    encoded = json.dumps(content, sort_keys=True, separators=(",", ":"), default=str).encode("utf-8")
+    encoded = _canonical_json(content).encode("utf-8")
     return f"sha256:{hashlib.sha256(encoded).hexdigest()}"
+
+
+def _identity_hash(material: str) -> str:
+    return hashlib.sha256(material.encode("utf-8")).hexdigest()
+
+
+def _canonical_json(value: object) -> str:
+    return json.dumps(value, sort_keys=True, separators=(",", ":"), default=str)
 
 
 def _base_form(filing_form: str) -> str:
@@ -467,8 +520,26 @@ def _optional_timestamp(value: object) -> datetime | None:
     return parsed
 
 
-def _dimensions(observation: Mapping[str, object]) -> Mapping[str, object]:
+def _conservative_date_only_availability(filing_date: date) -> datetime:
+    return datetime.combine(
+        filing_date + timedelta(days=1),
+        time.min,
+        tzinfo=SEC_FILING_TIME_ZONE,
+    ).astimezone(timezone.utc)
+
+
+def _dimensions(
+    observation: Mapping[str, object],
+    availability_precision: str,
+) -> Mapping[str, object]:
     dimensions = observation.get("dimensions", {})
     if not isinstance(dimensions, Mapping):
         raise ValueError("SEC fact dimensions must be an object")
-    return dimensions
+    if availability_precision != DATE_ONLY_AVAILABILITY_PRECISION:
+        return dimensions
+    return {
+        **dimensions,
+        "__mvd_source_metadata__": {
+            "availability_precision": availability_precision,
+        },
+    }
