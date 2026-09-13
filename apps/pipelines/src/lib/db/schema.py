@@ -12,11 +12,16 @@ SCHEMA_FILE_NAMES = [
     "030_equity_market_valuation.sql",
 ]
 
+SCHEMA_FILES = [
+    *SCHEMA_FILE_NAMES,
+    "040_mvd_country_indices.sql",
+]
+
 SCHEMA_DIR = Path(__file__).resolve().parents[2] / "sql" / "schema"
 
 
 def _schema_sql() -> str:
-    return "\n\n".join((SCHEMA_DIR / file_name).read_text(encoding="utf-8") for file_name in SCHEMA_FILE_NAMES)
+    return "\n\n".join((SCHEMA_DIR / file_name).read_text(encoding="utf-8") for file_name in SCHEMA_FILES)
 
 
 def bootstrap_taylor_rule_schema(connection) -> None:
