@@ -55,7 +55,7 @@ def test_direct_quarters_and_dividends_sum_without_double_counting_annual_fact()
 
 
 def test_cumulative_reports_derive_q2_from_h1_and_q4_from_fy_minus_nine_months():
-    raw = [fact("NetIncomeLoss", value, end=end)
+    raw = [fact("NetIncomeLossAvailableToCommonStockholdersBasic", value, end=end)
            for end, value in [("2024-03-31", 10), ("2024-06-30", 35),
                               ("2024-09-30", 65), ("2024-12-31", 105)]]
     result = evaluate(raw)
@@ -67,7 +67,7 @@ def test_cumulative_reports_derive_q2_from_h1_and_q4_from_fy_minus_nine_months()
 
 
 def test_latest_amendment_is_visible_exactly_at_publication_not_period_end():
-    raw = quarters("NetIncomeLoss", [10, 20, 30, 40])
+    raw = quarters("NetIncomeLossAvailableToCommonStockholdersBasic", [10, 20, 30, 40])
     published = CUTOFF + timedelta(hours=12)
     amendment = replace(raw[-1], value_text="50", fact_id="amended-q4", filing_id="amendment",
                         filing_form="10-Q/A", amendment_of_filing_id="original",
@@ -118,7 +118,7 @@ def test_fcf_uses_exact_cash_capex_and_never_adds_lease_or_noncash_acquisitions(
 
 
 def test_missing_quarter_or_dividends_is_missing_not_zero_or_annualized():
-    result = evaluate(quarters("NetIncomeLoss", [10, 20, 30, 40])[:-1])
+    result = evaluate(quarters("NetIncomeLossAvailableToCommonStockholdersBasic", [10, 20, 30, 40])[:-1])
     assert result.ttm_net_income is None
     assert result.ttm_dividends is None
     assert result.ttm_free_cash_flow is None
@@ -126,7 +126,7 @@ def test_missing_quarter_or_dividends_is_missing_not_zero_or_annualized():
 
 
 def test_fiscal_year_dates_and_annual_only_filer_are_supported():
-    raw = [fact("NetIncomeLoss", 123, start="2023-09-24", end="2024-09-28")]
+    raw = [fact("NetIncomeLossAvailableToCommonStockholdersBasic", 123, start="2023-09-24", end="2024-09-28")]
     result = evaluate(raw)
     assert result.ttm_net_income == Decimal("123")
     assert result.net_income.period_start == date(2023, 9, 24)
@@ -199,8 +199,8 @@ def test_decimal_context_does_not_change_exact_cash_flow_arithmetic():
 
 
 def test_rolling_ttm_uses_previous_fiscal_year_quarters_and_current_q1():
-    raw = quarters("NetIncomeLoss", [10, 20, 30, 40])
-    raw += [fact("NetIncomeLoss", 50, start="2025-01-01", end="2025-03-31",
+    raw = quarters("NetIncomeLossAvailableToCommonStockholdersBasic", [10, 20, 30, 40])
+    raw += [fact("NetIncomeLossAvailableToCommonStockholdersBasic", 50, start="2025-01-01", end="2025-03-31",
                  published_at=datetime(2025, 4, 15, tzinfo=timezone.utc))]
     result = evaluate(raw, datetime(2025, 5, 1, tzinfo=timezone.utc))
     assert result.ttm_net_income == Decimal("140")
@@ -208,7 +208,7 @@ def test_rolling_ttm_uses_previous_fiscal_year_quarters_and_current_q1():
 
 
 def test_one_day_gap_does_not_form_ttm():
-    raw = quarters("NetIncomeLoss", [10, 20, 30, 40])
+    raw = quarters("NetIncomeLossAvailableToCommonStockholdersBasic", [10, 20, 30, 40])
     raw[1] = replace(raw[1], period_start=date(2024, 4, 2))
     assert evaluate(raw).ttm_net_income is None
 
@@ -221,8 +221,8 @@ def test_ttm_does_not_combine_different_entities_or_reporting_scopes(changes):
 
 
 def test_reported_quarter_outranks_same_publication_derived_quarter_with_diagnostic():
-    raw = quarters("NetIncomeLoss", [10, 20, 30, 40])
-    raw += [fact("NetIncomeLoss", 45, end="2024-06-30")]
+    raw = quarters("NetIncomeLossAvailableToCommonStockholdersBasic", [10, 20, 30, 40])
+    raw += [fact("NetIncomeLossAvailableToCommonStockholdersBasic", 45, end="2024-06-30")]
     result = evaluate(raw)
     assert result.ttm_net_income == Decimal("100")
     assert "reported_derived_disagreement" in result.net_income.warnings
@@ -231,7 +231,7 @@ def test_reported_quarter_outranks_same_publication_derived_quarter_with_diagnos
 
 
 def test_later_amended_cumulative_report_revises_derived_quarter_only_when_visible():
-    raw = [fact("NetIncomeLoss", value, end=end)
+    raw = [fact("NetIncomeLossAvailableToCommonStockholdersBasic", value, end=end)
            for end, value in [("2024-03-31", 10), ("2024-06-30", 35),
                               ("2024-09-30", 65), ("2024-12-31", 105)]]
     amended_at = CUTOFF + timedelta(days=1)
@@ -255,11 +255,11 @@ def test_amended_at_is_an_additional_publication_lower_bound():
     assert evaluate([raw]).ttm_revenue is None
 
 
-def test_mapping_specificity_selects_attributable_income_and_retains_rejection():
+def test_common_income_is_selected_and_broad_candidate_retains_rejection():
     result = evaluate([fact("NetIncomeLossAvailableToCommonStockholdersBasic", 90),
                        fact("NetIncomeLoss", 100)])
     assert result.ttm_net_income == Decimal("90")
-    assert result.rejections[0].reason == "less_preferred_concept"
+    assert result.rejections[0].reason == "common_attribution_unverified"
 
 
 def test_sec_adapter_date_only_metadata_and_publication_cutoff_are_preserved_end_to_end():
@@ -303,3 +303,75 @@ def test_future_fact_from_another_mapping_version_cannot_change_historical_resul
     future = replace(future, taxonomy_version="future-v2")
     result = fundamentals_as_of(SECURITY, CUTOFF, [current, future])
     assert result.ttm_revenue == Decimal("100")
+
+
+@pytest.mark.parametrize("taxonomy,concept,metric,instant", [
+    ("us-gaap", "NetIncomeLoss", "net_income", False),
+    ("us-gaap", "StockholdersEquity", "common_equity", True),
+    ("ifrs-full", "ProfitLossAttributableToOwnersOfParent", "net_income", False),
+    ("ifrs-full", "EquityAttributableToOwnersOfParent", "common_equity", True),
+])
+def test_broad_owner_totals_cannot_populate_common_metrics(taxonomy, concept, metric, instant):
+    raw = fact(concept, 100, taxonomy=taxonomy, instant=instant)
+    result = evaluate([raw])
+    assert getattr(result, metric).value is None
+    assert getattr(result, metric).lineage.facts == ()
+    assert result.candidates[0].raw is raw
+    assert result.candidates[0].value == Decimal("100")
+    assert result.rejections[0].fact.raw is raw
+    assert result.rejections[0].reason == "common_attribution_unverified"
+
+
+@pytest.mark.parametrize("taxonomy,concept,metric,instant", [
+    ("us-gaap", "NetIncomeLossAvailableToCommonStockholdersBasic", "net_income", False),
+    ("us-gaap", "CommonStockholdersEquity", "common_equity", True),
+    ("ifrs-full", "ProfitLossAttributableToOrdinaryEquityHoldersOfParentEntity", "net_income", False),
+])
+def test_common_specific_metrics_remain_eligible_including_losses(taxonomy, concept, metric, instant):
+    raw = fact(concept, "-12.34", taxonomy=taxonomy, instant=instant)
+    result = evaluate([raw])
+    assert getattr(result, metric).value == Decimal("-12.34")
+    assert getattr(result, metric).lineage.facts[0].raw is raw
+    assert result.rejections == ()
+
+
+def test_negative_source_cash_capex_reduces_fcf_exactly_under_low_decimal_precision():
+    operating = fact("NetCashProvidedByUsedInOperatingActivities", "123456789012345678901234567890.12")
+    capex = fact("PaymentsToAcquirePropertyPlantAndEquipment", "-0.01")
+    with localcontext() as context:
+        context.prec = 6
+        result = evaluate([operating, capex])
+    assert result.ttm_capex == Decimal("0.01")
+    assert result.ttm_free_cash_flow == Decimal("123456789012345678901234567890.11")
+    assert "cash_outflow_sign_normalized" in result.capex.warnings
+    assert "cash_outflow_sign_normalized" in result.free_cash_flow.warnings
+    assert result.capex.lineage.facts[0].raw is capex
+    assert result.capex.lineage.facts[0].raw.value_text == "-0.01"
+
+
+def test_negative_source_common_dividends_produce_nonnegative_ttm_cash_payments():
+    raw = quarters("PaymentsOfDividendsCommonStock", ["-0.1", "-0.2", "-0.3", "-0.4"])
+    result = evaluate(raw)
+    assert result.ttm_dividends == Decimal("1.0")
+    assert "cash_outflow_sign_normalized" in result.dividends.warnings
+    assert {f.raw.value_text for f in result.dividends.lineage.facts} == {"-0.1", "-0.2", "-0.3", "-0.4"}
+
+
+def test_negative_cumulative_cash_payments_derive_positive_discrete_quarters():
+    raw = [fact("PaymentsToAcquirePropertyPlantAndEquipment", value, end=end)
+           for end, value in [("2024-03-31", "-1.01"), ("2024-06-30", "-3.03"),
+                              ("2024-09-30", "-6.06"), ("2024-12-31", "-10.10")]]
+    raw += [fact("NetCashProvidedByUsedInOperatingActivities", "101.10")]
+    result = evaluate(raw)
+    assert [q.value for q in result.capex.quarters] == list(map(Decimal, ["1.01", "2.02", "3.03", "4.04"]))
+    assert result.ttm_capex == Decimal("10.10")
+    assert result.ttm_free_cash_flow == Decimal("91.00")
+    assert result.ttm_free_cash_flow == result.ttm_operating_cash_flow - result.ttm_capex
+
+
+def test_negative_operating_cash_flow_retains_its_sign():
+    result = evaluate([fact("NetCashProvidedByUsedInOperatingActivities", "-100.01"),
+                       fact("PaymentsToAcquirePropertyPlantAndEquipment", "1.02")])
+    assert result.ttm_operating_cash_flow == Decimal("-100.01")
+    assert result.ttm_free_cash_flow == Decimal("-101.03")
+    assert "cash_outflow_sign_normalized" not in result.operating_cash_flow.warnings

@@ -19,6 +19,7 @@ from src.lib.source.country_index_types import RawXbrlFact
 DEFAULT_TAXONOMY_VERSION = "sec-v1"
 INSTANT_METRICS = frozenset({"common_equity", "period_end_shares"})
 SHARE_METRICS = frozenset({"weighted_average_shares", "period_end_shares"})
+CASH_OUTFLOW_METRICS = frozenset({"capex", "dividends"})
 
 
 @dataclass(frozen=True)
@@ -26,18 +27,19 @@ class ConceptMapping:
     metric: str
     priority: int = 0
     warnings: tuple[str, ...] = ()
+    rejection_reasons: tuple[str, ...] = ()
 
 
-# Broad parent-owner totals are identified explicitly so consumers can enforce
-# stricter common-only coverage. They never outrank a common-specific concept.
+# Broad parent-owner totals retain their metric and raw lineage for inspection,
+# but cannot populate common-attributable fundamentals without a derivation.
 _MAPPINGS = MappingProxyType({
     ("us-gaap", "RevenueFromContractWithCustomerExcludingAssessedTax"): ConceptMapping("revenue"),
     ("us-gaap", "Revenues"): ConceptMapping("revenue", 1),
     ("us-gaap", "SalesRevenueNet"): ConceptMapping("revenue", 2),
     ("us-gaap", "NetIncomeLossAvailableToCommonStockholdersBasic"): ConceptMapping("net_income"),
-    ("us-gaap", "NetIncomeLoss"): ConceptMapping("net_income", 1, ("preferred_dividends_not_separated",)),
+    ("us-gaap", "NetIncomeLoss"): ConceptMapping("net_income", 1, ("preferred_dividends_not_separated",), ("common_attribution_unverified",)),
     ("us-gaap", "CommonStockholdersEquity"): ConceptMapping("common_equity"),
-    ("us-gaap", "StockholdersEquity"): ConceptMapping("common_equity", 1, ("preferred_equity_not_separated",)),
+    ("us-gaap", "StockholdersEquity"): ConceptMapping("common_equity", 1, ("preferred_equity_not_separated",), ("common_attribution_unverified",)),
     ("us-gaap", "NetCashProvidedByUsedInOperatingActivities"): ConceptMapping("operating_cash_flow"),
     ("us-gaap", "PaymentsToAcquirePropertyPlantAndEquipment"): ConceptMapping("capex"),
     ("us-gaap", "PaymentsOfDividendsCommonStock"): ConceptMapping("dividends"),
@@ -46,8 +48,8 @@ _MAPPINGS = MappingProxyType({
     ("dei", "EntityCommonStockSharesOutstanding"): ConceptMapping("period_end_shares", 1),
     ("ifrs-full", "Revenue"): ConceptMapping("revenue"),
     ("ifrs-full", "ProfitLossAttributableToOrdinaryEquityHoldersOfParentEntity"): ConceptMapping("net_income"),
-    ("ifrs-full", "ProfitLossAttributableToOwnersOfParent"): ConceptMapping("net_income", 1, ("preferred_dividends_not_separated",)),
-    ("ifrs-full", "EquityAttributableToOwnersOfParent"): ConceptMapping("common_equity", 1, ("preferred_equity_not_separated",)),
+    ("ifrs-full", "ProfitLossAttributableToOwnersOfParent"): ConceptMapping("net_income", 1, ("preferred_dividends_not_separated",), ("common_attribution_unverified",)),
+    ("ifrs-full", "EquityAttributableToOwnersOfParent"): ConceptMapping("common_equity", 1, ("preferred_equity_not_separated",), ("common_attribution_unverified",)),
     ("ifrs-full", "CashFlowsFromUsedInOperatingActivities"): ConceptMapping("operating_cash_flow"),
     ("ifrs-full", "PurchaseOfPropertyPlantAndEquipmentClassifiedAsInvestingActivities"): ConceptMapping("capex"),
     ("ifrs-full", "DividendsPaidClassifiedAsFinancingActivities"): ConceptMapping("dividends", 1, ("common_dividend_scope_unverified",)),
@@ -80,6 +82,8 @@ def normalize_facts(
     SEC ``val`` is already scaled; ``decimals`` states accuracy, never a multiplier.
     Explicit unit suffixes such as ``USD millions`` alone trigger conversion.
     Monetary units retain their currency: this function does not perform FX.
+    Listed capex/dividend payment concepts use nonnegative outflow magnitudes;
+    sign normalization is warned and the original signed raw fact is retained.
     """
     if taxonomy_version not in _VERSIONS:
         raise ValueError(f"Unknown taxonomy version: {taxonomy_version!r}")
@@ -87,7 +91,7 @@ def normalize_facts(
     normalized = []
     for raw in facts:
         rule = mapping.get((raw.taxonomy, raw.concept_name))
-        reasons: list[str] = []
+        reasons = list(rule.rejection_reasons if rule else ())
         warnings = list(rule.warnings if rule else ())
         if rule is None:
             reasons.append("unmapped_concept")
@@ -110,6 +114,10 @@ def normalize_facts(
             if rule and (rule.metric in SHARE_METRICS) != (unit == "shares"):
                 reasons.append("incompatible_unit")
         if rule:
+            if rule.metric in CASH_OUTFLOW_METRICS and value is not None and value < 0:
+                # copy_abs, unlike abs(Decimal), cannot round in the caller's context.
+                value = value.copy_abs()
+                warnings.append("cash_outflow_sign_normalized")
             if rule.metric in INSTANT_METRICS:
                 valid_period = raw.instant_date is not None and raw.period_start is None and raw.period_end is None
             else:

@@ -1,6 +1,6 @@
 from dataclasses import replace
 from datetime import date, datetime, timezone
-from decimal import Decimal
+from decimal import Decimal, localcontext
 
 import pytest
 
@@ -22,9 +22,7 @@ def raw_fact(concept="Revenues", **changes):
 @pytest.mark.parametrize("taxonomy,concept,metric,instant,unit", [
     ("us-gaap", "RevenueFromContractWithCustomerExcludingAssessedTax", "revenue", False, "USD"),
     ("us-gaap", "NetIncomeLossAvailableToCommonStockholdersBasic", "net_income", False, "USD"),
-    ("us-gaap", "NetIncomeLoss", "net_income", False, "USD"),
     ("us-gaap", "CommonStockholdersEquity", "common_equity", True, "USD"),
-    ("us-gaap", "StockholdersEquity", "common_equity", True, "USD"),
     ("us-gaap", "NetCashProvidedByUsedInOperatingActivities", "operating_cash_flow", False, "USD"),
     ("us-gaap", "PaymentsToAcquirePropertyPlantAndEquipment", "capex", False, "USD"),
     ("us-gaap", "PaymentsOfDividendsCommonStock", "dividends", False, "USD"),
@@ -32,8 +30,6 @@ def raw_fact(concept="Revenues", **changes):
     ("us-gaap", "CommonStockSharesOutstanding", "period_end_shares", True, "shares"),
     ("dei", "EntityCommonStockSharesOutstanding", "period_end_shares", True, "shares"),
     ("ifrs-full", "Revenue", "revenue", False, "EUR"),
-    ("ifrs-full", "ProfitLossAttributableToOwnersOfParent", "net_income", False, "EUR"),
-    ("ifrs-full", "EquityAttributableToOwnersOfParent", "common_equity", True, "EUR"),
     ("ifrs-full", "CashFlowsFromUsedInOperatingActivities", "operating_cash_flow", False, "EUR"),
     ("ifrs-full", "PurchaseOfPropertyPlantAndEquipmentClassifiedAsInvestingActivities", "capex", False, "EUR"),
     ("ifrs-full", "DividendsPaidClassifiedAsFinancingActivities", "dividends", False, "EUR"),
@@ -53,6 +49,37 @@ def test_standard_concepts_keep_original_fact_and_map_to_canonical_metric(taxono
     assert fact.raw == raw
     assert fact.rejection_reasons == ()
     assert fact.taxonomy_version == "sec-v1"
+
+
+@pytest.mark.parametrize("taxonomy,concept", [
+    ("us-gaap", "PaymentsToAcquirePropertyPlantAndEquipment"),
+    ("us-gaap", "PaymentsOfDividendsCommonStock"),
+    ("ifrs-full", "PurchaseOfPropertyPlantAndEquipmentClassifiedAsInvestingActivities"),
+    ("ifrs-full", "DividendsPaidClassifiedAsFinancingActivities"),
+    ("ifrs-full", "DividendsPaidClassifiedAsOperatingActivities"),
+])
+def test_negative_payment_sign_normalization_preserves_exact_magnitude_and_raw_lineage(taxonomy, concept):
+    from src.lib.pipeline.canonical_facts import normalize_facts
+
+    raw = raw_fact(concept, taxonomy=taxonomy, value_text="-123456789012345678901234.56789",
+                   unit="USD millions")
+    with localcontext() as context:
+        context.prec = 6
+        [fact] = normalize_facts([raw], "sec-v1")
+    assert fact.value == Decimal("123456789012345678901234567890")
+    assert fact.unit == "USD"
+    assert "cash_outflow_sign_normalized" in fact.warnings
+    assert fact.raw is raw
+    assert fact.raw.value_text == "-123456789012345678901234.56789"
+
+
+@pytest.mark.parametrize("value", ["0", "12.34"])
+def test_nonnegative_payment_magnitudes_need_no_sign_warning(value):
+    from src.lib.pipeline.canonical_facts import normalize_facts
+
+    [fact] = normalize_facts([raw_fact("PaymentsToAcquirePropertyPlantAndEquipment", value_text=value)], "sec-v1")
+    assert fact.value == Decimal(value)
+    assert "cash_outflow_sign_normalized" not in fact.warnings
 
 
 @pytest.mark.parametrize("unit,value,expected,expected_unit", [
@@ -126,3 +153,5 @@ def test_broad_attribution_fallbacks_are_identified_in_warnings():
     [fact] = normalize_facts([raw_fact("StockholdersEquity", period_start=None,
                                       period_end=None, instant_date=date(2024, 12, 31))], "sec-v1")
     assert "preferred_equity_not_separated" in fact.warnings
+    assert "common_attribution_unverified" in fact.rejection_reasons
+    assert fact.value == Decimal("12.34")
