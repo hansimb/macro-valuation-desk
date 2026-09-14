@@ -119,8 +119,9 @@ def test_form_cohort_forced_replacement_keeps_the_previous_constituent_count():
         [
             _candidate("A", "50", was_member=True),
             _candidate("B", "25", forced_replacement=True),
-            _candidate("C", "25", was_member=True),
+            _candidate("C", "25"),
         ],
+        prior_constituent_target_count=2,
     )
 
     assert cohort.security_ids == ("A", "B")
@@ -136,13 +137,60 @@ def test_form_cohort_keeps_the_band_warning_when_a_forced_replacement_cannot_mee
         [
             _candidate("A", "60", was_member=True),
             _candidate("B", "30", forced_replacement=True),
-            _candidate("C", "10", was_member=True),
+            _candidate("C", "10"),
         ],
+        prior_constituent_target_count=2,
     )
 
     assert cohort.constituent_target_count == 2
     assert cohort.achieved_market_coverage == Decimal("0.90")
     assert cohort.reasons == ("forced_replacement", "coverage_band_unreachable")
+
+
+def test_form_cohort_forced_replacement_preserves_explicit_prior_count_when_an_outgoing_member_is_absent():
+    cohort = form_cohort(
+        "us_total_market",
+        date(2026, 2, 1),
+        [
+            _candidate("A", "60", was_member=True),
+            _candidate("B", "20", forced_replacement=True),
+            _candidate("C", "20"),
+        ],
+        prior_constituent_target_count=2,
+    )
+
+    assert cohort.security_ids == ("A", "B")
+    assert cohort.constituent_target_count == 2
+    assert cohort.reasons == ("forced_replacement",)
+
+
+def test_form_cohort_retains_valid_prior_members_before_forced_or_unrelated_candidates():
+    cohort = form_cohort(
+        "us_total_market",
+        date(2026, 2, 1),
+        [
+            _candidate("A", "20", was_member=True),
+            _candidate("B", "10", was_member=True),
+            _candidate("C", "30", forced_replacement=True),
+            _candidate("D", "100"),
+        ],
+        prior_constituent_target_count=3,
+    )
+
+    assert cohort.security_ids == ("C", "A", "B")
+    assert cohort.constituent_target_count == 3
+    assert "D" not in cohort.security_ids
+
+
+def test_form_cohort_requires_a_positive_explicit_prior_count_for_forced_replacements():
+    candidates = [_candidate("A", "60", was_member=True), _candidate("B", "40", forced_replacement=True)]
+
+    with pytest.raises(ValueError, match="prior_constituent_target_count"):
+        form_cohort("us_total_market", date(2026, 2, 1), candidates)
+    with pytest.raises(ValueError, match="prior_constituent_target_count"):
+        form_cohort("us_total_market", date(2026, 2, 1), candidates, prior_constituent_target_count=0)
+    with pytest.raises(ValueError, match="prior_constituent_target_count"):
+        form_cohort("us_total_market", date(2026, 2, 1), candidates, prior_constituent_target_count=True)
 
 
 def test_cohort_outputs_are_immutable_and_decimal_math_ignores_caller_precision():

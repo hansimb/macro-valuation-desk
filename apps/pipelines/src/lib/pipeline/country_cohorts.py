@@ -22,8 +22,8 @@ class CohortCandidate:
     """An eligible security and its point-in-time market capitalization.
 
     ``was_member`` and ``forced_replacement`` are supplied by the reconstitution
-    orchestrator.  They let this pure module preserve a frozen count while a
-    required incoming security replaces an outgoing one.
+    orchestrator.  The latter is an incoming replacement; it cannot also be a
+    valid retained prior member.
     """
 
     security_id: str
@@ -86,35 +86,41 @@ def form_cohort(
     effective_date: date,
     candidates: Iterable[CohortCandidate],
     target: tuple[Decimal, Decimal] = FORMATION_TARGET,
+    prior_constituent_target_count: int | None = None,
 ) -> CountryCohort:
     """Choose a deterministic formation cohort without reading or mutating state.
 
     The normal path takes the smallest descending-capitalization prefix in the
     target band.  If no such prefix exists, the first prefix at or above the
     lower bound is necessarily closest to it and gets a persistent reason code.
-    Forced replacements use the prior member count and reserve a slot for every
-    forced incoming candidate.
+    Forced replacements require the prior frozen count explicitly because an
+    outgoing member can be absent from the current eligible candidates. Valid
+    prior members are retained first, required incoming replacements are next,
+    and unrelated candidates only fill any remaining slots.
     """
     _validate_target(target)
     items = _validated_candidates(candidates)
     ranked = tuple(sorted(items, key=_rank_key))
     forced = tuple(candidate for candidate in ranked if candidate.forced_replacement)
-    previous_count = sum(candidate.was_member for candidate in items)
 
     if forced:
-        if previous_count == 0:
-            raise ValueError("forced replacements require a prior constituent count")
-        if len(forced) > previous_count:
-            raise ValueError("forced replacements exceed the prior constituent count")
-        selected = list(forced)
+        prior_count = _validate_prior_constituent_target_count(prior_constituent_target_count)
+        retained = tuple(candidate for candidate in ranked if candidate.was_member)
+        if any(candidate.was_member for candidate in forced):
+            raise ValueError("a forced replacement cannot also be a prior member")
+        if len(forced) > prior_count:
+            raise ValueError("forced replacements exceed prior_constituent_target_count")
+        if len(retained) + len(forced) > prior_count:
+            raise ValueError("retained prior members and replacements exceed prior_constituent_target_count")
+        selected = [*retained, *forced]
         selected_ids = {candidate.security_id for candidate in selected}
         for candidate in ranked:
-            if len(selected) == previous_count:
+            if len(selected) == prior_count:
                 break
             if candidate.security_id not in selected_ids:
                 selected.append(candidate)
                 selected_ids.add(candidate.security_id)
-        if len(selected) != previous_count:
+        if len(selected) != prior_count:
             raise ValueError("not enough eligible candidates to preserve constituent count")
         selected.sort(key=_rank_key)
         reasons = ["forced_replacement"]
@@ -211,6 +217,12 @@ def _validated_market_caps(market_caps: Mapping[str, Decimal]) -> dict[str, Deci
             raise ValueError("market_caps keys must be non-empty strings")
         _require_positive_decimal("market_cap", market_cap)
     return values
+
+
+def _validate_prior_constituent_target_count(value: int | None) -> int:
+    if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
+        raise ValueError("prior_constituent_target_count must be a positive integer for forced replacements")
+    return value
 
 
 def _rank_key(candidate: CohortCandidate) -> tuple[Fraction, str]:
