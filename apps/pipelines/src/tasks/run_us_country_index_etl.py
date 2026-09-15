@@ -11,6 +11,7 @@ from collections import OrderedDict
 from dataclasses import fields, is_dataclass, replace
 from datetime import UTC, date, datetime, time, timedelta
 from decimal import Decimal, localcontext
+from fractions import Fraction
 import hashlib
 import inspect
 import json
@@ -66,7 +67,7 @@ METRICS = ("pe", "pb", "ps", "pcf", "pfcf", "dividend_yield")
 DEFAULT_METHODOLOGY = "us-country-index-v1"
 
 
-CHECKPOINT_VERSION = 2
+CHECKPOINT_VERSION = 3
 
 # Explicit trusted modules; checkpoint data can never choose an import or execute code.
 from src.lib.pipeline import canonical_facts, country_cohorts, country_valuation, point_in_time, uncertainty, weekly_valuation
@@ -207,6 +208,79 @@ def _db_decimal(value: object) -> object:
     return +value if isinstance(value, Decimal) else value
 
 
+def _rational_decimal(value: Fraction) -> Decimal:
+    with localcontext() as context:
+        context.prec = max(50, len(str(abs(value.numerator))) + len(str(value.denominator)) + 10)
+        return Decimal(value.numerator) / Decimal(value.denominator)
+
+
+def _contribution_totals(input_value: SensitivityInput) -> tuple[Decimal, Decimal]:
+    """Use Task 8's componentwise peer median rule without rounding summands."""
+    totals = [Fraction(), Fraction()]
+    for sid, contribution in input_value.contributions.items():
+        for index, field in enumerate(("numerator", "denominator")):
+            if contribution is not None:
+                amount = Fraction(getattr(contribution, field))
+            else:
+                amounts = sorted(Fraction(getattr(peer, field)) for peer in input_value.peer_contributions[sid])
+                middle = len(amounts) // 2
+                amount = amounts[middle] if len(amounts) % 2 else (amounts[middle - 1] + amounts[middle]) / 2
+            totals[index] += amount
+    return tuple(_rational_decimal(value) for value in totals)
+
+
+def _sensitivity_issue(result, metric):
+    if result is None or result.status not in {"experimental", "complete", "warning"}:
+        return "sensitivity_unavailable"
+    numbers = (result.point_estimate, result.lower, result.upper, *result.draw_values)
+    if any(not isinstance(value, Decimal) or not value.is_finite() for value in numbers):
+        return "sensitivity_nonfinite_or_missing_interval"
+    if (len(result.draw_values) != result.draws or result.draws <= 0 or result.lower > result.upper
+            or any(value < 0 if metric == "dividend_yield" else value <= 0 for value in numbers)):
+        return "sensitivity_invalid_interval_or_draw"
+    return None
+
+
+def _merge_diagnostics(results, field):
+    """One deterministic warning/component per code across valid daily inputs."""
+    grouped = {}
+    for result in results:
+        for entry in getattr(result, field):
+            grouped.setdefault(entry.code, []).append(entry)
+    merged = []
+    for code, entries in sorted(grouped.items()):
+        entry = entries[0]
+        widths = [item.interval_width_contribution for item in entries if item.interval_width_contribution is not None]
+        updates = {"interval_width_contribution": max(widths) if widths else None}
+        if field == "warnings":
+            updates["affected_market_cap_weight"] = max(item.affected_market_cap_weight for item in entries)
+            updates["explanation"] = min(item.explanation for item in entries)
+        else:
+            updates["available"] = any(item.available for item in entries)
+        merged.append(replace(entry, **updates))
+    return tuple(merged)
+
+
+def _read_publication_state(connection, run_id):
+    """Read durable recovery evidence under the publisher's advisory lock."""
+    with connection.cursor() as cursor:
+        cursor.execute("select pg_advisory_xact_lock(hashtext('marts.country_index_publications'))")
+        cursor.execute("""
+            select run_status, methodology_version, completed_at, source_coverage
+            from core.country_index_runs where run_id = %(run_id)s for update
+        """, {"run_id": run_id})
+        run = cursor.fetchone()
+        if run is None:
+            return None
+        if not isinstance(run, Mapping):
+            raise ValueError("publication recovery requires mapping database rows")
+        cursor.execute("""
+            select market_id, metric_key, week_id from marts.country_index_publications
+            where run_id = %(run_id)s and is_current
+        """, {"run_id": run_id})
+        return {**run, "current_keys": tuple((row["market_id"], row["metric_key"], row["week_id"]) for row in cursor.fetchall())}
+
+
 def _error_dict(error: object, *, security_id: str, stage: str) -> dict[str, object]:
     if hasattr(error, "__dict__"):
         result = dict(vars(error))
@@ -322,7 +396,12 @@ def _daily_row(run_id: str, row: object, cohort: CountryCohort, sensitivity: obj
         "top_five_concentration": _db_decimal(row.top_five_weight), "top_ten_concentration": _db_decimal(row.top_ten_weight),
         "membership_overlap": None, "interval_lower": _db_decimal(getattr(sensitivity, "lower", None)),
         "interval_upper": _db_decimal(getattr(sensitivity, "upper", None)),
-        "source_coverage": {"price": "provider", "fundamentals": "point_in_time"},
+        "source_coverage": {"price": "provider", "fundamentals": "point_in_time",
+                            "sensitivity": {"interval_label": getattr(sensitivity, "interval_label", "unavailable"),
+                                            "status": getattr(sensitivity, "status", "unavailable"),
+                                            "reason": getattr(sensitivity, "reason", None),
+                                            "components": _jsonable(getattr(sensitivity, "components", ())),
+                                            "imputed_weight": _jsonable(getattr(sensitivity, "imputed_weight", None))}},
         "structured_reasons": reasons,
     }
 
@@ -339,13 +418,16 @@ def _weekly_row(run_id: str, weekly: WeeklyCountryMetric, sensitivity: object | 
     reasons = list(weekly.warning_codes)
     if weekly.reason:
         reasons.append(weekly.reason)
+    reasons.extend(warning.code for warning in getattr(sensitivity, "warnings", ()))
+    reasons = sorted(set(reasons))
     return {
         "run_id": run_id, "market_id": weekly.market_id, "metric_key": weekly.metric,
         "week_id": weekly.week_start, "cohort_version": cohort.effective_date.isoformat(),
         "methodology_version": weekly.methodology_version, "metric_value": persisted_median,
         "weekly_min_value": _db_decimal(weekly.minimum), "weekly_max_value": _db_decimal(weekly.maximum),
         "valuation_dates": list(weekly.valid_valuation_dates), "daily_observation_count": weekly.valid_observation_count,
-        "metric_status": weekly.status, "market_coverage": _db_decimal(weekly.market_coverage),
+        "metric_status": "warning" if weekly.value is not None and reasons else weekly.status,
+        "market_coverage": _db_decimal(weekly.market_coverage),
         "reported_fact_coverage": _db_decimal(whole.reported) if whole else None,
         "carried_forward_coverage": _db_decimal(whole.carried_forward) if whole else None,
         "imputed_coverage": _db_decimal(whole.imputed) if whole else None,
@@ -369,6 +451,24 @@ def _weekly_row(run_id: str, weekly: WeeklyCountryMetric, sensitivity: object | 
     }
 
 
+def _warning_rows(run_id, weekly_rows, sensitivity_results):
+    rows = []
+    for weekly in weekly_rows:
+        result = sensitivity_results[weekly["metric_key"]]
+        warnings = {warning.code: warning for warning in getattr(result, "warnings", ())}
+        components = {component.code: component for component in getattr(result, "components", ())}
+        for code in sorted(set(weekly["structured_reasons"])):
+            warning, component = warnings.get(code), components.get(code)
+            rows.append({"run_id": run_id, "market_id": weekly["market_id"], "metric_key": weekly["metric_key"],
+                         "week_id": weekly["week_id"], "warning_code": code,
+                         "warning_level": getattr(result, "warning_level", "warning") if warning else "warning",
+                         "warning_message": warning.explanation if warning else code,
+                         "affected_market_weight": _db_decimal(warning.affected_market_cap_weight) if warning else Decimal(0),
+                         "interval_width_contribution": _db_decimal(warning.interval_width_contribution) if warning else None,
+                         "structured_reason": {"code": code, "component": _jsonable(component)}})
+    return rows
+
+
 def run_us_country_index_etl(
     connection: Any = None, *, universe_provider=None, filing_provider=None, price_provider=None,
     fx_provider=None, share_state=None, cohort_state=None, sensitivity_context=None,
@@ -383,6 +483,10 @@ def run_us_country_index_etl(
     receives the next state and the persistence connection inside the transaction.
     Callbacks can persist the returned next_cohort_state with their own scheduler.
     ``checkpoint_config`` on providers/callbacks identifies external configuration.
+    ``sensitivity_context`` supplies per-day peer contribution distributions and
+    optional staleness inputs. Missing peers leave the metric unavailable; peer
+    draws retain that security's observed market capitalization. Publication
+    recovery reads the completed run and current manifest under the DB lock.
     """
     started_at = (clock or (lambda: datetime.now(UTC)))()
     stage_counts = OrderedDict()
@@ -391,6 +495,7 @@ def run_us_country_index_etl(
     current_stage = "configuration"
     expected_keys = ()
     committed = False
+    metric_warning_count = 0
     try:
         if started_at.tzinfo is None or started_at.utcoffset() is None:
             raise ValueError("clock must return a timezone-aware datetime")
@@ -424,13 +529,15 @@ def run_us_country_index_etl(
         def stage(name, action, count):
             nonlocal current_stage
             current_stage = name
-            if name in cached:
+            if name in cached and name != STAGES[8]:
                 value = cached[name]
                 reused.append(name)
             else:
-                if stage_hook:
+                if stage_hook and name not in cached:
                     stage_hook(name)
                 value = action()
+                if name == STAGES[8] and value.get("recovered"):
+                    reused.append(name)
                 _write_checkpoint(paths[name], fingerprint, name, value)
             stage_counts[name] = count(value)
             return value
@@ -602,67 +709,104 @@ def run_us_country_index_etl(
                     fundamentals.append(company)
             return prices, fundamentals
 
+        def sensitivity_input(row):
+            # Task 7's finite-Decimal weights may have a rounding residual.
+            weights = list(row.constituent_weights)
+            with localcontext() as context:
+                context.prec = max(len(weight.as_tuple().digits) for _, weight in weights) + 20
+                weights[-1] = (weights[-1][0], Decimal(1) - sum((weight for _, weight in weights[:-1]), Decimal(0)))
+            row = replace(row, constituent_weights=tuple(weights))
+            contributions = {}
+            for sid in cohort.security_ids:
+                if sid not in row.eligible_security_ids:
+                    contributions[sid] = AggregateContribution(Decimal(0), Decimal(0))
+                    continue
+                singleton = replace(cohort, security_ids=(sid,), constituent_target_count=1)
+                prices, fundamentals = calculation_inputs(row.valuation_date, (sid,))
+                isolated = next((r for r in calculate_daily_country_metrics(singleton, prices, fundamentals, priced["fx"][row.valuation_date], methodology_version) if r.metric == row.metric), None) if prices else None
+                contributions[sid] = AggregateContribution(isolated.aggregate_numerator, isolated.aggregate_denominator) if isolated and isolated.aggregate_numerator is not None and isolated.aggregate_denominator is not None else None
+            extra = dict(sensitivity_context(metric=row, cohort=cohort, fundamentals=normalized["fundamentals"], share_states=priced["states"])) if sensitivity_context else {}
+            input_value = SensitivityInput(row, contributions=contributions, **extra)
+            # Peer fundamentals may vary, but today's observed market cap cannot.
+            for sid, peers in input_value.peer_contributions.items():
+                if contributions[sid] is None:
+                    cap = day_cap(sid, row.valuation_date)
+                    cap_field = "denominator" if row.metric == "dividend_yield" else "numerator"
+                    if any(getattr(peer, cap_field) != cap for peer in peers):
+                        raise ValueError("peer contributions must preserve the missing constituent's observed market cap")
+            return input_value
+
         def daily():
-            rows = []
+            rows, results, inputs = [], {}, {}
             for day in days:
                 prices, fundamentals = calculation_inputs(day, cohort.security_ids)
-                if prices:
-                    caps = {l.security_id: day_cap(l.security_id, day) for l in acquired["listings"]}
-                    coverage = evaluate_cohort_coverage(cohort, caps).market_coverage if all(v is not None for v in caps.values()) else None
-                    coverage_warning = next((reason for reason in next_state["coverage_reasons"] if reason.startswith("coverage_")), None)
-                    rows.extend(replace(row, market_coverage=coverage,
-                                        status="warning" if row.value is not None and coverage_warning else row.status,
-                                        reason=row.reason or coverage_warning)
-                                for row in calculate_daily_country_metrics(cohort, prices, fundamentals, priced["fx"][day], methodology_version))
+                if not prices:
+                    continue
+                caps = {l.security_id: day_cap(l.security_id, day) for l in acquired["listings"]}
+                coverage = evaluate_cohort_coverage(cohort, caps).market_coverage if all(v is not None for v in caps.values()) else None
+                coverage_warning = next((reason for reason in next_state["coverage_reasons"] if reason.startswith("coverage_")), None)
+                for row in calculate_daily_country_metrics(cohort, prices, fundamentals, priced["fx"][day], methodology_version):
+                    row = replace(row, market_coverage=coverage,
+                                  status="warning" if row.value is not None and coverage_warning else row.status,
+                                  reason=row.reason or coverage_warning)
+                    key = (row.metric, day)
+                    result = None
+                    if row.value is not None or row.reason == "awaiting_imputation":
+                        input_value = sensitivity_input(row)
+                        inputs[key] = input_value
+                        missing = [sid for sid, contribution in input_value.contributions.items() if contribution is None]
+                        if any(sid not in input_value.peer_contributions for sid in missing):
+                            row = replace(row, status="unavailable", value=None, reason="missing_peer_contributions")
+                        else:
+                            result = estimate_sensitivity(input_value, cohort, seed=17, draws=sensitivity_draws)
+                            if any(component.code == "missing_aggregate_contributions" for component in result.components):
+                                raise ValueError("publishable metric requires real aggregate contribution sensitivity")
+                            issue = _sensitivity_issue(result, row.metric)
+                            if issue:
+                                row = replace(row, status="unavailable", value=None, reason=issue)
+                                # Do not let nonfinite engine outputs enter persisted JSON/interval columns.
+                                result = replace(result, status="unavailable", point_estimate=None, lower=None, upper=None,
+                                                 draw_values=(), reason=result.reason or issue)
+                            elif missing:
+                                numerator, denominator = _contribution_totals(input_value)
+                                def imputed_coverage(coverage):
+                                    return replace(coverage, imputed=coverage.imputed + coverage.missing_or_invalid, missing_or_invalid=Decimal(0)) if coverage else None
+                                row = replace(row, status="warning", reason="partly_estimated", value=result.point_estimate,
+                                              aggregate_numerator=numerator, aggregate_denominator=denominator,
+                                              whole_cohort_coverage=imputed_coverage(row.whole_cohort_coverage),
+                                              eligible_scope_coverage=imputed_coverage(row.eligible_scope_coverage))
+                    rows.append(row)
+                    results[key] = result
             if not rows:
                 raise ValueError("daily calculation produced no observations")
-            return tuple(rows)
+            return {"metrics": tuple(rows), "sensitivity": results, "inputs": inputs}
 
-        daily_metrics = stage(STAGES[4], daily, len)
+        calculated = stage(STAGES[4], daily, lambda value: len(value["metrics"]))
+        daily_metrics = calculated["metrics"]
         weekly_metrics = stage(STAGES[5], lambda: tuple(summarize_week([row for row in daily_metrics if row.metric == metric]) for metric in METRICS if any(row.metric == metric for row in daily_metrics)), len)
 
         def sensitivity():
             results = {}
             for weekly in weekly_metrics:
                 available = sorted((row for row in daily_metrics if row.metric == weekly.metric and row.value is not None), key=lambda row: (row.value, row.valuation_date))
+                all_results = [result for (metric, _), result in calculated["sensitivity"].items()
+                               if metric == weekly.metric and result is not None]
                 if not available or weekly.value is None:
-                    results[weekly.metric] = None
+                    results[weekly.metric] = replace(all_results[0], status="unavailable", point_estimate=None,
+                                                     lower=None, upper=None, draw_values=(), reason=weekly.reason,
+                                                     warnings=_merge_diagnostics(all_results, "warnings"),
+                                                     components=_merge_diagnostics(all_results, "components")) if all_results else None
                     continue
-                # An odd number of observations has one exact weekly median day.
-                # Even windows are handled as two central-day intervals below.
                 central = available[(len(available)-1)//2:len(available)//2+1]
-                intervals = []
-                for row in central:
-                    # Task 7 renders rational cap weights to finite Decimals;
-                    # assign the rounding residual to the final constituent so
-                    # Task 8 receives an exactly unit-sum fixed-cohort vector.
-                    weights = list(row.constituent_weights)
-                    with localcontext() as context:
-                        context.prec = max(len(weight.as_tuple().digits) for _, weight in weights) + 20
-                        weights[-1] = (weights[-1][0], Decimal(1) - sum((weight for _, weight in weights[:-1]), Decimal(0)))
-                    row = replace(row, constituent_weights=tuple(weights))
-                    contributions = {}
-                    for sid in cohort.security_ids:
-                        if sid not in row.eligible_security_ids:
-                            contributions[sid] = AggregateContribution(Decimal(0), Decimal(0))
-                            continue
-                        singleton = replace(cohort, security_ids=(sid,), constituent_target_count=1)
-                        prices, fundamentals = calculation_inputs(row.valuation_date, (sid,))
-                        isolated = next((r for r in calculate_daily_country_metrics(singleton, prices, fundamentals, priced["fx"][row.valuation_date], methodology_version) if r.metric == row.metric), None) if prices else None
-                        contributions[sid] = AggregateContribution(isolated.aggregate_numerator, isolated.aggregate_denominator) if isolated and isolated.aggregate_numerator is not None and isolated.aggregate_denominator is not None else None
-                    extra = dict(sensitivity_context(metric=row, cohort=cohort, fundamentals=normalized["fundamentals"], share_states=priced["states"])) if sensitivity_context else {}
-                    input_value = SensitivityInput(row, contributions=contributions, **extra)
-                    if any(value is None and sid not in input_value.peer_contributions for sid, value in contributions.items()):
-                        raise ValueError("missing aggregate contributions require explicit point-in-time peers")
-                    intervals.append(estimate_sensitivity(input_value, cohort, seed=17, draws=sensitivity_draws))
+                intervals = [calculated["sensitivity"][(row.metric, row.valuation_date)] for row in central]
                 result = intervals[0]
                 if len(intervals) == 2:
                     other = intervals[1]
-                    # Conservative envelope for the mean of the two median observations.
                     result = replace(result, point_estimate=(result.point_estimate + other.point_estimate)/2,
                                      lower=(result.lower + other.lower)/2, upper=(result.upper + other.upper)/2,
                                      draw_values=tuple((a+b)/2 for a,b in zip(result.draw_values, other.draw_values)))
-                results[weekly.metric] = result
+                results[weekly.metric] = replace(result, warnings=_merge_diagnostics(all_results, "warnings"),
+                                                components=_merge_diagnostics(all_results, "components"))
             return results
 
         sensitivity_results = stage(STAGES[6], sensitivity, len)
@@ -677,12 +821,14 @@ def run_us_country_index_etl(
                 raise PublicationInvariantError("daily observations do not reconcile to weekly summaries")
             for row in weekly_metrics:
                 result = sensitivity_results[row.metric]
-                if row.value is not None and (result is None or any(component.code == "missing_aggregate_contributions" for component in result.components)):
+                if row.value is not None and (_sensitivity_issue(result, row.metric) or any(component.code == "missing_aggregate_contributions" for component in result.components)):
                     raise ValueError("publishable metric requires real aggregate contribution sensitivity")
-            return {"daily_rows": tuple(_daily_row(run_id, row, cohort) for row in daily_metrics),
-                    "weekly_rows": tuple(_weekly_row(run_id, row, sensitivity_results[row.metric], cohort) for row in weekly_metrics)}
+            weekly_rows = tuple(_weekly_row(run_id, row, sensitivity_results[row.metric], cohort) for row in weekly_metrics)
+            return {"daily_rows": tuple(_daily_row(run_id, row, cohort, calculated["sensitivity"][(row.metric, row.valuation_date)]) for row in daily_metrics),
+                    "weekly_rows": weekly_rows, "warning_rows": _warning_rows(run_id, weekly_rows, sensitivity_results)}
 
         validated = stage(STAGES[7], validate, lambda value: len(value["weekly_rows"]))
+        metric_warning_count = len(validated["warning_rows"])
 
         def persist():
             nonlocal committed
@@ -690,47 +836,57 @@ def run_us_country_index_etl(
             # is a savepoint; only this outer transaction commits the complete run.
             if getattr(getattr(connection, "info", None), "transaction_status", 0) != 0:
                 raise ValueError("cohort/source repository left the persistence connection in a transaction")
+            recovered = False
             with connection.transaction():
-                coverage = {"source_errors": source_errors, "fx_rates": _jsonable(tuple(r for fx in priced["fx"].values() for r in fx.rates)),
-                            "share_state": _jsonable([{ "security_id": sid, "date": day, **state} for (sid, day), state in priced["states"].items()]),
-                            "cohort_state": _encode(next_state), "checkpoint_fingerprint": fingerprint}
-                run_row = {"run_id": run_id, "methodology_version": methodology_version, "run_status": "running", "started_at": started_at, "completed_at": None, "source_coverage": coverage, "structured_reasons": []}
-                upsert_country_index_runs(connection, [run_row])
-                upsert_securities(connection, [{"security_id": l.security_id, "issuer_id": l.issuer_id, "issuer_name": l.issuer_name, "security_type": l.security_type, "share_class": l.share_class, "is_active": True} for l in acquired["listings"]])
-                upsert_security_listings(connection, [{"listing_id": l.listing_id, "security_id": l.security_id, "market_id": l.market_id, "exchange_code": l.exchange_code, "ticker": l.ticker, "trading_currency": l.trading_currency, "valid_from": l.valid_from, "valid_to": l.valid_to, "listing_status": l.listing_status, "source_provider": l.source_provider, "source_external_id": l.source_external_id} for l in acquired["listings"]])
-                upsert_primary_security_listings(connection, [{"security_id": l.security_id, "market_id": l.market_id, "listing_id": l.listing_id, "effective_from": l.valid_from, "effective_to": l.valid_to} for l in acquired["listings"]])
-                upsert_regulatory_filings(connection, [_filing_row(f) for f in acquired["filings"]])
-                upsert_regulatory_facts(connection, [_fact_row(f) for f in acquired["facts"]])
-                upsert_canonical_facts(connection, [{"canonical_fact_id": f"{fact.raw.filing_id}:{fact.raw.fact_id}:{fact.taxonomy_version}", "security_id": fact.raw.security_id, "concept_key": fact.metric or "unmapped", "taxonomy_version": fact.taxonomy_version, "value": fact.value, "unit": fact.unit, "period_start": fact.raw.period_start, "period_end": fact.raw.period_end, "instant_date": fact.raw.instant_date, "published_at": fact.raw.published_at, "availability_status": "accepted" if not fact.rejection_reasons else "rejected", "derivation_method": "reported", "source_lineage": [fact.raw.fact_id]} for fact in normalized["canonical"]])
-                upsert_point_in_time_fundamentals(connection, normalized["pit_rows"])
-                upsert_security_prices(connection, [_price_row(p) for p in priced["all_prices"]])
-                upsert_country_cohorts(connection, [_cohort_row(cohort, methodology_version, week)])
-                total = sum(next_state["formation_caps"].values())
-                upsert_country_cohort_members(connection, [{"market_id": market_id, "cohort_version": cohort.effective_date.isoformat(), "security_id": sid, "primary_listing_id": next(l.listing_id for l in acquired["listings"] if l.security_id == sid), "member_rank": rank, "market_cap_at_formation": next_state["formation_caps"][sid], "market_weight_at_formation": next_state["formation_caps"][sid]/total, "membership_status": "active", "membership_reason": {"code": "formation", "currency": "USD"}} for rank, sid in enumerate(cohort.security_ids, 1)])
-                upsert_country_daily_metrics(connection, validated["daily_rows"])
-                upsert_country_weekly_metrics(connection, validated["weekly_rows"])
-                warning_rows = []
-                for row in validated["weekly_rows"]:
-                    for code in row["structured_reasons"]:
-                        warning_rows.append({"run_id": run_id, "market_id": market_id, "metric_key": row["metric_key"], "week_id": week, "warning_code": code, "warning_level": "warning", "warning_message": code, "affected_market_weight": Decimal(0), "interval_width_contribution": None, "structured_reason": {"code": code}})
-                upsert_country_metric_warnings(connection, warning_rows)
-                saver = getattr(cohort_state, "save", None)
-                if callable(saver):
-                    saver(connection=connection, market_id=market_id, methodology_version=methodology_version, state=next_state)
-                upsert_country_index_runs(connection, [{**run_row, "run_status": "completed", "completed_at": (clock or (lambda: datetime.now(UTC)))()}])
-                publish_completed_run(connection, run_id, expected_keys=expected_keys)
+                durable = _read_publication_state(connection, run_id)
+                if durable is not None:
+                    if (durable["run_status"] != "completed" or durable["completed_at"] is None
+                            or durable["methodology_version"] != methodology_version
+                            or durable.get("source_coverage", {}).get("checkpoint_fingerprint") != fingerprint):
+                        raise ValueError("durable run cannot be recovered with this completed-run configuration")
+                    if set(durable["current_keys"]) != set(expected_keys) or len(durable["current_keys"]) != len(expected_keys):
+                        raise ValueError("completed run is not current for its complete publication manifest")
+                    recovered = True
+                elif STAGES[8] in cached:
+                    raise ValueError("publication checkpoint has no durable completed run")
+                if not recovered:
+                    coverage = {"source_errors": source_errors, "fx_rates": _jsonable(tuple(r for fx in priced["fx"].values() for r in fx.rates)),
+                                "share_state": _jsonable([{ "security_id": sid, "date": day, **state} for (sid, day), state in priced["states"].items()]),
+                                "cohort_state": _encode(next_state), "checkpoint_fingerprint": fingerprint,
+                                "sensitivity_inputs": [{"metric": metric, "date": day.isoformat(), "input": _encode(value)} for (metric, day), value in calculated["inputs"].items()]}
+                    run_row = {"run_id": run_id, "methodology_version": methodology_version, "run_status": "running", "started_at": started_at, "completed_at": None, "source_coverage": coverage, "structured_reasons": []}
+                    upsert_country_index_runs(connection, [run_row])
+                    upsert_securities(connection, [{"security_id": l.security_id, "issuer_id": l.issuer_id, "issuer_name": l.issuer_name, "security_type": l.security_type, "share_class": l.share_class, "is_active": True} for l in acquired["listings"]])
+                    upsert_security_listings(connection, [{"listing_id": l.listing_id, "security_id": l.security_id, "market_id": l.market_id, "exchange_code": l.exchange_code, "ticker": l.ticker, "trading_currency": l.trading_currency, "valid_from": l.valid_from, "valid_to": l.valid_to, "listing_status": l.listing_status, "source_provider": l.source_provider, "source_external_id": l.source_external_id} for l in acquired["listings"]])
+                    upsert_primary_security_listings(connection, [{"security_id": l.security_id, "market_id": l.market_id, "listing_id": l.listing_id, "effective_from": l.valid_from, "effective_to": l.valid_to} for l in acquired["listings"]])
+                    upsert_regulatory_filings(connection, [_filing_row(f) for f in acquired["filings"]])
+                    upsert_regulatory_facts(connection, [_fact_row(f) for f in acquired["facts"]])
+                    upsert_canonical_facts(connection, [{"canonical_fact_id": f"{fact.raw.filing_id}:{fact.raw.fact_id}:{fact.taxonomy_version}", "security_id": fact.raw.security_id, "concept_key": fact.metric or "unmapped", "taxonomy_version": fact.taxonomy_version, "value": fact.value, "unit": fact.unit, "period_start": fact.raw.period_start, "period_end": fact.raw.period_end, "instant_date": fact.raw.instant_date, "published_at": fact.raw.published_at, "availability_status": "accepted" if not fact.rejection_reasons else "rejected", "derivation_method": "reported", "source_lineage": [fact.raw.fact_id]} for fact in normalized["canonical"]])
+                    upsert_point_in_time_fundamentals(connection, normalized["pit_rows"])
+                    upsert_security_prices(connection, [_price_row(p) for p in priced["all_prices"]])
+                    upsert_country_cohorts(connection, [_cohort_row(cohort, methodology_version, week)])
+                    total = sum(next_state["formation_caps"].values())
+                    upsert_country_cohort_members(connection, [{"market_id": market_id, "cohort_version": cohort.effective_date.isoformat(), "security_id": sid, "primary_listing_id": next(l.listing_id for l in acquired["listings"] if l.security_id == sid), "member_rank": rank, "market_cap_at_formation": next_state["formation_caps"][sid], "market_weight_at_formation": next_state["formation_caps"][sid]/total, "membership_status": "active", "membership_reason": {"code": "formation", "currency": "USD"}} for rank, sid in enumerate(cohort.security_ids, 1)])
+                    upsert_country_daily_metrics(connection, validated["daily_rows"])
+                    upsert_country_weekly_metrics(connection, validated["weekly_rows"])
+                    upsert_country_metric_warnings(connection, validated["warning_rows"])
+                    saver = getattr(cohort_state, "save", None)
+                    if callable(saver):
+                        saver(connection=connection, market_id=market_id, methodology_version=methodology_version, state=next_state)
+                    upsert_country_index_runs(connection, [{**run_row, "run_status": "completed", "completed_at": (clock or (lambda: datetime.now(UTC)))()}])
+                    publish_completed_run(connection, run_id, expected_keys=expected_keys)
             committed = True
-            return {"published": True}
+            return {"published": True, "recovered": recovered}
 
         stage(STAGES[8], persist, lambda value: 1)
         return {"status": "success", "stage_counts": stage_counts, "reused_stages": reused,
                 "publication_status": "published", "source_errors": source_errors,
-                "source_warning_count": len(source_errors), "warning_count": sum(len(row["structured_reasons"]) for row in validated["weekly_rows"]) + len(source_errors),
+                "source_warning_count": len(source_errors), "warning_count": metric_warning_count + len(source_errors),
                 "previous_publication_preserved": False, "expected_keys": expected_keys, "next_cohort_state": next_state}
     except Exception as exc:
         publication_status = "published" if committed else "blocked_license" if "license" in str(exc).lower() or "yahoo" in str(exc).lower() else "preserved"
         return {"status": "failed", "stage_counts": stage_counts, "reused_stages": reused,
                 "publication_status": publication_status, "source_errors": source_errors,
-                "source_warning_count": len(source_errors), "warning_count": len(source_errors),
+                "source_warning_count": len(source_errors), "warning_count": metric_warning_count + len(source_errors),
                 "previous_publication_preserved": not committed, "failed_stage": current_stage,
                 "failure_summary": str(exc), "errors": [str(exc)], "expected_keys": expected_keys}

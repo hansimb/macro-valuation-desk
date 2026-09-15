@@ -10,6 +10,7 @@ import re
 import pytest
 
 from src.lib.pipeline.country_cohorts import CountryCohort
+from src.lib.pipeline.uncertainty import AggregateContribution
 from src.lib.source.adapters.sec_xbrl import SecXbrlResult
 from src.lib.source.country_index_types import DailyPrice, FxRate, ProviderLicense, RawXbrlFact, RegulatoryFiling, SecurityListing
 
@@ -88,6 +89,7 @@ class Cursor:
 
     def execute(self, query, params=None):
         self.query = " ".join(query.split()).lower()
+        self.params = params
         if self.query.startswith("insert into marts.country_index_publications"):
             if self.db.fail_publish:
                 raise RuntimeError("injected pointer failure")
@@ -96,10 +98,14 @@ class Cursor:
 
     def fetchone(self):
         if "for update" in self.query and "core.country_index_runs" in self.query:
-            return next(iter(self.db.rows["core.country_index_runs"].values()))
+            return self.db.rows.get("core.country_index_runs", {}).get((self.params["run_id"],))
         return None
 
     def fetchall(self):
+        if "from marts.country_index_publications" in self.query:
+            return ([dict(market_id="us", metric_key=metric, week_id=WEEK)
+                     for metric in ("pe", "pb", "ps", "pcf", "pfcf", "dividend_yield")]
+                    if self.db.publication == self.params["run_id"] else [])
         for table in ("core.country_daily_metrics", "core.country_weekly_metrics"):
             if table in self.query:
                 return list(self.db.rows.get(table, {}).values())
@@ -387,7 +393,7 @@ def test_checkpoint_checksum_and_type_are_validated_before_reuse(setup):
     assert run(setup)["status"] == "success"
     path = setup["checkpoint_dir"] / "run-10.immutable_acquisition.json"
     envelope = json.loads(path.read_text())
-    assert envelope["version"] == 2
+    assert envelope["version"] == 3
     envelope["payload"] = {"type": "os.system", "fields": {}}
     path.write_text(json.dumps(envelope))
     result = run(setup)
@@ -454,7 +460,7 @@ def test_sensitivity_uses_fixed_cohort_aggregate_contributions_and_supplied_stal
     monkeypatch.setattr(module, "estimate_sensitivity", estimate)
     result = run(setup, sensitivity_context=lambda **_: {"staleness_changes": {"A": D("0.1")}, "peer_contributions": {}})
     assert result["status"] == "success", result
-    pe = next(value for value in captured if value.metric.metric == "pe")
+    pe = next(value for value in captured if value.metric.metric == "pe" and value.metric.valuation_date == WEEK + timedelta(days=2))
     assert set(pe.contributions) == {"A", "B", "C"}
     assert pe.contributions["A"].numerator == D(42)
     assert pe.contributions["A"].denominator == D(4)
@@ -540,4 +546,160 @@ def test_atomic_replace_failure_leaves_no_completed_stage_checkpoint(setup, monk
     result = run(setup)
     assert result["status"] == "failed"
     assert not list(setup["checkpoint_dir"].iterdir())
+    assert not setup["connection"].rows
+
+
+def _remove_a_earnings(setup):
+    original = setup["filing_provider"].fetch_companyfacts
+    def missing(sid):
+        result = original(sid)
+        return replace(result, facts=tuple(f for f in result.facts if sid != "A" or f.concept_name != "NetIncomeLossAvailableToCommonStockholdersBasic"))
+    setup["filing_provider"].fetch_companyfacts = missing
+
+
+def test_missing_fixed_constituent_is_imputed_before_weekly_summary(setup):
+    _remove_a_earnings(setup)
+    def peers(**kwargs):
+        row = kwargs["metric"]
+        if row.metric != "pe":
+            return {}
+        cap = D(40 + (row.valuation_date-WEEK).days)
+        return {"peer_contributions": {"A": (AggregateContribution(cap, D(2)), AggregateContribution(cap, D(4)), AggregateContribution(cap, D(6)))}}
+    result = run(setup, sensitivity_context=peers)
+    assert result["status"] == "success", result
+    weekly = setup["connection"].rows["core.country_weekly_metrics"][("run-10", "us", "pe", WEEK)]
+    assert weekly["metric_status"] == "warning"
+    assert weekly["metric_value"] == D(86)/D(12)
+    assert weekly["daily_observation_count"] == 5
+    assert weekly["actual_constituent_count"] == 3
+    assert weekly["interval_lower"] < weekly["metric_value"] < weekly["interval_upper"]
+    assert "partly_estimated" in weekly["structured_reasons"]
+    assert "missing_fact" in weekly["structured_reasons"]
+    monday = setup["connection"].rows["core.country_daily_metrics"][("run-10", "us", "pe", WEEK)]
+    assert monday["imputed_coverage"] == D("0.5")
+    assert monday["reported_fact_coverage"] == D("0.5")
+    assert monday["carried_forward_coverage"] == D(0)
+    assert monday["missing_or_invalid_coverage"] == D(0)
+    assert "experimental" in monday["source_coverage"]["sensitivity"]["interval_label"]
+
+
+def test_missing_peers_remain_explicitly_unavailable(setup):
+    _remove_a_earnings(setup)
+    result = run(setup)
+    assert result["status"] == "success", result
+    weekly = setup["connection"].rows["core.country_weekly_metrics"][("run-10", "us", "pe", WEEK)]
+    assert weekly["metric_status"] == "unavailable"
+    assert weekly["metric_value"] is None
+    assert "missing_peer_contributions" in weekly["structured_reasons"]
+    assert weekly["imputed_coverage"] in (None, D(0))
+
+
+@pytest.mark.parametrize("invalid", ["unavailable", "nan", "null_interval", "negative_draw"])
+def test_unusable_sensitivity_never_leaves_available_headline(setup, monkeypatch, invalid):
+    module = importlib.import_module("src.tasks.run_us_country_index_etl")
+    original = module.estimate_sensitivity
+    def broken(value, cohort, **kwargs):
+        result = original(value, cohort, **kwargs)
+        if value.metric.metric != "pe":
+            return result
+        if invalid == "unavailable":
+            return replace(result, status="unavailable", point_estimate=None, lower=None, upper=None, reason="non_positive_denominator_in_sensitivity_draw")
+        if invalid == "nan":
+            return replace(result, upper=D("NaN"))
+        if invalid == "null_interval":
+            return replace(result, lower=None)
+        return replace(result, draw_values=(D(-1), *result.draw_values[1:]))
+    monkeypatch.setattr(module, "estimate_sensitivity", broken)
+    result = run(setup)
+    assert result["status"] == "success", result
+    weekly = setup["connection"].rows["core.country_weekly_metrics"][("run-10", "us", "pe", WEEK)]
+    assert weekly["metric_status"] == "unavailable"
+    assert weekly["metric_value"] is None
+    assert weekly["interval_lower"] is None and weekly["interval_upper"] is None
+    assert any("sensitivity" in reason for reason in weekly["structured_reasons"])
+    assert all(r["metric_value"] is None for r in setup["connection"].rows["core.country_daily_metrics"].values() if r["metric_key"] == "pe")
+
+
+def test_sensitivity_warnings_persist_with_metadata_and_deduplicated_counts(setup, monkeypatch):
+    module = importlib.import_module("src.tasks.run_us_country_index_etl")
+    original = module.estimate_sensitivity
+    def duplicates(value, cohort, **kwargs):
+        result = original(value, cohort, **kwargs)
+        return replace(result, warnings=(*result.warnings, *result.warnings))
+    monkeypatch.setattr(module, "estimate_sensitivity", duplicates)
+    result = run(setup, sensitivity_context=lambda **_: {"staleness_changes": {"A": D("0.1")}})
+    assert result["status"] == "success", result
+    rows = setup["connection"].rows["core.country_weekly_metrics"].values()
+    assert all("staleness" in row["structured_reasons"] and "concentration" in row["structured_reasons"] for row in rows)
+    assert all(len(row["structured_reasons"]) == len(set(row["structured_reasons"])) for row in rows)
+    warnings = setup["connection"].rows["core.country_metric_warnings"].values()
+    assert len(warnings) == result["warning_count"]
+    stale = next(row for row in warnings if row["metric_key"] == "pe" and row["warning_code"] == "staleness")
+    assert stale["interval_width_contribution"] > 0
+    assert stale["affected_market_weight"] > 0
+    assert stale["warning_level"] == "experimental"
+    assert stale["structured_reason"]["component"]["code"] == "staleness"
+
+
+@pytest.mark.parametrize("superseded", [False, True])
+def test_post_commit_checkpoint_failure_recovers_without_republishing(setup, monkeypatch, superseded):
+    module = importlib.import_module("src.tasks.run_us_country_index_etl")
+    original = module.os.replace
+    def fail_publication_checkpoint(source, target):
+        if str(target).endswith("persistence_publication.json"):
+            raise OSError("injected post-commit checkpoint failure")
+        original(source, target)
+    monkeypatch.setattr(module.os, "replace", fail_publication_checkpoint)
+    first = run(setup)
+    assert first["status"] == "failed"
+    assert first["publication_status"] == "published"
+    assert setup["connection"].events.count("publish") == 1
+    assert first["warning_count"] == len(setup["connection"].rows["core.country_metric_warnings"])
+    monkeypatch.setattr(module.os, "replace", original)
+    if superseded:
+        setup["connection"].publication = "newer-run"
+    second = run(setup)
+    assert setup["connection"].events.count("publish") == 1
+    assert setup["filing_provider"].calls == ["A", "B", "C", "D"]
+    if superseded:
+        assert second["status"] == "failed"
+        assert "current" in second["failure_summary"]
+        assert setup["connection"].publication == "newer-run"
+    else:
+        assert second["status"] == "success", second
+        assert "persistence_publication" in second["reused_stages"]
+        assert (setup["checkpoint_dir"] / "run-10.persistence_publication.json").exists()
+
+
+def test_real_nonpositive_sensitivity_draw_is_unavailable_with_engine_warning(setup):
+    result = run(setup, sensitivity_context=lambda **_: {"staleness_changes": {"A": D(4)}})
+    assert result["status"] == "success", result
+    weekly = setup["connection"].rows["core.country_weekly_metrics"][("run-10", "us", "pe", WEEK)]
+    assert weekly["metric_status"] == "unavailable"
+    assert weekly["metric_value"] is None
+    assert "non_positive_denominator" in weekly["structured_reasons"]
+    warning = setup["connection"].rows["core.country_metric_warnings"][("run-10", "us", "pe", WEEK, "non_positive_denominator")]
+    assert warning["structured_reason"]["component"]["available"] is True
+    monday = setup["connection"].rows["core.country_daily_metrics"][("run-10", "us", "pe", WEEK)]
+    assert monday["source_coverage"]["sensitivity"]["reason"] == "non_positive_denominator_in_sensitivity_draw"
+
+
+def test_completed_checkpoint_cannot_republish_superseded_run(setup):
+    assert run(setup)["status"] == "success"
+    setup["connection"].publication = "newer-run"
+    result = run(setup)
+    assert result["status"] == "failed"
+    assert "not current" in result["failure_summary"]
+    assert setup["connection"].events.count("publish") == 1
+
+
+def test_imputation_cannot_replace_observed_market_cap(setup):
+    _remove_a_earnings(setup)
+    def peers(**kwargs):
+        if kwargs["metric"].metric == "pe":
+            return {"peer_contributions": {"A": (AggregateContribution(D(999), D(4)),)}}
+        return {}
+    result = run(setup, sensitivity_context=peers)
+    assert result["status"] == "failed"
+    assert "observed market cap" in result["failure_summary"]
     assert not setup["connection"].rows
