@@ -1,22 +1,22 @@
 """Restartable orchestration for the US country-index vertical slice.
 
-The task deliberately keeps providers at the boundary and delegates all
-selection and valuation arithmetic to the reusable pipeline modules.  Stage
-payloads are checkpointed with pickle because they contain frozen domain
-objects; checkpoints are scoped by run id and methodology configuration.
+The task keeps providers at the boundary and delegates selection and valuation
+arithmetic to the reusable pipeline modules. Pure stage payloads use versioned,
+checksummed JSON checkpoints. All database
+writes and publication commit together in a top-level transaction.
 """
 from __future__ import annotations
 
 from collections import OrderedDict
-from contextlib import nullcontext
-from dataclasses import asdict
+from dataclasses import fields, is_dataclass, replace
 from datetime import UTC, date, datetime, time, timedelta
-from decimal import Decimal
-import copyreg
+from decimal import Decimal, localcontext
 import hashlib
-import pickle
+import inspect
+import json
+import os
+import tempfile
 from pathlib import Path
-from types import MappingProxyType
 from typing import Any, Callable, Mapping
 
 from src.lib.db.country_indices import (
@@ -35,9 +35,10 @@ from src.lib.db.country_indices import (
     upsert_security_prices,
     upsert_securities,
     upsert_security_listings,
+    upsert_primary_security_listings,
 )
 from src.lib.pipeline.canonical_facts import normalize_facts
-from src.lib.pipeline.country_cohorts import CohortCandidate, CountryCohort, form_cohort
+from src.lib.pipeline.country_cohorts import CohortCandidate, CountryCohort, form_cohort, evaluate_cohort_coverage
 from src.lib.pipeline.country_valuation import (
     CompanyFundamentals,
     ValuationFx,
@@ -45,7 +46,7 @@ from src.lib.pipeline.country_valuation import (
     calculate_daily_country_metrics,
 )
 from src.lib.pipeline.point_in_time import fundamentals_as_of
-from src.lib.pipeline.uncertainty import estimate_sensitivity
+from src.lib.pipeline.uncertainty import AggregateContribution, SensitivityInput, estimate_sensitivity
 from src.lib.pipeline.weekly_valuation import WeeklyCountryMetric, summarize_week
 from src.lib.source.country_index_types import DailyPrice, FxRate, ProviderLicense, SecurityListing
 
@@ -65,10 +66,132 @@ METRICS = ("pe", "pb", "ps", "pcf", "pfcf", "dividend_yield")
 DEFAULT_METHODOLOGY = "us-country-index-v1"
 
 
-copyreg.pickle(MappingProxyType, lambda value: (dict, (dict(value),)))
+CHECKPOINT_VERSION = 2
+
+# Explicit trusted modules; checkpoint data can never choose an import or execute code.
+from src.lib.pipeline import canonical_facts, country_cohorts, country_valuation, point_in_time, uncertainty, weekly_valuation
+from src.lib.source import country_index_types
+_CHECKPOINT_TYPES = {
+    f"{cls.__module__}.{cls.__name__}": cls
+    for module in (canonical_facts, country_cohorts, country_valuation, point_in_time,
+                   uncertainty, weekly_valuation, country_index_types)
+    for cls in vars(module).values() if isinstance(cls, type) and is_dataclass(cls)
+}
+
+
+def _encode(value):
+    if is_dataclass(value):
+        return {"type": f"{type(value).__module__}.{type(value).__name__}",
+                "fields": {f.name: _encode(getattr(value, f.name)) for f in fields(value)}}
+    if isinstance(value, (Decimal, datetime, date)):
+        return {"type": type(value).__name__, "value": str(value)}
+    if isinstance(value, Mapping):
+        pairs = [[_encode(k), _encode(v)] for k, v in value.items()]
+        return {"type": "mapping", "items": sorted(pairs, key=lambda pair: _canonical(pair[0]))}
+    if isinstance(value, (tuple, list, set, frozenset)):
+        items = [_encode(v) for v in value]
+        if isinstance(value, (set, frozenset)):
+            items.sort(key=_canonical)
+        return {"type": type(value).__name__, "items": items}
+    if value is None or isinstance(value, (str, bool, int, float)):
+        return value
+    raise ValueError(f"unsupported checkpoint value: {type(value).__name__}")
+
+
+def _decode(value):
+    if not isinstance(value, dict):
+        if value is None or isinstance(value, (str, bool, int, float)):
+            return value
+        raise ValueError("invalid checkpoint scalar")
+    kind = value.get("type")
+    if kind in _CHECKPOINT_TYPES and set(value) == {"type", "fields"}:
+        cls = _CHECKPOINT_TYPES[kind]
+        if set(value["fields"]) != {f.name for f in fields(cls)}:
+            raise ValueError("invalid checkpoint dataclass fields")
+        return cls(**{k: _decode(v) for k, v in value["fields"].items()})
+    if kind in ("Decimal", "date", "datetime") and set(value) == {"type", "value"}:
+        return {"Decimal": Decimal, "date": date.fromisoformat, "datetime": datetime.fromisoformat}[kind](value["value"])
+    if set(value) == {"type", "items"}:
+        if kind == "mapping":
+            result = {_decode(k): _decode(v) for k, v in value["items"]}
+            if len(result) != len(value["items"]):
+                raise ValueError("duplicate checkpoint mapping keys")
+            return result
+        if kind in ("tuple", "list", "set", "frozenset"):
+            return {"tuple": tuple, "list": list, "set": set, "frozenset": frozenset}[kind](_decode(v) for v in value["items"])
+    raise ValueError("unknown checkpoint type or fields")
+
+
+def _canonical(value):
+    return json.dumps(value, sort_keys=True, separators=(",", ":"), allow_nan=False)
+
+
+def _identity(provider):
+    if provider is None:
+        return None
+    if isinstance(provider, Mapping):
+        return {"type": "mapping", "config": provider}
+    identity = {"type": f"{type(provider).__module__}.{type(provider).__qualname__}"}
+    explicit = getattr(provider, "checkpoint_config", None)
+    if callable(explicit):
+        explicit = explicit()
+    identity["config"] = explicit
+    for name in ("provider", "version", "license", "config", "identity"):
+        if hasattr(provider, name):
+            identity[name] = getattr(provider, name)
+    # Explicit configuration is authoritative for stateful repositories. Otherwise
+    # include serializable private settings as well (SEC user agent, endpoints).
+    for name, value in (getattr(provider, "__dict__", {}) if explicit is None else {}).items():
+        if name.lstrip("_") in {"calls", "call_count", "cache", "session", "client"}:
+            continue
+        try:
+            _encode(value)
+        except ValueError:
+            continue
+        identity[name] = value
+    target = provider if inspect.isfunction(provider) else type(provider)
+    try:
+        identity["implementation"] = hashlib.sha256(inspect.getsource(target).encode()).hexdigest()
+    except (TypeError, OSError):
+        identity["implementation"] = getattr(provider, "__qualname__", identity["type"])
+    if inspect.isfunction(provider) and explicit is None:
+        identity["defaults"] = provider.__defaults__
+        identity["closure"] = tuple(cell.cell_contents for cell in (provider.__closure__ or ()))
+    return identity
+
+
+def _write_checkpoint(path, fingerprint, name, value):
+    payload = _encode(value)
+    envelope = {"version": CHECKPOINT_VERSION, "fingerprint": fingerprint, "stage": name,
+                "sha256": hashlib.sha256(_canonical(payload).encode()).hexdigest(), "payload": payload}
+    fd, temporary = tempfile.mkstemp(prefix=path.name, suffix=".tmp", dir=path.parent)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as handle:
+            handle.write(_canonical(envelope))
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temporary, path)
+    finally:
+        if os.path.exists(temporary):
+            os.unlink(temporary)
+
+
+def _read_checkpoint(path, fingerprint, name):
+    try:
+        envelope = json.loads(path.read_text(encoding="utf-8"))
+        if (set(envelope) != {"version", "fingerprint", "stage", "sha256", "payload"}
+                or envelope["version"] != CHECKPOINT_VERSION or envelope["fingerprint"] != fingerprint
+                or envelope["stage"] != name
+                or envelope["sha256"] != hashlib.sha256(_canonical(envelope["payload"]).encode()).hexdigest()):
+            raise ValueError("configuration, version, or checksum mismatch")
+        return _decode(envelope["payload"])
+    except Exception as exc:
+        raise ValueError(f"checkpoint {name}: {exc}") from exc
 
 
 def _jsonable(value: object) -> object:
+    if is_dataclass(value):
+        return {f.name: _jsonable(getattr(value, f.name)) for f in fields(value)}
     if isinstance(value, Decimal):
         return str(value)
     if isinstance(value, (date, datetime)):
@@ -111,11 +234,10 @@ def _license_guard(provider: object, environment: str) -> None:
         license_info.assert_publishable(environment=environment)
 
 
-def _checkpoint_paths(checkpoint_dir: Path, run_id: str) -> tuple[Path, dict[str, Path]]:
+def _checkpoint_paths(checkpoint_dir: Path, run_id: str) -> dict[str, Path]:
     checkpoint_dir.mkdir(parents=True, exist_ok=True)
     safe_id = "".join(ch if ch.isalnum() or ch in "-_" else "_" for ch in run_id)
-    meta = checkpoint_dir / f"{safe_id}.meta.pkl"
-    return meta, {stage: checkpoint_dir / f"{safe_id}.{stage}.pkl" for stage in STAGES}
+    return {stage: checkpoint_dir / f"{safe_id}.{stage}.json" for stage in STAGES}
 
 
 def _week_start(now: datetime) -> date:
@@ -123,7 +245,7 @@ def _week_start(now: datetime) -> date:
     return current - timedelta(days=current.weekday() + 7)
 
 
-def _call_facts(provider: object, security_id: str) -> object:
+def _call_facts(provider: object, security_id: str, start: datetime, end: datetime) -> object:
     fetch_companyfacts = getattr(provider, "fetch_companyfacts", None)
     if callable(fetch_companyfacts):
         return fetch_companyfacts(security_id)
@@ -131,7 +253,7 @@ def _call_facts(provider: object, security_id: str) -> object:
     fetch_facts = getattr(provider, "fetch_facts", None)
     if not callable(discover) or not callable(fetch_facts):
         raise ValueError("filing provider must implement fetch_companyfacts or discover/fetch_facts")
-    discovered = discover(datetime.min.replace(tzinfo=UTC), datetime.max.replace(tzinfo=UTC))
+    discovered = discover(start, end)
     filings = [filing for filing in discovered if filing.filer_id == security_id or filing.external_id == security_id]
     facts = tuple(fact for filing in filings for fact in fetch_facts(filing))
     return type("FactsResult", (), {"ok": True, "filings": tuple(filings), "facts": facts, "error": None})()
@@ -183,7 +305,6 @@ def _cohort_row(cohort: CountryCohort, methodology_version: str, week: date) -> 
 
 def _daily_row(run_id: str, row: object, cohort: CountryCohort, sensitivity: object | None = None) -> dict[str, object]:
     whole = row.whole_cohort_coverage
-    eligible = row.eligible_scope_coverage
     reasons = [row.reason] if row.reason else []
     return {
         "run_id": run_id, "market_id": row.market_id, "metric_key": row.metric,
@@ -208,14 +329,20 @@ def _daily_row(run_id: str, row: object, cohort: CountryCohort, sensitivity: obj
 
 def _weekly_row(run_id: str, weekly: WeeklyCountryMetric, sensitivity: object | None, cohort: CountryCohort) -> dict[str, object]:
     whole = weekly.whole_cohort_coverage
-    eligible = weekly.eligible_scope_coverage
+    # Reconcile the headline against the exact values written to the daily table,
+    # including the persistence Decimal precision for even observation counts.
+    persisted_values = sorted(_db_decimal(value) for _, value in weekly.daily_values)
+    middle = len(persisted_values) // 2
+    persisted_median = None if weekly.value is None else (
+        persisted_values[middle] if len(persisted_values) % 2
+        else (persisted_values[middle - 1] + persisted_values[middle]) / Decimal(2))
     reasons = list(weekly.warning_codes)
     if weekly.reason:
         reasons.append(weekly.reason)
     return {
         "run_id": run_id, "market_id": weekly.market_id, "metric_key": weekly.metric,
         "week_id": weekly.week_start, "cohort_version": cohort.effective_date.isoformat(),
-        "methodology_version": weekly.methodology_version, "metric_value": _db_decimal(weekly.value),
+        "methodology_version": weekly.methodology_version, "metric_value": persisted_median,
         "weekly_min_value": _db_decimal(weekly.minimum), "weekly_max_value": _db_decimal(weekly.maximum),
         "valuation_dates": list(weekly.valid_valuation_dates), "daily_observation_count": weekly.valid_observation_count,
         "metric_status": weekly.status, "market_coverage": _db_decimal(weekly.market_coverage),
@@ -231,271 +358,379 @@ def _weekly_row(run_id: str, weekly: WeeklyCountryMetric, sensitivity: object | 
         "top_five_concentration": _db_decimal(weekly.top_five_weight), "top_ten_concentration": _db_decimal(weekly.top_ten_weight),
         "membership_overlap": None, "interval_lower": _db_decimal(getattr(sensitivity, "lower", None)),
         "interval_upper": _db_decimal(getattr(sensitivity, "upper", None)),
-        "source_coverage": {"sensitivity": {"interval_label": getattr(sensitivity, "interval_label", "unavailable")},
+        "source_coverage": {"sensitivity": {"interval_label": getattr(sensitivity, "interval_label", "unavailable"),
+                                                     "seed": getattr(sensitivity, "seed", None),
+                                                     "draws": getattr(sensitivity, "draws", None),
+                                                     "point_estimate": _jsonable(getattr(sensitivity, "point_estimate", None)),
+                                                     "components": _jsonable(getattr(sensitivity, "components", ())),
+                                                     "warnings": _jsonable(getattr(sensitivity, "warnings", ()))},
                              "reported": weekly.whole_cohort_coverage is not None},
         "structured_reasons": reasons,
     }
 
 
 def run_us_country_index_etl(
-    connection: Any,
-    *,
-    universe_provider: object,
-    filing_provider: object,
-    price_provider: object,
-    fx_provider: object | None = None,
-    share_state: Callable[[SecurityListing, date, object, DailyPrice], Mapping[str, object]] | None = None,
-    clock: Callable[[], datetime] | None = None,
-    run_id: str | None = None,
-    checkpoint_dir: str | Path | None = None,
-    environment: str = "development",
-    methodology_version: str = DEFAULT_METHODOLOGY,
-    market_id: str = "us",
-    stage_hook: Callable[[str], None] | None = None,
-    sensitivity_draws: int = 1000,
+    connection: Any = None, *, universe_provider=None, filing_provider=None, price_provider=None,
+    fx_provider=None, share_state=None, cohort_state=None, sensitivity_context=None,
+    clock=None, run_id=None, checkpoint_dir=None, environment="development",
+    methodology_version=DEFAULT_METHODOLOGY, market_id="us", stage_hook=None, sensitivity_draws=1000,
 ) -> dict[str, object]:
+    """Run the previous Mon-Fri window with injected source and cohort repositories.
+
+    ``cohort_state`` is a callback (or repository.load) returning None on first
+    formation, otherwise {cohort, formation_caps, evaluated_week}. It may also
+    supply forced_replacements (outgoing -> incoming). A repository.save method
+    receives the next state and the persistence connection inside the transaction.
+    Callbacks can persist the returned next_cohort_state with their own scheduler.
+    ``checkpoint_config`` on providers/callbacks identifies external configuration.
+    """
     started_at = (clock or (lambda: datetime.now(UTC)))()
-    if started_at.tzinfo is None or started_at.utcoffset() is None:
-        raise ValueError("clock must return a timezone-aware datetime")
-    run_id = run_id or hashlib.sha256(started_at.isoformat().encode()).hexdigest()[:16]
-    if connection is None:
-        return {"status": "failed", "publication_status": "preserved", "previous_publication_preserved": True,
-                "failure_summary": "a database connection is required for country-index publication", "errors": []}
-    if not methodology_version:
-        return {"status": "failed", "publication_status": "preserved", "previous_publication_preserved": True,
-                "failure_summary": "methodology_version is required", "errors": []}
-    week = _week_start(started_at)
-    days = tuple(week + timedelta(days=i) for i in range(5))
-    expected_keys = tuple((market_id, metric, week) for metric in METRICS)
-    meta_path, paths = _checkpoint_paths(Path(checkpoint_dir or ".mvd-checkpoints"), run_id)
-    config = {"methodology_version": methodology_version, "market_id": market_id, "week": week,
-              "environment": environment, "run_id": run_id}
+    stage_counts = OrderedDict()
+    reused = []
+    source_errors = []
+    current_stage = "configuration"
+    expected_keys = ()
+    committed = False
     try:
-        if meta_path.exists():
-            with meta_path.open("rb") as handle:
-                if pickle.load(handle) != config:
-                    raise RuntimeError("checkpoint configuration does not match this run")
-        else:
-            with meta_path.open("wb") as handle:
-                pickle.dump(config, handle)
-    except Exception as exc:
-        return {"status": "failed", "publication_status": "preserved", "previous_publication_preserved": True,
-                "failure_summary": f"checkpoint: {exc}", "failed_stage": "checkpoint", "errors": [str(exc)]}
+        if started_at.tzinfo is None or started_at.utcoffset() is None:
+            raise ValueError("clock must return a timezone-aware datetime")
+        if connection is None or not callable(getattr(connection, "transaction", None)):
+            raise ValueError("a database connection with transaction support is required")
+        # A psycopg transaction entered after implicit BEGIN is only a savepoint.
+        # Never claim durable publication in a transaction owned by our caller.
+        if getattr(getattr(connection, "info", None), "transaction_status", 0) != 0:
+            raise ValueError("country-index publication requires an idle database connection")
+        if any(provider is None for provider in (universe_provider, filing_provider, price_provider)):
+            raise ValueError("universe, filing and price providers must be configured")
+        if not methodology_version:
+            raise ValueError("methodology_version is required")
+        _license_guard(price_provider, environment)
+        if environment == "production" and cohort_state is None:
+            raise ValueError("production requires a persistent cohort state repository")
+        run_id = run_id or hashlib.sha256(started_at.isoformat().encode()).hexdigest()[:16]
+        week = _week_start(started_at)
+        days = tuple(week + timedelta(days=i) for i in range(5))
+        expected_keys = tuple((market_id, metric, week) for metric in METRICS)
+        current_stage = "checkpoint"
+        config = {"run_id": run_id, "methodology": methodology_version, "market": market_id,
+                  "week": week, "environment": environment, "sensitivity_draws": sensitivity_draws,
+                  "sources": [_identity(p) for p in (universe_provider, filing_provider, price_provider,
+                                                     fx_provider, share_state, cohort_state, sensitivity_context)]}
+        fingerprint = hashlib.sha256(_canonical(_encode(config)).encode()).hexdigest()
+        paths = _checkpoint_paths(Path(checkpoint_dir or ".mvd-checkpoints"), run_id)
+        # Validate every existing file before using any cached stage.
+        cached = {name: _read_checkpoint(path, fingerprint, name) for name, path in paths.items() if path.exists()}
 
-    stage_counts: OrderedDict[str, int] = OrderedDict()
-    reused: list[str] = []
-    source_errors: list[dict[str, object]] = []
+        def stage(name, action, count):
+            nonlocal current_stage
+            current_stage = name
+            if name in cached:
+                value = cached[name]
+                reused.append(name)
+            else:
+                if stage_hook:
+                    stage_hook(name)
+                value = action()
+                _write_checkpoint(paths[name], fingerprint, name, value)
+            stage_counts[name] = count(value)
+            return value
 
-    def stage(name: str, action: Callable[[], object], count: Callable[[object], int]) -> object:
-        path = paths[name]
-        if path.exists():
-            with path.open("rb") as handle:
-                value = pickle.load(handle)
-            reused.append(name)
-        else:
-            if stage_hook:
-                stage_hook(name)
-            value = action()
-            with path.open("wb") as handle:
-                pickle.dump(value, handle)
-        stage_counts[name] = count(value)
-        return value
-
-    try:
-        def acquire() -> dict[str, object]:
-            listings = list(universe_provider.listings_as_of(market_id, week))
-            if not listings:
-                raise ValueError("US universe provider returned no eligible listings")
-            filings: list[object] = []
-            facts: list[object] = []
+        def acquire():
+            listings = tuple(l for l in universe_provider.listings_as_of(market_id, week)
+                             if l.is_primary and l.market_id == market_id and l.listing_status == "active"
+                             and l.valid_from <= week and (l.valid_to is None or l.valid_to >= week))
+            if not listings or len({l.security_id for l in listings}) != len(listings):
+                raise ValueError("US universe must contain unique eligible primary listings")
+            filings, facts, errors = [], [], []
             for listing in listings:
-                result = _call_facts(filing_provider, listing.security_id)
-                if not getattr(result, "ok", False):
-                    source_errors.append(_error_dict(getattr(result, "error", result), security_id=listing.security_id, stage=STAGES[0]))
-                    continue
-                filings.extend(getattr(result, "filings", ()))
-                facts.extend(getattr(result, "facts", ()))
+                try:
+                    result = _call_facts(filing_provider, listing.security_id,
+                                         datetime.combine(week, time(tzinfo=UTC)), started_at)
+                    if not getattr(result, "ok", False):
+                        errors.append(_error_dict(getattr(result, "error", result), security_id=listing.security_id, stage=STAGES[0]))
+                        continue
+                    filings.extend(result.filings)
+                    facts.extend(result.facts)
+                except Exception as exc:
+                    errors.append(_error_dict(exc, security_id=listing.security_id, stage=STAGES[0]))
             if not facts:
                 raise ValueError("filing provider returned no usable facts")
-            upsert_regulatory_filings(connection, [_filing_row(item) for item in filings])
-            upsert_regulatory_facts(connection, [_fact_row(item) for item in facts])
-            return {"listings": tuple(listings), "filings": tuple(filings), "facts": tuple(facts)}
+            return {"listings": listings, "filings": tuple(filings), "facts": tuple(facts), "source_errors": errors}
 
-        acquired = stage(STAGES[0], acquire, lambda v: len(v["facts"]))
+        acquired = stage(STAGES[0], acquire, lambda value: len(value["facts"]))
+        source_errors = acquired["source_errors"]
 
-        def normalize() -> dict[str, object]:
+        def normalize():
             canonical = tuple(normalize_facts(acquired["facts"], "sec-v1"))
-            fundamentals: dict[tuple[str, date], CompanyFundamentals] = {}
-            pit_rows: list[dict[str, object]] = []
+            fundamentals, pit_rows = {}, []
             for day in days:
-                cutoff = datetime.combine(day, time(23, 59, tzinfo=UTC))
                 for listing in acquired["listings"]:
-                    facts_for_security = [fact for fact in canonical if fact.raw.security_id == listing.security_id]
-                    if not facts_for_security:
-                        continue
-                    pit = fundamentals_as_of(listing.security_id, cutoff, facts_for_security)
+                    selected = [f for f in canonical if f.raw.security_id == listing.security_id]
+                    pit = fundamentals_as_of(listing.security_id, datetime.combine(day, time(23, 59, tzinfo=UTC)), selected)
                     fundamentals[(listing.security_id, day)] = CompanyFundamentals(pit)
-                    for metric_name in ("revenue", "net_income", "common_equity", "operating_cash_flow", "capex", "free_cash_flow", "dividends"):
-                        field = getattr(pit, metric_name)
-                        pit_rows.append({
-                            "security_id": listing.security_id, "valuation_date": day,
-                            "methodology_version": methodology_version, "reporting_currency": field.unit or "USD",
-                            "market_cap": None, "ttm_revenue": pit.ttm_revenue, "ttm_net_income": pit.ttm_net_income,
-                            "common_equity": pit.common_equity.value, "ttm_operating_cash_flow": pit.ttm_operating_cash_flow,
-                            "ttm_cash_capex": pit.ttm_capex, "ttm_free_cash_flow": pit.ttm_free_cash_flow,
-                            "ttm_common_dividends": pit.ttm_dividends, "shares_outstanding": pit.period_end_shares.value,
-                            "reported_fact_coverage": Decimal(1), "carried_forward_coverage": Decimal(0),
-                            "imputed_coverage": Decimal(0), "missing_or_invalid_coverage": Decimal(0),
-                            "source_lineage": [fact.raw.fact_id for fact in field.lineage.facts],
-                            "structured_reasons": list(field.warnings),
-                        })
-            upsert_canonical_facts(connection, [{
-                "canonical_fact_id": f"{fact.raw.filing_id}:{fact.raw.fact_id}:{fact.taxonomy_version}",
-                "security_id": fact.raw.security_id, "concept_key": fact.metric or "unmapped",
-                "taxonomy_version": fact.taxonomy_version, "value": fact.value, "unit": fact.unit,
-                "period_start": fact.raw.period_start, "period_end": fact.raw.period_end,
-                "instant_date": fact.raw.instant_date, "published_at": fact.raw.published_at,
-                "availability_status": "accepted" if not fact.rejection_reasons else "rejected",
-                "derivation_method": "reported", "source_lineage": [fact.raw.fact_id],
-            } for fact in canonical])
-            upsert_point_in_time_fundamentals(connection, pit_rows)
+                    monetary = [getattr(pit, name) for name in ("revenue", "net_income", "common_equity", "operating_cash_flow", "capex", "free_cash_flow", "dividends")]
+                    currencies = {f.unit for f in monetary if f.value is not None}
+                    if len(currencies) > 1:
+                        raise ValueError("PIT monetary fields have mixed reporting currencies")
+                    currency = next(iter(currencies), None)
+                    lineage_fields = monetary + [pit.period_end_shares]
+                    lineage = sorted({f.raw.fact_id for field in lineage_fields for f in field.lineage.facts})
+                    reasons = sorted({reason for field in lineage_fields for reason in field.warnings})
+                    if any(field.value is None for field in monetary):
+                        reasons.append("missing_fundamental_fields")
+                    reported = Decimal(sum(f.value is not None for f in monetary)) / Decimal(len(monetary))
+                    pit_rows.append({
+                        "security_id": listing.security_id, "valuation_date": day, "methodology_version": methodology_version,
+                        "reporting_currency": currency, "market_cap": None, "ttm_revenue": pit.ttm_revenue,
+                        "ttm_net_income": pit.ttm_net_income, "common_equity": pit.common_equity.value,
+                        "ttm_operating_cash_flow": pit.ttm_operating_cash_flow, "ttm_cash_capex": pit.ttm_capex,
+                        "ttm_free_cash_flow": pit.ttm_free_cash_flow, "ttm_common_dividends": pit.ttm_dividends,
+                        "shares_outstanding": pit.period_end_shares.value, "reported_fact_coverage": reported,
+                        "carried_forward_coverage": Decimal(0), "imputed_coverage": Decimal(0),
+                        "missing_or_invalid_coverage": Decimal(1) - reported,
+                        "source_lineage": lineage, "structured_reasons": reasons})
             return {"canonical": canonical, "fundamentals": fundamentals, "pit_rows": pit_rows}
 
-        normalized = stage(STAGES[1], normalize, lambda v: len(v["canonical"]))
+        normalized = stage(STAGES[1], normalize, lambda value: len(value["canonical"]))
 
-        def prices_and_fx() -> dict[str, object]:
-            _license_guard(price_provider, environment)
-            all_prices: list[DailyPrice] = []
-            prices_by_security: dict[str, tuple[DailyPrice, ...]] = {}
+        def prices_and_fx():
+            all_prices, prices, states = [], {}, {}
             for listing in acquired["listings"]:
                 rows = tuple(price_provider.daily_prices(listing, days[0], days[-1]))
-                if not rows:
-                    continue
-                prices_by_security[listing.security_id] = rows
+                if len({p.trading_date for p in rows}) != len(rows):
+                    raise ValueError("duplicate security price dates")
+                for price in rows:
+                    if price.trading_date not in days or price.security_id != listing.security_id:
+                        raise ValueError("price must match the security and Monday-Friday run window")
+                    if price.trading_currency != listing.trading_currency:
+                        raise ValueError("price currency does not match listing currency")
+                    if price.provider != price_provider.license.provider or price.license_class != price_provider.license.usage:
+                        raise ValueError("price lineage does not match provider license")
+                    if share_state is None:
+                        raise ValueError("shares must come from an explicit reconciliation callback")
+                    state = dict(share_state(listing, price.trading_date, normalized["fundamentals"].get((listing.security_id, price.trading_date)), price))
+                    shares = state.get("shares_outstanding")
+                    if not isinstance(shares, Decimal) or not shares.is_finite() or shares <= 0 or not state.get("source"):
+                        raise ValueError("shares reconciliation requires positive Decimal shares and source lineage")
+                    states[(listing.security_id, price.trading_date)] = state
+                prices[listing.security_id] = rows
                 all_prices.extend(rows)
             if not all_prices:
                 raise ValueError("price provider returned no prices")
-            states: dict[tuple[str, date], Mapping[str, object]] = {}
-            for listing in acquired["listings"]:
-                for price in prices_by_security.get(listing.security_id, ()):
-                    if share_state is None:
-                        raise ValueError("shares must come from an explicit reconciliation callback")
-                    pit = normalized["fundamentals"].get((listing.security_id, price.trading_date))
-                    states[(listing.security_id, price.trading_date)] = dict(share_state(listing, price.trading_date, pit, price))
-                    if not states[(listing.security_id, price.trading_date)].get("shares_outstanding"):
-                        raise ValueError("shares reconciliation returned no positive shares")
-            fx_by_day: dict[date, ValuationFx] = {}
-            currencies = {listing.trading_currency for listing in acquired["listings"]}
+            currencies = {l.trading_currency for l in acquired["listings"]}
+            currencies.update(row["reporting_currency"] for row in normalized["pit_rows"] if row["reporting_currency"])
+            fx = {}
             for day in days:
-                rates: tuple[FxRate, ...] = ()
-                if currencies - {"USD"}:
+                rates = []
+                for currency in sorted(currencies - {"USD"}):
                     if fx_provider is None:
-                        raise ValueError("FX provider is required for non-USD listings")
-                    rates = tuple(fx_provider.daily_rates("USD", "USD", day, day))
-                fx_by_day[day] = ValuationFx("USD", rates)
-            upsert_securities(connection, [{"security_id": l.security_id, "issuer_id": l.issuer_id, "issuer_name": l.issuer_name, "security_type": l.security_type, "share_class": l.share_class, "is_active": l.listing_status == "active"} for l in acquired["listings"]])
-            upsert_security_listings(connection, [{"listing_id": l.listing_id, "security_id": l.security_id, "market_id": l.market_id, "exchange_code": l.exchange_code, "ticker": l.ticker, "trading_currency": l.trading_currency, "valid_from": l.valid_from, "valid_to": l.valid_to, "listing_status": l.listing_status, "source_provider": l.source_provider, "source_external_id": l.source_external_id} for l in acquired["listings"]])
-            upsert_security_prices(connection, [_price_row(p) for p in all_prices])
-            return {"prices": prices_by_security, "states": states, "fx": fx_by_day, "all_prices": tuple(all_prices)}
+                        raise ValueError("FX provider is required for non-USD amounts")
+                    fetched = tuple(fx_provider.daily_rates(currency, "USD", day, day))
+                    if len(fetched) != 1:
+                        raise ValueError("FX provider must return exactly one rate per currency/day")
+                    rate = fetched[0]
+                    if (rate.base_currency, rate.quote_currency, rate.rate_date) != (currency, "USD", day) or not rate.provider or not rate.source_url:
+                        raise ValueError("FX rate identity/date/source lineage mismatch")
+                    rates.append(rate)
+                fx[day] = ValuationFx("USD", tuple(rates))
+            return {"all_prices": tuple(all_prices), "prices": prices, "states": states, "fx": fx}
 
-        priced = stage(STAGES[2], prices_and_fx, lambda v: len(v["all_prices"]))
+        priced = stage(STAGES[2], prices_and_fx, lambda value: len(value["all_prices"]))
 
-        def cohorts() -> dict[str, object]:
-            formation_day = days[0]
-            candidates = []
-            for listing in acquired["listings"]:
-                rows = [p for p in priced["prices"].get(listing.security_id, ()) if p.trading_date == formation_day]
-                state = priced["states"].get((listing.security_id, formation_day))
-                if not rows or not state:
-                    continue
-                candidates.append(CohortCandidate(listing.security_id, rows[0].close_price * state["shares_outstanding"]))
-            if not candidates:
-                raise ValueError("no eligible universe candidates with reconciled shares")
-            cohort = form_cohort(market_id, formation_day, candidates)
-            upsert_country_cohorts(connection, [_cohort_row(cohort, methodology_version, formation_day)])
-            upsert_country_cohort_members(connection, [{"market_id": market_id, "cohort_version": cohort.effective_date.isoformat(), "security_id": sid, "primary_listing_id": next(l.listing_id for l in acquired["listings"] if l.security_id == sid), "member_rank": rank, "market_cap_at_formation": next(c.market_cap for c in candidates if c.security_id == sid), "market_weight_at_formation": Decimal(1) / cohort.constituent_target_count, "membership_status": "active", "membership_reason": {"code": "formation"}} for rank, sid in enumerate(cohort.security_ids, 1)])
-            return cohort
+        def day_cap(sid, day):
+            price = next((p for p in priced["prices"].get(sid, ()) if p.trading_date == day), None)
+            if price is None:
+                return None
+            rate = Decimal(1) if price.trading_currency == "USD" else next(r.rate for r in priced["fx"][day].rates if r.base_currency == price.trading_currency)
+            return price.close_price * priced["states"][(sid, day)]["shares_outstanding"] * rate
 
-        cohort = stage(STAGES[3], cohorts, lambda v: len(v.security_ids))
+        def cohorts():
+            caps = {l.security_id: day_cap(l.security_id, days[0]) for l in acquired["listings"]}
+            if any(cap is None for cap in caps.values()):
+                raise ValueError("formation/evaluation requires complete eligible-universe capitalization")
+            loader = getattr(cohort_state, "load", cohort_state)
+            prior = loader(market_id=market_id, methodology_version=methodology_version, week=week) if callable(loader) else cohort_state
+            if isinstance(prior, CountryCohort):
+                raise ValueError("active cohort state must include actual formation_caps and evaluated_week")
+            active = prior["cohort"] if prior else None
+            replacements = dict(prior.get("forced_replacements", {})) if prior else {}
+            evaluation = None
+            if active:
+                if active.market_id != market_id or active.effective_date > week:
+                    raise ValueError("active cohort identity/date mismatch")
+                previous_week = prior.get("evaluated_week")
+                if previous_week is not None and previous_week > week:
+                    raise ValueError("cohort state cannot follow the valuation week")
+                history = active if previous_week == week - timedelta(days=7) else active.with_outside_tolerance_weeks(0)
+                evaluation = evaluate_cohort_coverage(history, caps)
+                if previous_week == week:
+                    evaluation = replace(evaluation, consecutive_outside_tolerance_weeks=active.consecutive_outside_tolerance_weeks,
+                                         exceptional_reconstitution_required=False)
+                missing = set(active.security_ids) - caps.keys()
+                if missing - replacements.keys():
+                    raise ValueError("missing cohort member requires an explicit forced replacement")
+            annual = active is not None and active.effective_date.year < week.year
+            exceptional = evaluation is not None and evaluation.exceptional_reconstitution_required
+            reform = active is None or annual or bool(replacements) or exceptional
+            if reform:
+                candidates = [CohortCandidate(sid, cap, bool(active and sid in active.security_ids and sid not in replacements), sid in replacements.values()) for sid, cap in caps.items() if sid not in replacements]
+                cohort = form_cohort(market_id, week, candidates, prior_constituent_target_count=active.constituent_target_count if replacements else None)
+                reason = "first_formation" if active is None else "forced_replacement" if replacements else "annual_reconstitution" if annual else "exceptional_reconstitution"
+                cohort = replace(cohort, reasons=tuple(dict.fromkeys((*cohort.reasons, reason))))
+                formation_caps = {sid: caps[sid] for sid in cohort.security_ids}
+            else:
+                cohort = active.with_outside_tolerance_weeks(evaluation.consecutive_outside_tolerance_weeks)
+                formation_caps = dict(prior["formation_caps"])
+                if set(formation_caps) != set(cohort.security_ids) or any(not isinstance(v, Decimal) or not v.is_finite() or v <= 0 for v in formation_caps.values()):
+                    raise ValueError("active cohort requires actual positive formation caps for every member")
+            return {"cohort": cohort, "formation_caps": formation_caps, "evaluated_week": week,
+                    "coverage_reasons": evaluation.reasons if evaluation else (),
+                    "current_coverage": evaluate_cohort_coverage(cohort.with_outside_tolerance_weeks(0), caps).market_coverage}
 
-        def daily() -> tuple[object, ...]:
+        next_state = stage(STAGES[3], cohorts, lambda value: len(value["cohort"].security_ids))
+        cohort = next_state["cohort"]
+
+        def calculation_inputs(day, securities):
+            prices, fundamentals = [], []
+            for sid in securities:
+                price = next((p for p in priced["prices"].get(sid, ()) if p.trading_date == day), None)
+                if price is not None:
+                    state = priced["states"][(sid, day)]
+                    prices.append(ValuationPrice(price, state["shares_outstanding"], state.get("industry", "unknown"), state.get("revenue_comparable", False)))
+                company = normalized["fundamentals"].get((sid, day))
+                if company is not None:
+                    fundamentals.append(company)
+            return prices, fundamentals
+
+        def daily():
             rows = []
-            listing_by_id = {l.security_id: l for l in acquired["listings"]}
             for day in days:
-                prices = []
-                fundamentals = []
-                for sid in cohort.security_ids:
-                    listing = listing_by_id[sid]
-                    price = next((p for p in priced["prices"].get(sid, ()) if p.trading_date == day), None)
-                    if price is not None:
-                        state = priced["states"][(sid, day)]
-                        prices.append(ValuationPrice(price, state["shares_outstanding"], state.get("industry", "unknown"), state.get("revenue_comparable", False)))
-                    company = normalized["fundamentals"].get((sid, day))
-                    if company is not None:
-                        fundamentals.append(company)
-                if not prices:
-                    continue
-                rows.extend(calculate_daily_country_metrics(cohort, prices, fundamentals, priced["fx"][day], methodology_version))
+                prices, fundamentals = calculation_inputs(day, cohort.security_ids)
+                if prices:
+                    caps = {l.security_id: day_cap(l.security_id, day) for l in acquired["listings"]}
+                    coverage = evaluate_cohort_coverage(cohort, caps).market_coverage if all(v is not None for v in caps.values()) else None
+                    coverage_warning = next((reason for reason in next_state["coverage_reasons"] if reason.startswith("coverage_")), None)
+                    rows.extend(replace(row, market_coverage=coverage,
+                                        status="warning" if row.value is not None and coverage_warning else row.status,
+                                        reason=row.reason or coverage_warning)
+                                for row in calculate_daily_country_metrics(cohort, prices, fundamentals, priced["fx"][day], methodology_version))
             if not rows:
                 raise ValueError("daily calculation produced no observations")
             return tuple(rows)
 
         daily_metrics = stage(STAGES[4], daily, len)
+        weekly_metrics = stage(STAGES[5], lambda: tuple(summarize_week([row for row in daily_metrics if row.metric == metric]) for metric in METRICS if any(row.metric == metric for row in daily_metrics)), len)
 
-        def weekly() -> tuple[WeeklyCountryMetric, ...]:
-            summaries = []
-            for metric in METRICS:
-                rows = [row for row in daily_metrics if row.metric == metric]
-                if rows:
-                    summaries.append(summarize_week(rows))
-            return tuple(summaries)
+        def sensitivity():
+            results = {}
+            for weekly in weekly_metrics:
+                available = sorted((row for row in daily_metrics if row.metric == weekly.metric and row.value is not None), key=lambda row: (row.value, row.valuation_date))
+                if not available or weekly.value is None:
+                    results[weekly.metric] = None
+                    continue
+                # An odd number of observations has one exact weekly median day.
+                # Even windows are handled as two central-day intervals below.
+                central = available[(len(available)-1)//2:len(available)//2+1]
+                intervals = []
+                for row in central:
+                    # Task 7 renders rational cap weights to finite Decimals;
+                    # assign the rounding residual to the final constituent so
+                    # Task 8 receives an exactly unit-sum fixed-cohort vector.
+                    weights = list(row.constituent_weights)
+                    with localcontext() as context:
+                        context.prec = max(len(weight.as_tuple().digits) for _, weight in weights) + 20
+                        weights[-1] = (weights[-1][0], Decimal(1) - sum((weight for _, weight in weights[:-1]), Decimal(0)))
+                    row = replace(row, constituent_weights=tuple(weights))
+                    contributions = {}
+                    for sid in cohort.security_ids:
+                        if sid not in row.eligible_security_ids:
+                            contributions[sid] = AggregateContribution(Decimal(0), Decimal(0))
+                            continue
+                        singleton = replace(cohort, security_ids=(sid,), constituent_target_count=1)
+                        prices, fundamentals = calculation_inputs(row.valuation_date, (sid,))
+                        isolated = next((r for r in calculate_daily_country_metrics(singleton, prices, fundamentals, priced["fx"][row.valuation_date], methodology_version) if r.metric == row.metric), None) if prices else None
+                        contributions[sid] = AggregateContribution(isolated.aggregate_numerator, isolated.aggregate_denominator) if isolated and isolated.aggregate_numerator is not None and isolated.aggregate_denominator is not None else None
+                    extra = dict(sensitivity_context(metric=row, cohort=cohort, fundamentals=normalized["fundamentals"], share_states=priced["states"])) if sensitivity_context else {}
+                    input_value = SensitivityInput(row, contributions=contributions, **extra)
+                    if any(value is None and sid not in input_value.peer_contributions for sid, value in contributions.items()):
+                        raise ValueError("missing aggregate contributions require explicit point-in-time peers")
+                    intervals.append(estimate_sensitivity(input_value, cohort, seed=17, draws=sensitivity_draws))
+                result = intervals[0]
+                if len(intervals) == 2:
+                    other = intervals[1]
+                    # Conservative envelope for the mean of the two median observations.
+                    result = replace(result, point_estimate=(result.point_estimate + other.point_estimate)/2,
+                                     lower=(result.lower + other.lower)/2, upper=(result.upper + other.upper)/2,
+                                     draw_values=tuple((a+b)/2 for a,b in zip(result.draw_values, other.draw_values)))
+                results[weekly.metric] = result
+            return results
 
-        weekly_metrics = stage(STAGES[5], weekly, len)
+        sensitivity_results = stage(STAGES[6], sensitivity, len)
 
-        def sensitivity() -> dict[str, object]:
-            result = {}
-            for metric in METRICS:
-                daily_row = next((row for row in daily_metrics if row.metric == metric), None)
-                result[metric] = estimate_sensitivity(daily_row, cohort, seed=17, draws=sensitivity_draws) if daily_row else None
-            return result
-
-        sensitivity_results = stage(STAGES[6], sensitivity, lambda v: len(v))
-
-        def validate() -> dict[str, object]:
-            actual = tuple((row.market_id, row.metric, week) for row in weekly_metrics)
-            if actual != expected_keys:
+        def validate():
+            failures = [error for error in source_errors if error["security_id"] in cohort.security_ids]
+            if failures:
+                raise ValueError("source failure for selected cohort member: " + ", ".join(error["security_id"] for error in failures))
+            if tuple((row.market_id, row.metric, row.week_start) for row in weekly_metrics) != expected_keys:
                 raise PublicationInvariantError("manifest does not match expected weekly metric keys")
-            if len(daily_metrics) != sum(metric.observation_count for metric in weekly_metrics):
+            if any(row.valuation_date not in days for row in daily_metrics) or len(daily_metrics) != sum(row.observation_count for row in weekly_metrics):
                 raise PublicationInvariantError("daily observations do not reconcile to weekly summaries")
-            return {"expected_keys": expected_keys, "daily_rows": tuple(_daily_row(run_id, row, cohort) for row in daily_metrics), "weekly_rows": tuple(_weekly_row(run_id, row, sensitivity_results[row.metric], cohort) for row in weekly_metrics)}
+            for row in weekly_metrics:
+                result = sensitivity_results[row.metric]
+                if row.value is not None and (result is None or any(component.code == "missing_aggregate_contributions" for component in result.components)):
+                    raise ValueError("publishable metric requires real aggregate contribution sensitivity")
+            return {"daily_rows": tuple(_daily_row(run_id, row, cohort) for row in daily_metrics),
+                    "weekly_rows": tuple(_weekly_row(run_id, row, sensitivity_results[row.metric], cohort) for row in weekly_metrics)}
 
-        validated = stage(STAGES[7], validate, lambda v: len(v["weekly_rows"]))
+        validated = stage(STAGES[7], validate, lambda value: len(value["weekly_rows"]))
 
-        def persist() -> dict[str, object]:
-            tx = getattr(connection, "transaction", None)
-            with tx() if callable(tx) else nullcontext():
-                now = (clock or (lambda: datetime.now(UTC)))()
+        def persist():
+            nonlocal committed
+            # No SQL has executed before this point. Nested publisher transaction
+            # is a savepoint; only this outer transaction commits the complete run.
+            if getattr(getattr(connection, "info", None), "transaction_status", 0) != 0:
+                raise ValueError("cohort/source repository left the persistence connection in a transaction")
+            with connection.transaction():
+                coverage = {"source_errors": source_errors, "fx_rates": _jsonable(tuple(r for fx in priced["fx"].values() for r in fx.rates)),
+                            "share_state": _jsonable([{ "security_id": sid, "date": day, **state} for (sid, day), state in priced["states"].items()]),
+                            "cohort_state": _encode(next_state), "checkpoint_fingerprint": fingerprint}
+                run_row = {"run_id": run_id, "methodology_version": methodology_version, "run_status": "running", "started_at": started_at, "completed_at": None, "source_coverage": coverage, "structured_reasons": []}
+                upsert_country_index_runs(connection, [run_row])
+                upsert_securities(connection, [{"security_id": l.security_id, "issuer_id": l.issuer_id, "issuer_name": l.issuer_name, "security_type": l.security_type, "share_class": l.share_class, "is_active": True} for l in acquired["listings"]])
+                upsert_security_listings(connection, [{"listing_id": l.listing_id, "security_id": l.security_id, "market_id": l.market_id, "exchange_code": l.exchange_code, "ticker": l.ticker, "trading_currency": l.trading_currency, "valid_from": l.valid_from, "valid_to": l.valid_to, "listing_status": l.listing_status, "source_provider": l.source_provider, "source_external_id": l.source_external_id} for l in acquired["listings"]])
+                upsert_primary_security_listings(connection, [{"security_id": l.security_id, "market_id": l.market_id, "listing_id": l.listing_id, "effective_from": l.valid_from, "effective_to": l.valid_to} for l in acquired["listings"]])
+                upsert_regulatory_filings(connection, [_filing_row(f) for f in acquired["filings"]])
+                upsert_regulatory_facts(connection, [_fact_row(f) for f in acquired["facts"]])
+                upsert_canonical_facts(connection, [{"canonical_fact_id": f"{fact.raw.filing_id}:{fact.raw.fact_id}:{fact.taxonomy_version}", "security_id": fact.raw.security_id, "concept_key": fact.metric or "unmapped", "taxonomy_version": fact.taxonomy_version, "value": fact.value, "unit": fact.unit, "period_start": fact.raw.period_start, "period_end": fact.raw.period_end, "instant_date": fact.raw.instant_date, "published_at": fact.raw.published_at, "availability_status": "accepted" if not fact.rejection_reasons else "rejected", "derivation_method": "reported", "source_lineage": [fact.raw.fact_id]} for fact in normalized["canonical"]])
+                upsert_point_in_time_fundamentals(connection, normalized["pit_rows"])
+                upsert_security_prices(connection, [_price_row(p) for p in priced["all_prices"]])
+                upsert_country_cohorts(connection, [_cohort_row(cohort, methodology_version, week)])
+                total = sum(next_state["formation_caps"].values())
+                upsert_country_cohort_members(connection, [{"market_id": market_id, "cohort_version": cohort.effective_date.isoformat(), "security_id": sid, "primary_listing_id": next(l.listing_id for l in acquired["listings"] if l.security_id == sid), "member_rank": rank, "market_cap_at_formation": next_state["formation_caps"][sid], "market_weight_at_formation": next_state["formation_caps"][sid]/total, "membership_status": "active", "membership_reason": {"code": "formation", "currency": "USD"}} for rank, sid in enumerate(cohort.security_ids, 1)])
                 upsert_country_daily_metrics(connection, validated["daily_rows"])
                 upsert_country_weekly_metrics(connection, validated["weekly_rows"])
                 warning_rows = []
-                for weekly_row in validated["weekly_rows"]:
-                    for code in weekly_row["structured_reasons"]:
-                        warning_rows.append({"run_id": run_id, "market_id": market_id, "metric_key": weekly_row["metric_key"], "week_id": week, "warning_code": code, "warning_level": "warning", "warning_message": code, "affected_market_weight": Decimal(0), "interval_width_contribution": None, "structured_reason": {"code": code}})
+                for row in validated["weekly_rows"]:
+                    for code in row["structured_reasons"]:
+                        warning_rows.append({"run_id": run_id, "market_id": market_id, "metric_key": row["metric_key"], "week_id": week, "warning_code": code, "warning_level": "warning", "warning_message": code, "affected_market_weight": Decimal(0), "interval_width_contribution": None, "structured_reason": {"code": code}})
                 upsert_country_metric_warnings(connection, warning_rows)
-                upsert_country_index_runs(connection, [{"run_id": run_id, "methodology_version": methodology_version, "run_status": "completed", "started_at": started_at, "completed_at": now, "source_coverage": {"provider": "sec"}, "structured_reasons": []}])
+                saver = getattr(cohort_state, "save", None)
+                if callable(saver):
+                    saver(connection=connection, market_id=market_id, methodology_version=methodology_version, state=next_state)
+                upsert_country_index_runs(connection, [{**run_row, "run_status": "completed", "completed_at": (clock or (lambda: datetime.now(UTC)))()}])
                 publish_completed_run(connection, run_id, expected_keys=expected_keys)
+            committed = True
             return {"published": True}
 
-        stage(STAGES[8], persist, lambda v: 1)
+        stage(STAGES[8], persist, lambda value: 1)
         return {"status": "success", "stage_counts": stage_counts, "reused_stages": reused,
                 "publication_status": "published", "source_errors": source_errors,
                 "source_warning_count": len(source_errors), "warning_count": sum(len(row["structured_reasons"]) for row in validated["weekly_rows"]) + len(source_errors),
-                "previous_publication_preserved": False, "expected_keys": expected_keys}
+                "previous_publication_preserved": False, "expected_keys": expected_keys, "next_cohort_state": next_state}
     except Exception as exc:
-        failed_stage = next((stage_name for stage_name in STAGES if stage_name not in stage_counts), STAGES[-1])
-        publication_status = "blocked_license" if "license" in str(exc).lower() or "yahoo" in str(exc).lower() else "preserved"
+        publication_status = "published" if committed else "blocked_license" if "license" in str(exc).lower() or "yahoo" in str(exc).lower() else "preserved"
         return {"status": "failed", "stage_counts": stage_counts, "reused_stages": reused,
                 "publication_status": publication_status, "source_errors": source_errors,
                 "source_warning_count": len(source_errors), "warning_count": len(source_errors),
-                "previous_publication_preserved": True, "failed_stage": failed_stage,
+                "previous_publication_preserved": not committed, "failed_stage": current_stage,
                 "failure_summary": str(exc), "errors": [str(exc)], "expected_keys": expected_keys}

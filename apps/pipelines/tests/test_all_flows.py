@@ -155,3 +155,23 @@ def test_all_flows_does_not_hide_child_fetch_errors(monkeypatch):
     result = run_all_flows()
     assert result["status"] == "failed"
     assert result["errors"] == ["currency_analysis: eur_3m_rate: TLS failure"]
+
+
+def test_real_unconfigured_us_flow_failure_is_propagated(monkeypatch):
+    import importlib
+    us_module = importlib.import_module("src.flows.us_country_index_flow")
+    monkeypatch.setattr(us_module, "load_project_env", lambda: None)
+    monkeypatch.delenv("MVD_US_COUNTRY_INDEX_PROVIDER_FACTORY", raising=False)
+    for name in ("macro_seed", "taylor_rule", "currency_analysis", "equity_market_valuation"):
+        monkeypatch.setattr(all_flows_module, f"run_{name}_flow", lambda: {"status": "success"})
+    result = run_all_flows()
+    assert result["status"] == "failed"
+    assert result["us_country_index"]["previous_publication_preserved"]
+    assert "MVD_US_COUNTRY_INDEX_PROVIDER_FACTORY" in result["errors"][0]
+
+
+def test_unexpected_child_exception_becomes_failed_result(monkeypatch):
+    def failed():
+        raise RuntimeError("unexpected child provider failure")
+    assert all_flows_module._run_child_flow("us_country_index", failed) == {
+        "status": "failed", "failure_summary": "unexpected child provider failure", "errors": ["unexpected child provider failure"]}

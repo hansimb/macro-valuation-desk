@@ -35,7 +35,10 @@ def _collect_child_flow_errors(name: str, result: dict[str, object]) -> list[str
 
 def _run_child_flow(name: str, run_flow: Callable[[], dict[str, object]]) -> dict[str, object]:
     print(f"Starting {name} flow...", file=sys.stderr, flush=True)
-    result = run_flow()
+    try:
+        result = run_flow()
+    except Exception as exc:
+        result = {"status": "failed", "failure_summary": str(exc), "errors": [str(exc)]}
     print(f"Finished {name} flow.", file=sys.stderr, flush=True)
     return result
 
