@@ -497,7 +497,9 @@ def _valid_daily_value(row: Mapping[str, object]) -> Decimal | None:
     return value
 
 
-def _daily_groups(rows: Iterable[Mapping[str, object]], expected: frozenset[PublicationKey]) -> dict[PublicationKey, tuple[Mapping[str, object], ...]]:
+def _daily_groups(
+    rows: Iterable[Mapping[str, object]], expected: frozenset[PublicationKey], methodology_version: str,
+) -> dict[PublicationKey, tuple[Mapping[str, object], ...]]:
     grouped: dict[PublicationKey, list[Mapping[str, object]]] = {}
     for row in rows:
         try:
@@ -505,6 +507,8 @@ def _daily_groups(rows: Iterable[Mapping[str, object]], expected: frozenset[Publ
             market_id, metric_key = row["market_id"], row["metric_key"]
         except KeyError as exc:
             raise PublicationInvariantError("daily metric row is missing publication identity") from exc
+        if row.get("methodology_version") != methodology_version:
+            raise PublicationInvariantError("daily metric methodology does not match its run")
         if not isinstance(valuation_date, date) or isinstance(valuation_date, datetime):
             raise PublicationInvariantError("daily metric row has an invalid valuation_date")
         if not isinstance(market_id, str) or not market_id or not isinstance(metric_key, str) or not metric_key:
@@ -551,12 +555,15 @@ def _require_weekly_invariants(
     key = _row_key(row, name="weekly metric")
     dates = row["valuation_dates"]
     count = row["daily_observation_count"]
-    daily_dates = tuple(item["valuation_date"] for item in daily_rows)
+    valid_daily = tuple(
+        (item, value) for item in daily_rows if (value := _valid_daily_value(item)) is not None
+    )
+    daily_dates = tuple(item["valuation_date"] for item, _ in valid_daily)
     if not isinstance(dates, (list, tuple)) or isinstance(count, bool) or not isinstance(count, int):
         raise PublicationInvariantError("weekly metric daily observation count and valuation dates are invalid")
-    if tuple(dates) != daily_dates or count != len(daily_rows):
+    if tuple(dates) != daily_dates or count != len(valid_daily):
         raise PublicationInvariantError("weekly metric dates or count do not match locked daily rows")
-    valid_values = tuple(value for item in daily_rows if (value := _valid_daily_value(item)) is not None)
+    valid_values = tuple(value for _, value in valid_daily)
     value, minimum, maximum = row["metric_value"], row["weekly_min_value"], row["weekly_max_value"]
     expected_minimum = min(valid_values) if valid_values else None
     expected_maximum = max(valid_values) if valid_values else None
@@ -570,13 +577,7 @@ def _require_weekly_invariants(
         if value != _median(valid_values):
             raise PublicationInvariantError("weekly metric value does not match the exact daily median")
     else:
-        daily_unavailable_codes = set().union(*(
-            _reason_codes(item.get("structured_reasons"))
-            for item in daily_rows
-            if item["metric_status"] == "unavailable"
-        ))
-        legitimate_metric_unavailable = bool(weekly_reason_codes & daily_unavailable_codes)
-        if value is not None or not weekly_reason_codes or (len(valid_values) >= 3 and not legitimate_metric_unavailable):
+        if value is not None or not weekly_reason_codes or len(valid_values) >= 3:
             raise PublicationInvariantError("unavailable weekly metric must have no value and a valid unavailable basis")
     return key
 
@@ -615,16 +616,15 @@ def publish_completed_run(connection: Any, run_id: str, *, expected_keys: Iterab
                 raise PublicationInvariantError("completed run has no methodology version")
 
             cursor.execute("""
-                select daily.market_id, daily.metric_key, daily.valuation_date, daily.metric_value,
-                    daily.metric_status, daily.structured_reasons
+                select daily.market_id, daily.metric_key, daily.valuation_date, daily.methodology_version,
+                    daily.metric_value, daily.metric_status, daily.structured_reasons
                 from core.country_daily_metrics as daily
                 where daily.run_id = %(run_id)s
-                  and daily.methodology_version = %(methodology_version)s
                 order by daily.market_id, daily.metric_key, daily.valuation_date
                 for update
-            """, {"run_id": run_id, "methodology_version": methodology_version})
+            """, {"run_id": run_id})
             daily = [_mapping_row(row, query="country daily metrics") for row in cursor.fetchall()]
-            grouped_daily = _daily_groups(daily, expected)
+            grouped_daily = _daily_groups(daily, expected, methodology_version)
 
             cursor.execute("""
                 select market_id, metric_key, week_id, cohort_version, methodology_version, metric_value,

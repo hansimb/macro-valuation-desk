@@ -121,6 +121,7 @@ def _daily_rows(
             "market_id": "us",
             "metric_key": "pe",
             "valuation_date": date(2026, 6, day),
+            "methodology_version": "mvd-v1",
             "metric_value": value,
             "metric_status": status,
             "structured_reasons": [{"code": "non_positive_denominator"}] if status == "unavailable" else [],
@@ -287,6 +288,47 @@ def test_publication_recomputes_exact_even_day_median_and_daily_bounds() -> None
     assert "update marts.country_index_publications" not in _commands(connection)
 
 
+def test_publication_uses_only_valid_daily_dates_and_count_for_publishable_week() -> None:
+    weekly = _valid_weekly_row()
+    weekly.update({
+        "metric_value": Decimal("25"),
+        "weekly_min_value": Decimal("10"),
+        "weekly_max_value": Decimal("40"),
+        "valuation_dates": [date(2026, 6, day) for day in (1, 2, 3, 4)],
+        "daily_observation_count": 4,
+    })
+    connection = RecordingConnection(
+        fetchone_results=[_completed_run()],
+        fetchall_results=[
+            _daily_rows(
+                (Decimal("10"), Decimal("20"), Decimal("30"), Decimal("40"), None),
+                ("warning", "warning", "warning", "warning", "unavailable"),
+            ),
+            [weekly],
+        ],
+    )
+
+    publish_completed_run(connection, "run-2026-06-08", expected_keys=EXPECTED_PE)
+
+    assert connection.events == ["begin", "commit"]
+    assert "update marts.country_index_publications" in _commands(connection)
+
+
+def test_publication_rejects_daily_methodology_mismatch_before_pointer_writes() -> None:
+    daily = _daily_rows()
+    daily[0] = {**daily[0], "methodology_version": "mvd-v2"}
+    connection = RecordingConnection(
+        fetchone_results=[_completed_run()],
+        fetchall_results=[daily, [_valid_weekly_row()]],
+    )
+
+    with pytest.raises(PublicationInvariantError, match="daily metric methodology"):
+        publish_completed_run(connection, "run-2026-06-08", expected_keys=EXPECTED_PE)
+
+    assert connection.events == ["begin", "rollback"]
+    assert "update marts.country_index_publications" not in _commands(connection)
+
+
 @pytest.mark.parametrize(
     ("change", "message"),
     [
@@ -321,6 +363,33 @@ def test_publication_rejects_unavailable_week_with_three_valid_daily_values() ->
         publish_completed_run(connection, "run-2026-06-08", expected_keys=EXPECTED_PE)
 
     assert connection.events == ["begin", "rollback"]
+
+
+def test_publication_rejects_unavailable_week_when_three_valid_rows_remain() -> None:
+    weekly = _valid_weekly_row()
+    weekly.update({
+        "metric_status": "unavailable",
+        "metric_value": None,
+        "valuation_dates": [date(2026, 6, day) for day in (1, 2, 3)],
+        "daily_observation_count": 3,
+        "structured_reasons": [{"code": "non_positive_denominator"}],
+    })
+    connection = RecordingConnection(
+        fetchone_results=[_completed_run()],
+        fetchall_results=[
+            _daily_rows(
+                (Decimal("19.8"), Decimal("20.1"), Decimal("20.4"), None),
+                ("warning", "warning", "warning", "unavailable"),
+            ),
+            [weekly],
+        ],
+    )
+
+    with pytest.raises(PublicationInvariantError, match="unavailable"):
+        publish_completed_run(connection, "run-2026-06-08", expected_keys=EXPECTED_PE)
+
+    assert connection.events == ["begin", "rollback"]
+    assert "update marts.country_index_publications" not in _commands(connection)
 
 
 def test_publication_rejects_empty_or_duplicate_expected_manifest_without_touching_database() -> None:
