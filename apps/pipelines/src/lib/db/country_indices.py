@@ -420,18 +420,121 @@ def _mapping_row(row: object, *, query: str) -> Mapping[str, object]:
     return row
 
 
-def _expected_key(row: object) -> tuple[object, object, object]:
-    if isinstance(row, Mapping):
+PublicationKey = tuple[str, str, date]
+
+
+def _manifest_keys(expected_keys: Iterable[object]) -> frozenset[PublicationKey]:
+    keys: set[PublicationKey] = set()
+    for index, item in enumerate(expected_keys):
+        if isinstance(item, Mapping):
+            try:
+                key = (item["market_id"], item["metric_key"], item["week_id"])
+            except KeyError as exc:
+                raise CountryIndexContractError("expected_keys mapping must contain market_id, metric_key, and week_id") from exc
+        elif isinstance(item, tuple) and len(item) == 3:
+            key = item
+        else:
+            raise CountryIndexContractError("each expected key must be a (market_id, metric_key, week_id) tuple or mapping")
+        market_id, metric_key, week_id = key
+        if not isinstance(market_id, str) or not market_id or not isinstance(metric_key, str) or not metric_key:
+            raise CountryIndexContractError(f"expected key {index} must have non-empty market_id and metric_key")
+        if not isinstance(week_id, date) or isinstance(week_id, datetime):
+            raise CountryIndexContractError(f"expected key {index} week_id must be a calendar date")
+        if week_id.weekday() != 0:
+            raise CountryIndexContractError(f"expected key {index} week_id must be a Monday")
+        normalized = (market_id, metric_key, week_id)
+        if normalized in keys:
+            raise CountryIndexContractError("expected_keys must be unique")
+        keys.add(normalized)
+    if not keys:
+        raise CountryIndexContractError("expected_keys must not be empty")
+    return frozenset(keys)
+
+
+def _row_key(row: Mapping[str, object], *, name: str) -> PublicationKey:
+    try:
+        market_id, metric_key, week_id = row["market_id"], row["metric_key"], row["week_id"]
+    except KeyError as exc:
+        raise PublicationInvariantError(f"{name} row is missing market_id, metric_key, or week_id") from exc
+    if not isinstance(market_id, str) or not market_id or not isinstance(metric_key, str) or not metric_key:
+        raise PublicationInvariantError(f"{name} row has an invalid market_id or metric_key")
+    if not isinstance(week_id, date) or isinstance(week_id, datetime):
+        raise PublicationInvariantError(f"{name} row has an invalid week_id")
+    return (market_id, metric_key, week_id)
+
+
+def _reason_codes(reasons: object) -> set[str]:
+    if not isinstance(reasons, (list, tuple)):
+        raise PublicationInvariantError("structured_reasons must preserve an ordered reason list")
+    codes: set[str] = set()
+    for reason in reasons:
+        if isinstance(reason, str) and reason:
+            codes.add(reason)
+        elif isinstance(reason, Mapping) and isinstance(reason.get("code"), str) and reason["code"]:
+            codes.add(reason["code"])
+        else:
+            raise PublicationInvariantError("structured_reasons entries must identify a non-empty code")
+    return codes
+
+
+def _valid_daily_value(row: Mapping[str, object]) -> Decimal | None:
+    try:
+        status, value = row["metric_status"], row["metric_value"]
+    except KeyError as exc:
+        raise PublicationInvariantError("daily metric row is missing status or value") from exc
+    if status == "failed":
+        raise PublicationInvariantError("completed run contains a failed daily metric")
+    if status not in {"complete", "warning", "unavailable"}:
+        raise PublicationInvariantError("completed run contains an unknown daily metric status")
+    if status == "unavailable":
+        if value is not None:
+            raise PublicationInvariantError("unavailable daily metric must not claim a value")
+        _reason_codes(row.get("structured_reasons"))
+        return None
+    if not isinstance(value, Decimal) or not value.is_finite():
+        raise PublicationInvariantError("complete or warning daily metric must have a finite Decimal value")
+    _reason_codes(row.get("structured_reasons"))
+    return value
+
+
+def _daily_groups(rows: Iterable[Mapping[str, object]], expected: frozenset[PublicationKey]) -> dict[PublicationKey, tuple[Mapping[str, object], ...]]:
+    grouped: dict[PublicationKey, list[Mapping[str, object]]] = {}
+    for row in rows:
         try:
-            return (row["market_id"], row["metric_key"], row["week_id"])
+            valuation_date = row["valuation_date"]
+            market_id, metric_key = row["market_id"], row["metric_key"]
         except KeyError as exc:
-            raise PublicationInvariantError("expected weekly market/metric query returned an incomplete row") from exc
-    if isinstance(row, tuple) and len(row) == 3:
-        return row
-    raise PublicationInvariantError("expected weekly market/metric query returned an unsupported row")
+            raise PublicationInvariantError("daily metric row is missing publication identity") from exc
+        if not isinstance(valuation_date, date) or isinstance(valuation_date, datetime):
+            raise PublicationInvariantError("daily metric row has an invalid valuation_date")
+        if not isinstance(market_id, str) or not market_id or not isinstance(metric_key, str) or not metric_key:
+            raise PublicationInvariantError("daily metric row has an invalid market_id or metric_key")
+        week_id = valuation_date.fromordinal(valuation_date.toordinal() - valuation_date.weekday())
+        key = (market_id, metric_key, week_id)
+        grouped.setdefault(key, []).append(row)
+    if set(grouped) != expected:
+        raise PublicationInvariantError("persisted daily key set does not exactly match the expected manifest")
+    ordered: dict[PublicationKey, tuple[Mapping[str, object], ...]] = {}
+    for key, group in grouped.items():
+        sorted_group = tuple(sorted(group, key=lambda row: row["valuation_date"]))
+        dates = tuple(row["valuation_date"] for row in sorted_group)
+        if len(dates) != len(set(dates)):
+            raise PublicationInvariantError("daily metric rows repeat a valuation date within one expected week")
+        if any(day.weekday() > 4 for day in dates):
+            raise PublicationInvariantError("daily metric rows must be Monday through Friday")
+        ordered[key] = sorted_group
+    return ordered
 
 
-def _require_weekly_invariants(row: Mapping[str, object], methodology_version: object) -> tuple[object, object, object]:
+def _median(values: tuple[Decimal, ...]) -> Decimal:
+    ordered = tuple(sorted(values))
+    middle = len(ordered) // 2
+    return ordered[middle] if len(ordered) % 2 else (ordered[middle - 1] + ordered[middle]) / Decimal(2)
+
+
+def _require_weekly_invariants(
+    row: Mapping[str, object], methodology_version: object, daily_rows: tuple[Mapping[str, object], ...],
+) -> PublicationKey:
     required = ("market_id", "metric_key", "week_id", "methodology_version", "metric_value", "weekly_min_value", "weekly_max_value", "valuation_dates", "daily_observation_count", "metric_status", "source_coverage", "structured_reasons")
     missing = tuple(column for column in required if column not in row)
     if missing:
@@ -444,38 +547,53 @@ def _require_weekly_invariants(row: Mapping[str, object], methodology_version: o
     if not isinstance(row["source_coverage"], Mapping):
         raise PublicationInvariantError("weekly metric source_coverage must preserve object lineage")
     reasons = row["structured_reasons"]
-    if not isinstance(reasons, (list, tuple)):
-        raise PublicationInvariantError("weekly metric structured_reasons must preserve an ordered reason list")
+    weekly_reason_codes = _reason_codes(reasons)
+    key = _row_key(row, name="weekly metric")
     dates = row["valuation_dates"]
     count = row["daily_observation_count"]
-    if not isinstance(dates, (list, tuple)) or isinstance(count, bool) or not isinstance(count, int) or count != len(dates):
-        raise PublicationInvariantError("weekly metric daily observation count must match its valuation dates")
+    daily_dates = tuple(item["valuation_date"] for item in daily_rows)
+    if not isinstance(dates, (list, tuple)) or isinstance(count, bool) or not isinstance(count, int):
+        raise PublicationInvariantError("weekly metric daily observation count and valuation dates are invalid")
+    if tuple(dates) != daily_dates or count != len(daily_rows):
+        raise PublicationInvariantError("weekly metric dates or count do not match locked daily rows")
+    valid_values = tuple(value for item in daily_rows if (value := _valid_daily_value(item)) is not None)
     value, minimum, maximum = row["metric_value"], row["weekly_min_value"], row["weekly_max_value"]
+    expected_minimum = min(valid_values) if valid_values else None
+    expected_maximum = max(valid_values) if valid_values else None
+    if minimum != expected_minimum or maximum != expected_maximum:
+        raise PublicationInvariantError("weekly metric range does not match locked daily values")
     if status in {"complete", "warning"}:
-        if count < 3 or value is None or minimum is None or maximum is None:
+        if len(valid_values) < 3 or value is None:
             raise PublicationInvariantError("publishable weekly metrics require three valid daily observations and a range")
-        try:
-            if minimum > maximum or value < minimum or value > maximum:
-                raise PublicationInvariantError("weekly metric value must lie inside its recorded daily range")
-        except TypeError as exc:
-            raise PublicationInvariantError("weekly metric range values are not comparable") from exc
-    elif value is not None or not reasons:
-        raise PublicationInvariantError("unavailable weekly metrics require no value and a structured reason")
-    return (row["market_id"], row["metric_key"], row["week_id"])
+        if not isinstance(value, Decimal) or not value.is_finite():
+            raise PublicationInvariantError("publishable weekly metric value must be a finite Decimal")
+        if value != _median(valid_values):
+            raise PublicationInvariantError("weekly metric value does not match the exact daily median")
+    else:
+        daily_unavailable_codes = set().union(*(
+            _reason_codes(item.get("structured_reasons"))
+            for item in daily_rows
+            if item["metric_status"] == "unavailable"
+        ))
+        legitimate_metric_unavailable = bool(weekly_reason_codes & daily_unavailable_codes)
+        if value is not None or not weekly_reason_codes or (len(valid_values) >= 3 and not legitimate_metric_unavailable):
+            raise PublicationInvariantError("unavailable weekly metric must have no value and a valid unavailable basis")
+    return key
 
 
-def publish_completed_run(connection: Any, run_id: str) -> None:
+def publish_completed_run(connection: Any, run_id: str, *, expected_keys: Iterable[object]) -> None:
     """Atomically replace current pointers only after a complete run reconciles.
 
-    The expected market/metric/week set is the persisted daily set for the run;
-    there is no separate expectation table in the Task 1 schema.  The global
-    transaction advisory lock serializes competing pointer swaps while allowing
-    independent immutable stage writes to continue.
+    ``expected_keys`` is the caller's authoritative, immutable run plan.  The
+    Task 1 schema has no truthful manifest table, so outputs are never used to
+    infer what was expected.  The global transaction advisory lock serializes
+    competing pointer swaps while allowing immutable stage writes to continue.
     """
     if connection is None:
         raise PublicationInvariantError("a database connection is required to publish a run")
     if not isinstance(run_id, str) or not run_id:
         raise CountryIndexContractError("run_id must be a non-empty string")
+    expected = _manifest_keys(expected_keys)
 
     with _publication_transaction(connection):
         with connection.cursor() as cursor:
@@ -497,16 +615,16 @@ def publish_completed_run(connection: Any, run_id: str) -> None:
                 raise PublicationInvariantError("completed run has no methodology version")
 
             cursor.execute("""
-                select distinct daily.market_id, daily.metric_key,
-                    date_trunc('week', daily.valuation_date)::date as week_id
+                select daily.market_id, daily.metric_key, daily.valuation_date, daily.metric_value,
+                    daily.metric_status, daily.structured_reasons
                 from core.country_daily_metrics as daily
                 where daily.run_id = %(run_id)s
                   and daily.methodology_version = %(methodology_version)s
-                order by daily.market_id, daily.metric_key, week_id
+                order by daily.market_id, daily.metric_key, daily.valuation_date
+                for update
             """, {"run_id": run_id, "methodology_version": methodology_version})
-            expected = {_expected_key(row) for row in cursor.fetchall()}
-            if not expected:
-                raise PublicationInvariantError("completed run has no expected daily market/metric weeks")
+            daily = [_mapping_row(row, query="country daily metrics") for row in cursor.fetchall()]
+            grouped_daily = _daily_groups(daily, expected)
 
             cursor.execute("""
                 select market_id, metric_key, week_id, cohort_version, methodology_version, metric_value,
@@ -519,11 +637,17 @@ def publish_completed_run(connection: Any, run_id: str) -> None:
                 from core.country_weekly_metrics
                 where run_id = %(run_id)s
                 order by market_id, metric_key, week_id
+                for update
             """, {"run_id": run_id})
             weekly = [_mapping_row(row, query="country weekly metrics") for row in cursor.fetchall()]
-            actual = {_require_weekly_invariants(row, methodology_version) for row in weekly}
+            actual = {_row_key(row, name="weekly metric") for row in weekly}
             if actual != expected:
-                raise PublicationInvariantError("completed run is missing expected weekly market/metric rows or contains extras")
+                raise PublicationInvariantError("persisted weekly key set does not exactly match the expected manifest")
+            if len(actual) != len(weekly):
+                raise PublicationInvariantError("persisted weekly rows repeat an expected manifest key")
+            for row in weekly:
+                key = _row_key(row, name="weekly metric")
+                _require_weekly_invariants(row, methodology_version, grouped_daily[key])
 
             cursor.execute("""
                 update marts.country_index_publications as publication
