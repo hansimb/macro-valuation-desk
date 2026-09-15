@@ -4,7 +4,7 @@ from src.flows import all_flows as all_flows_module
 from src.flows.all_flows import run_all_flows
 
 
-def test_run_all_flows_executes_macro_seed_then_taylor_rule_then_currency_then_equity(monkeypatch):
+def test_run_all_flows_executes_macro_seed_then_taylor_rule_then_currency_then_equity_then_us_country_index(monkeypatch):
     calls: list[str] = []
 
     monkeypatch.setattr(
@@ -23,10 +23,14 @@ def test_run_all_flows_executes_macro_seed_then_taylor_rule_then_currency_then_e
         "src.flows.all_flows.run_equity_market_valuation_flow",
         lambda: calls.append("equity_market_valuation") or {"status": "success", "mart_rows": 14},
     )
+    monkeypatch.setattr(
+        "src.flows.all_flows.run_us_country_index_flow",
+        lambda: calls.append("us_country_index") or {"status": "success", "publication_status": "published"},
+    )
 
     result = run_all_flows()
 
-    assert calls == ["macro_seed", "taylor_rule", "currency_analysis", "equity_market_valuation"]
+    assert calls == ["macro_seed", "taylor_rule", "currency_analysis", "equity_market_valuation", "us_country_index"]
     assert result == {
         "status": "success",
         "errors": [],
@@ -34,6 +38,7 @@ def test_run_all_flows_executes_macro_seed_then_taylor_rule_then_currency_then_e
         "taylor_rule": {"status": "success", "mart_rows": 2},
         "currency_analysis": {"status": "success", "ppp_snapshot_rows": 2, "irp_snapshot_rows": 3},
         "equity_market_valuation": {"status": "success", "mart_rows": 14},
+        "us_country_index": {"status": "success", "publication_status": "published"},
     }
 
 
@@ -42,6 +47,7 @@ def test_run_all_flows_logs_child_flow_progress(monkeypatch, capsys):
     monkeypatch.setattr("src.flows.all_flows.run_taylor_rule_flow", lambda: {"status": "success"})
     monkeypatch.setattr("src.flows.all_flows.run_currency_analysis_flow", lambda: {"status": "success"})
     monkeypatch.setattr("src.flows.all_flows.run_equity_market_valuation_flow", lambda: {"status": "success"})
+    monkeypatch.setattr("src.flows.all_flows.run_us_country_index_flow", lambda: {"status": "success"})
 
     run_all_flows()
 
@@ -51,6 +57,7 @@ def test_run_all_flows_logs_child_flow_progress(monkeypatch, capsys):
     assert "Starting taylor_rule flow..." in captured.err
     assert "Starting currency_analysis flow..." in captured.err
     assert "Starting equity_market_valuation flow..." in captured.err
+    assert "Starting us_country_index flow..." in captured.err
     assert "highest_ps_ranking" not in captured.err
 
 
@@ -62,6 +69,7 @@ def test_run_all_flows_returns_failed_status_when_a_child_flow_reports_failed_st
     )
     monkeypatch.setattr("src.flows.all_flows.run_currency_analysis_flow", lambda: {"status": "success"})
     monkeypatch.setattr("src.flows.all_flows.run_equity_market_valuation_flow", lambda: {"status": "success"})
+    monkeypatch.setattr("src.flows.all_flows.run_us_country_index_flow", lambda: {"status": "success"})
 
     result = run_all_flows()
 
@@ -85,6 +93,10 @@ def test_run_all_flows_collects_multiple_child_flow_errors(monkeypatch):
         "src.flows.all_flows.run_equity_market_valuation_flow",
         lambda: {"status": "failed", "errors": ["norway_large_cap: provider unavailable"]},
     )
+    monkeypatch.setattr(
+        "src.flows.all_flows.run_us_country_index_flow",
+        lambda: {"status": "failed", "errors": ["us: manifest incomplete"]},
+    )
 
     result = run_all_flows()
 
@@ -93,6 +105,7 @@ def test_run_all_flows_collects_multiple_child_flow_errors(monkeypatch):
         "taylor_rule: us_policy_rate: boom",
         "taylor_rule: eu_policy_rate: blocked",
         "equity_market_valuation: norway_large_cap: provider unavailable",
+        "us_country_index: us: manifest incomplete",
     ]
 
 
@@ -100,6 +113,7 @@ def test_run_all_flows_prefers_child_failure_summary_when_available(monkeypatch)
     monkeypatch.setattr("src.flows.all_flows.run_macro_seed_flow", lambda: {"rows_loaded": 3})
     monkeypatch.setattr("src.flows.all_flows.run_taylor_rule_flow", lambda: {"status": "success"})
     monkeypatch.setattr("src.flows.all_flows.run_currency_analysis_flow", lambda: {"status": "success"})
+    monkeypatch.setattr("src.flows.all_flows.run_us_country_index_flow", lambda: {"status": "success"})
     monkeypatch.setattr(
         "src.flows.all_flows.run_equity_market_valuation_flow",
         lambda: {
@@ -137,6 +151,7 @@ def test_all_flows_does_not_hide_child_fetch_errors(monkeypatch):
         "status": "success", "fetch_errors": ["eur_3m_rate: TLS failure"], "irp_snapshot_rows": 0,
     })
     monkeypatch.setattr("src.flows.all_flows.run_equity_market_valuation_flow", lambda: {"status": "success"})
+    monkeypatch.setattr("src.flows.all_flows.run_us_country_index_flow", lambda: {"status": "success"})
     result = run_all_flows()
     assert result["status"] == "failed"
     assert result["errors"] == ["currency_analysis: eur_3m_rate: TLS failure"]

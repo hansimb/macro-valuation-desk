@@ -14,6 +14,7 @@ from src.flows.currency_analysis_flow import run_currency_analysis_flow
 from src.flows.equity_market_valuation_flow import run_equity_market_valuation_flow
 from src.flows.macro_seed_flow import run_macro_seed_flow
 from src.flows.taylor_rule_flow import run_taylor_rule_flow
+from src.flows.us_country_index_flow import run_us_country_index_flow
 
 
 def _collect_child_flow_errors(name: str, result: dict[str, object]) -> list[str]:
@@ -47,12 +48,14 @@ def run_all_flows() -> dict[str, object]:
         "equity_market_valuation",
         run_equity_market_valuation_flow,
     )
+    us_country_index_result = _run_child_flow("us_country_index", run_us_country_index_flow)
 
     errors = [
         *(_collect_child_flow_errors("macro_seed", macro_seed_result)),
         *(_collect_child_flow_errors("taylor_rule", taylor_rule_result)),
         *(_collect_child_flow_errors("currency_analysis", currency_analysis_result)),
         *(_collect_child_flow_errors("equity_market_valuation", equity_market_valuation_result)),
+        *(_collect_child_flow_errors("us_country_index", us_country_index_result)),
     ]
 
     return {
@@ -62,6 +65,7 @@ def run_all_flows() -> dict[str, object]:
         "taylor_rule": taylor_rule_result,
         "currency_analysis": currency_analysis_result,
         "equity_market_valuation": equity_market_valuation_result,
+        "us_country_index": us_country_index_result,
     }
 
 
