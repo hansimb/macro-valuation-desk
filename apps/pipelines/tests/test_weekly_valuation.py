@@ -57,12 +57,18 @@ def test_four_day_holiday_week_is_publishable_and_preserves_observed_range():
 
 
 def test_fewer_than_three_daily_values_is_unavailable_with_exact_reason():
-    weekly = summarize_week(_week(("10", None, None, "14", None)))
+    rows = _week(("10", None, None, "14", None))
+    rows[1] = replace(rows[1], reason="awaiting_imputation")
+    rows[2] = replace(rows[2], reason="non_positive_denominator")
+    weekly = summarize_week(rows)
 
     assert weekly.status == "unavailable"
     assert weekly.reason == "fewer_than_three_valid_daily_observations"
     assert weekly.value is None
     assert weekly.valid_observation_count == 2
+    assert weekly.warning_codes == (
+        "awaiting_imputation", "holiday_or_missing_trading_day", "non_positive_denominator",
+    )
 
 
 def test_rejects_mixed_context_duplicate_days_and_non_weekdays():
@@ -105,3 +111,30 @@ def test_weekly_coverage_counts_and_concentration_are_explicit_and_context_indep
     assert weekly.warning_codes == ()
     with pytest.raises(FrozenInstanceError):
         weekly.value = D(99)
+
+
+def test_interpolated_even_day_median_uses_conservative_multi_day_diagnostics_not_monday_snapshot():
+    rows = _week(("10", "20", "30", "40"))
+    reported = ("0.9", "0.8", "0.7", "0.6")
+    imputed = ("0.1", "0.2", "0.3", "0.4")
+    largest = ("0.2", "0.5", "0.7", "0.4")
+    effective = ("5", "4", "3", "2")
+    rows = [replace(
+        row,
+        eligible_weight=D(reported[index]),
+        whole_cohort_coverage=CoverageWeights(D(reported[index]), D(0), D(imputed[index]), D(0)),
+        eligible_scope_coverage=CoverageWeights(D(reported[index]), D(0), D(imputed[index]), D(0)),
+        largest_constituent_weight=D(largest[index]),
+        effective_constituent_count=D(effective[index]),
+    ) for index, row in enumerate(rows)]
+
+    weekly = summarize_week(rows)
+
+    assert weekly.value == D("25")
+    assert weekly.whole_cohort_coverage.reported_min == D("0.6")
+    assert weekly.whole_cohort_coverage.imputed_max == D("0.4")
+    assert weekly.whole_cohort_coverage.source_coverage_min == D("0.6")
+    assert weekly.eligible_weight == D("0.6")
+    assert weekly.largest_constituent_weight == D("0.7")
+    assert weekly.effective_constituent_count == D("2")
+    assert weekly.diagnostic_policy == "conservative_valid_day_bounds_v1"
