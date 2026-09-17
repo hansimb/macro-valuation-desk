@@ -19,7 +19,8 @@ const historyRow = {
   published_at: "2026-09-14T02:00:00.000Z",
   run_id: "country-index-us-20260914",
   methodology_version: "mvd-country-index-v1",
-  cohort_version: "2026-09-07",
+  cohort_version: "us-largecap-v12",
+  cohort_effective_date: "2026-09-01",
   metric_value: "21.30",
   weekly_min_value: "20.10",
   weekly_max_value: "22.40",
@@ -43,11 +44,9 @@ const historyRow = {
   interval_lower: "20.00",
   interval_upper: "22.50",
   source_coverage: {
-    references: [{ id: "sec-companyfacts", label: "SEC company facts API", url: null }],
     sensitivity: {
+      interval_label: "experimental seeded sensitivity interval",
       point_estimate: "21.30",
-      status: "experimental",
-      model: "seeded_multiple_imputation_v1",
       draws: 1000,
       components: [],
     },
@@ -89,7 +88,7 @@ describe("equity market valuation history route", () => {
     expect(sql).toContain("ranked.market_id = $1");
     expect(sql).toContain("ranked.week_id >= $2::date");
     expect(sql).toContain("ranked.week_id <= $3::date");
-    expect(sql).toContain("order by ranked.week_id asc, ranked.metric_key asc");
+    expect(sql).toContain("order by ranked.week_id asc, ranked.run_id asc, ranked.methodology_version asc, ranked.metric_key asc");
     expect(sql).not.toContain("raw.");
     expect(sql).not.toContain("staging.");
     expect(values).toEqual(["us", "2026-09-07", "2026-09-14"]);
@@ -99,9 +98,42 @@ describe("equity market valuation history route", () => {
       "2026-09-14",
     ]);
     expect(response.json().observations[0].metrics.pe.value).toBe("21.30");
+    expect(response.json().observations[0].publication).toEqual({
+      runId: "country-index-us-20260914",
+      publishedAt: "2026-09-14T02:00:00.000Z",
+      methodologyVersion: "mvd-country-index-v1",
+    });
+    expect(response.json().observations[0].metrics.pe.cohort.effectiveDate).toBe("2026-09-01");
+    expect(response.json().observations[0].metrics.pe.sensitivity).toMatchObject({
+      status: "experimental seeded sensitivity interval",
+      intervalLabel: "experimental seeded sensitivity interval",
+      point: "21.30",
+      draws: 1000,
+    });
     expect(response.json().references).toEqual([
       { id: "methodology:mvd-country-index-v1", label: "MVD country index methodology mvd-country-index-v1", url: null },
-      { id: "sec-companyfacts", label: "SEC company facts API", url: null },
+    ]);
+  });
+
+  it("keeps same-week publications from different runs and methodologies as separate observations", async () => {
+    queryMock.mockResolvedValue({
+      rows: [
+        { ...historyRow, run_id: "run-a", methodology_version: "mvd-country-index-v1", metric_value: "21.30" },
+        { ...historyRow, run_id: "run-b", methodology_version: "mvd-country-index-v2", metric_value: "22.10" },
+      ],
+    });
+
+    const response = await app.inject({ method: "GET", url: "/equity-markets/valuations/us" });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json().observations).toHaveLength(2);
+    expect(response.json().observations.map((observation: { publication: { runId: string; methodologyVersion: string } }) => observation.publication)).toEqual([
+      { runId: "run-a", publishedAt: "2026-09-14T02:00:00.000Z", methodologyVersion: "mvd-country-index-v1" },
+      { runId: "run-b", publishedAt: "2026-09-14T02:00:00.000Z", methodologyVersion: "mvd-country-index-v2" },
+    ]);
+    expect(response.json().observations.map((observation: { metrics: { pe: { value: string } } }) => observation.metrics.pe.value)).toEqual([
+      "21.30",
+      "22.10",
     ]);
   });
 

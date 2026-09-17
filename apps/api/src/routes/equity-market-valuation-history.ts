@@ -80,7 +80,7 @@ function historySql(hasFrom: boolean, hasTo: boolean): string {
   return `
     ${PUBLISHED_COUNTRY_INDEX_METRICS_SELECT}
     where ${predicates.join(" and ")}
-    order by ranked.week_id asc, ranked.metric_key asc
+    order by ranked.week_id asc, ranked.run_id asc, ranked.methodology_version asc, ranked.metric_key asc
   `;
 }
 
@@ -152,15 +152,16 @@ export async function registerEquityMarketValuationHistoryRoute(app: FastifyInst
 
       for (const row of result.rows) {
         const week = toDateString(row.week_id);
+        const observationKey = [week, row.run_id, row.methodology_version].join("|");
         const observation =
-          observations.get(week) ??
+          observations.get(observationKey) ??
           {
             valuation: {
               week,
               dates: row.valuation_dates.map(toDateString),
               dailyObservationCount: row.daily_observation_count,
             },
-            publication: { runId: row.run_id, publishedAt: toIsoString(row.published_at) },
+            publication: { runId: row.run_id, publishedAt: toIsoString(row.published_at), methodologyVersion: row.methodology_version },
             metrics: {} as Record<string, EquityMarketValuationMetric>,
           };
 
@@ -168,7 +169,7 @@ export async function registerEquityMarketValuationHistoryRoute(app: FastifyInst
           observation.metrics[row.metric_key] = metricFromRow(row, referenceState);
         }
 
-        observations.set(week, observation);
+        observations.set(observationKey, observation);
       }
 
       const metadata = metadataFor(result.rows[0], marketId);

@@ -1,5 +1,5 @@
 export interface EquityMarketValuationReference {
-  id: string;
+  id?: string;
   label: string;
   url: string | null;
 }
@@ -16,6 +16,8 @@ export interface EquityMarketValuationSensitivity {
   upper: string | null;
   status: string;
   model: string | null;
+  intervalLabel?: string | null;
+  reason?: string | null;
   draws: number | null;
   components: EquityMarketValuationSensitivityComponent[];
 }
@@ -56,28 +58,28 @@ export interface EquityMarketValuationWarning {
 }
 
 export interface EquityMarketValuationMetric {
-  metricKey: string;
+  metricKey?: string;
   value: string | null;
-  weeklyMin: string | null;
-  weeklyMax: string | null;
-  status: string;
+  weeklyMin?: string | null;
+  weeklyMax?: string | null;
+  status?: string;
   method: string;
-  formula: string;
-  sensitivity: EquityMarketValuationSensitivity;
-  coverage: EquityMarketValuationCoverage;
-  constituents: EquityMarketValuationConstituents;
-  cohort: {
+  formula?: string;
+  sensitivity?: EquityMarketValuationSensitivity;
+  coverage?: EquityMarketValuationCoverage;
+  constituents?: EquityMarketValuationConstituents;
+  cohort?: {
     version: string;
     effectiveDate: string;
   };
-  valuation: {
+  valuation?: {
     week: string;
     dates: string[];
     dailyObservationCount: number;
   };
-  warnings: EquityMarketValuationWarning[];
-  methodologyVersion: string;
-  referenceIds: string[];
+  warnings?: EquityMarketValuationWarning[];
+  methodologyVersion?: string;
+  referenceIds?: string[];
 }
 
 export interface EquityMarketValuationMarketOverview {
@@ -87,6 +89,7 @@ export interface EquityMarketValuationMarketOverview {
   publication: {
     runId: string;
     publishedAt: string;
+    methodologyVersion: string;
   };
   metrics: Record<string, EquityMarketValuationMetric>;
 }
@@ -98,7 +101,8 @@ export interface EquityMarketValuationRegionOverview {
 
 export interface EquityMarketValuationsResponse {
   asOf: string | null;
-  regions: EquityMarketValuationRegionOverview[];
+  regions?: EquityMarketValuationRegionOverview[];
+  markets: EquityMarketValuationRow[];
   references: EquityMarketValuationReference[];
 }
 
@@ -111,6 +115,7 @@ export interface EquityMarketValuationHistoryObservation {
   publication: {
     runId: string;
     publishedAt: string;
+    methodologyVersion: string;
   };
   metrics: Record<string, EquityMarketValuationMetric>;
 }
@@ -121,4 +126,25 @@ export interface EquityMarketValuationHistoryResponse {
   region: string;
   observations: EquityMarketValuationHistoryObservation[];
   references: EquityMarketValuationReference[];
+}
+
+export interface EquityMarketValuationRow {
+  marketId: string;
+  region: string;
+  marketName: string;
+  measuredSymbol: string;
+  measuredName: string;
+  measuredType: string;
+  provider: string;
+  sourceUrl: string;
+  asOf: string;
+  metrics: {
+    trailingPe: EquityMarketValuationMetric;
+    priceToBook: EquityMarketValuationMetric;
+    priceToSales: EquityMarketValuationMetric;
+    priceToCashFlow: EquityMarketValuationMetric;
+    priceToFreeCashFlow: EquityMarketValuationMetric;
+    dividendYieldPct: EquityMarketValuationMetric;
+  };
+  missingFields: string[];
 }

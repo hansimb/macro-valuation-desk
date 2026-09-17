@@ -11,20 +11,21 @@ vi.mock("../src/lib/db", () => ({
 import { buildServer } from "../src/server";
 
 const sourceCoverage = {
-  references: [
-    {
-      id: "sec-companyfacts",
-      label: "SEC company facts API",
-      url: "https://data.sec.gov/api/xbrl/companyfacts/CIK0000320193.json",
-    },
-  ],
   sensitivity: {
+    interval_label: "experimental seeded sensitivity interval",
+    seed: "us-pe-20260907",
     point_estimate: "21.345678901234567890",
-    status: "experimental",
-    model: "seeded_multiple_imputation_v1",
     draws: 1000,
     components: [{ code: "concentration", interval_width_contribution: "0.42", available: true }],
+    warnings: [{ code: "staleness", reason: "late filing acceptance" }],
   },
+};
+
+const runSourceCoverage = {
+  references: [
+    { id: "price-feed", label: "Primary price feed", url: "https://prices.example.test/us" },
+    { id: "price-feed", label: "Conflicting price feed", url: "https://prices.example.test/conflict" },
+  ],
 };
 
 const publishedPe = {
@@ -36,7 +37,8 @@ const publishedPe = {
   published_at: "2026-09-14T02:00:00.000Z",
   run_id: "country-index-us-20260914",
   methodology_version: "mvd-country-index-v1",
-  cohort_version: "2026-09-07",
+  cohort_version: "us-largecap-v12",
+  cohort_effective_date: "2026-09-01",
   metric_value: "21.345678901234567890",
   weekly_min_value: "20.10",
   weekly_max_value: "22.40",
@@ -59,7 +61,8 @@ const publishedPe = {
   membership_overlap: "0.98",
   interval_lower: "19.90",
   interval_upper: "23.80",
-  source_coverage: sourceCoverage,
+  source_coverage: JSON.stringify(sourceCoverage),
+  run_source_coverage: runSourceCoverage,
   structured_reasons: ["concentration", "missing_fact"],
   warnings: [
     {
@@ -119,7 +122,7 @@ describe("equity market valuations route", () => {
     expect(sql).not.toContain("raw.");
     expect(sql).not.toContain("staging.");
     expect(values ?? []).toEqual([]);
-    expect(response.json()).toEqual({
+    expect(response.json()).toMatchObject({
       asOf: "2026-09-07",
       regions: [
         {
@@ -143,8 +146,10 @@ describe("equity market valuations route", () => {
                     point: "21.345678901234567890",
                     lower: "19.90",
                     upper: "23.80",
-                    status: "experimental",
-                    model: "seeded_multiple_imputation_v1",
+                    status: "experimental seeded sensitivity interval",
+                    model: null,
+                    intervalLabel: "experimental seeded sensitivity interval",
+                    reason: null,
                     draws: 1000,
                     components: [{ code: "concentration", intervalWidthContribution: "0.42", available: true }],
                   },
@@ -169,7 +174,7 @@ describe("equity market valuations route", () => {
                     topTenConcentration: "0.351",
                     membershipOverlap: "0.98",
                   },
-                  cohort: { version: "2026-09-07", effectiveDate: "2026-09-07" },
+                  cohort: { version: "us-largecap-v12", effectiveDate: "2026-09-01" },
                   valuation: {
                     week: "2026-09-07",
                     dates: ["2026-09-07", "2026-09-08", "2026-09-09", "2026-09-10", "2026-09-11"],
@@ -194,7 +199,11 @@ describe("equity market valuations route", () => {
                     },
                   ],
                   methodologyVersion: "mvd-country-index-v1",
-                  referenceIds: ["methodology:mvd-country-index-v1", "sec-companyfacts"],
+                  referenceIds: [
+                    "methodology:mvd-country-index-v1",
+                    "source:price-feed",
+                    expect.stringMatching(/^source:price-feed:[a-z0-9]+$/),
+                  ],
                 },
                 pfcf: expect.objectContaining({
                   value: null,
@@ -215,29 +224,72 @@ describe("equity market valuations route", () => {
           url: null,
         },
         {
-          id: "sec-companyfacts",
-          label: "SEC company facts API",
-          url: "https://data.sec.gov/api/xbrl/companyfacts/CIK0000320193.json",
+          id: "source:price-feed",
+          label: "Primary price feed",
+          url: "https://prices.example.test/us",
         },
+        {
+          id: expect.stringMatching(/^source:price-feed:[a-z0-9]+$/),
+          label: "Conflicting price feed",
+          url: "https://prices.example.test/conflict",
+        },
+      ],
+      markets: [
+        expect.objectContaining({
+          marketId: "us",
+          marketName: "United States",
+          asOf: "2026-09-07",
+          metrics: expect.objectContaining({
+            trailingPe: expect.objectContaining({ value: "21.345678901234567890" }),
+            priceToFreeCashFlow: expect.objectContaining({ value: null }),
+          }),
+        }),
       ],
     });
   });
 
-  it("deduplicates repeated metric rows selected by the SQL window and source references", async () => {
+  it("uses one coherent market publication snapshot instead of mixing latest metric pointers", async () => {
     queryMock.mockResolvedValue({
       rows: [
-        publishedPe,
-        { ...publishedPe, metric_value: "999.99" },
-        { ...publishedPe, metric_key: "pb", metric_value: "4.20", source_coverage: sourceCoverage },
+        { ...publishedPe, run_id: "run-new", week_id: "2026-09-14", published_at: "2026-09-21T02:00:00.000Z", metric_value: "22.00" },
+        { ...publishedPe, run_id: "run-old", week_id: "2026-09-07", metric_key: "pe", metric_value: "21.00" },
+        { ...publishedPe, run_id: "run-old", week_id: "2026-09-07", metric_key: "pb", metric_value: "4.20" },
       ],
     });
 
     const response = await app.inject({ method: "GET", url: "/equity-markets/valuations" });
 
     expect(response.statusCode).toBe(200);
-    expect(Object.keys(response.json().regions[0].markets[0].metrics)).toEqual(["pe", "pb"]);
-    expect(response.json().regions[0].markets[0].metrics.pe.value).toBe("21.345678901234567890");
-    expect(response.json().references).toHaveLength(2);
+    expect(response.json().regions[0].markets[0].publication).toEqual({
+      runId: "run-new",
+      publishedAt: "2026-09-21T02:00:00.000Z",
+      methodologyVersion: "mvd-country-index-v1",
+    });
+    expect(Object.keys(response.json().regions[0].markets[0].metrics)).toEqual(["pe"]);
+    expect(response.json().regions[0].markets[0].metrics.pe.value).toBe("22.00");
+  });
+
+  it("treats invalid persisted JSON as empty structured data instead of inventing references or warnings", async () => {
+    queryMock.mockResolvedValue({
+      rows: [
+        {
+          ...publishedPe,
+          source_coverage: "{not-json",
+          run_source_coverage: 42,
+          structured_reasons: "{\"code\":\"not-an-array\"}",
+          warnings: "not-json",
+        },
+      ],
+    });
+
+    const response = await app.inject({ method: "GET", url: "/equity-markets/valuations" });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json().regions[0].markets[0].metrics.pe.warnings).toEqual([]);
+    expect(response.json().regions[0].markets[0].metrics.pe.referenceIds).toEqual(["methodology:mvd-country-index-v1"]);
+    expect(response.json().references).toEqual([
+      { id: "methodology:mvd-country-index-v1", label: "MVD country index methodology mvd-country-index-v1", url: null },
+    ]);
   });
 
   it("returns an empty MVD overview when no published observation exists", async () => {
@@ -246,6 +298,6 @@ describe("equity market valuations route", () => {
     const response = await app.inject({ method: "GET", url: "/equity-markets/valuations" });
 
     expect(response.statusCode).toBe(200);
-    expect(response.json()).toEqual({ asOf: null, regions: [], references: [] });
+    expect(response.json()).toEqual({ asOf: null, regions: [], markets: [], references: [] });
   });
 });
