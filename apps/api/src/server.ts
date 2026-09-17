@@ -1,6 +1,7 @@
 import Fastify from "fastify";
 
 import { registerCurrencyAnalysisRoute } from "./routes/currency-analysis";
+import { registerEquityMarketValuationHistoryRoute } from "./routes/equity-market-valuation-history";
 import { registerEquityMarketValuationsRoute } from "./routes/equity-market-valuations";
 import { registerHealthRoute } from "./routes/health";
 import { registerMacroOverviewRoute } from "./routes/macro-overview";
@@ -16,6 +17,7 @@ export function buildServer() {
   registerTaylorRuleRoute(app);
   registerCurrencyAnalysisRoute(app);
   registerEquityMarketValuationsRoute(app);
+  registerEquityMarketValuationHistoryRoute(app);
 
   return app;
 }
