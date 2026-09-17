@@ -67,7 +67,7 @@ METRICS = ("pe", "pb", "ps", "pcf", "pfcf", "dividend_yield")
 DEFAULT_METHODOLOGY = "us-country-index-v1"
 
 
-CHECKPOINT_VERSION = 3
+CHECKPOINT_VERSION = 4
 
 # Explicit trusted modules; checkpoint data can never choose an import or execute code.
 from src.lib.pipeline import canonical_facts, country_cohorts, country_valuation, point_in_time, uncertainty, weekly_valuation
@@ -441,9 +441,16 @@ def _weekly_row(run_id: str, weekly: WeeklyCountryMetric, sensitivity: object | 
         "membership_overlap": None, "interval_lower": _db_decimal(getattr(sensitivity, "lower", None)),
         "interval_upper": _db_decimal(getattr(sensitivity, "upper", None)),
         "source_coverage": {"sensitivity": {"interval_label": getattr(sensitivity, "interval_label", "unavailable"),
+                                                     "status": getattr(sensitivity, "status", "unavailable"),
+                                                     "reason": getattr(sensitivity, "reason", weekly.reason),
+                                                     # Task 8 has no independent model-version field;
+                                                     # use the configured methodology governing this run.
+                                                     "model_version": weekly.methodology_version,
                                                      "seed": getattr(sensitivity, "seed", None),
                                                      "draws": getattr(sensitivity, "draws", None),
                                                      "point_estimate": _jsonable(getattr(sensitivity, "point_estimate", None)),
+                                                     "lower": _jsonable(getattr(sensitivity, "lower", None)),
+                                                     "upper": _jsonable(getattr(sensitivity, "upper", None)),
                                                      "components": _jsonable(getattr(sensitivity, "components", ())),
                                                      "warnings": _jsonable(getattr(sensitivity, "warnings", ()))},
                              "reported": weekly.whole_cohort_coverage is not None},

@@ -393,7 +393,7 @@ def test_checkpoint_checksum_and_type_are_validated_before_reuse(setup):
     assert run(setup)["status"] == "success"
     path = setup["checkpoint_dir"] / "run-10.immutable_acquisition.json"
     envelope = json.loads(path.read_text())
-    assert envelope["version"] == 3
+    assert envelope["version"] == 4
     envelope["payload"] = {"type": "os.system", "fields": {}}
     path.write_text(json.dumps(envelope))
     result = run(setup)
@@ -703,3 +703,40 @@ def test_imputation_cannot_replace_observed_market_cap(setup):
     assert result["status"] == "failed"
     assert "observed market cap" in result["failure_summary"]
     assert not setup["connection"].rows
+
+
+@pytest.mark.parametrize("unavailable", [False, True])
+def test_persisted_sensitivity_identity_matches_result_and_configured_methodology(setup, monkeypatch, unavailable):
+    module = importlib.import_module("src.tasks.run_us_country_index_etl")
+    original = module._weekly_row
+    captured = {}
+    def capture(run_id, weekly, sensitivity, cohort):
+        captured[weekly.metric] = sensitivity
+        return original(run_id, weekly, sensitivity, cohort)
+    monkeypatch.setattr(module, "_weekly_row", capture)
+    kwargs = {"methodology_version": "configured-sensitivity-method-v7"}
+    if unavailable:
+        kwargs["sensitivity_context"] = lambda **_: {"staleness_changes": {"A": D(4)}}
+    result = run(setup, **kwargs)
+    assert result["status"] == "success", result
+    persisted = setup["connection"].rows["core.country_weekly_metrics"][("run-10", "us", "pe", WEEK)]["source_coverage"]["sensitivity"]
+    actual = captured["pe"]
+    def decimal_json(value):
+        return str(value) if value is not None else None
+    assert persisted == {
+        "status": actual.status,
+        "reason": actual.reason,
+        "model_version": "configured-sensitivity-method-v7",
+        "interval_label": actual.interval_label,
+        "seed": actual.seed,
+        "draws": actual.draws,
+        "point_estimate": decimal_json(actual.point_estimate),
+        "lower": decimal_json(actual.lower),
+        "upper": decimal_json(actual.upper),
+        "components": [{"code": c.code, "interval_width_contribution": decimal_json(c.interval_width_contribution), "available": c.available} for c in actual.components],
+        "warnings": [{"code": w.code, "explanation": w.explanation, "affected_market_cap_weight": decimal_json(w.affected_market_cap_weight), "interval_width_contribution": decimal_json(w.interval_width_contribution)} for w in actual.warnings],
+    }
+    assert persisted["status"] == ("unavailable" if unavailable else "experimental")
+    assert persisted["reason"] == ("fewer_than_three_valid_daily_observations" if unavailable else None)
+    assert persisted["interval_label"] == "experimental seeded sensitivity interval"
+    assert persisted["model_version"] != persisted["interval_label"]
