@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import argparse
 from datetime import UTC, date, datetime, time, timedelta
+import hashlib
 import json
 from pathlib import Path
 from typing import Any, Callable, Sequence
@@ -21,6 +22,15 @@ class BackfillConfigurationError(ValueError):
 
 
 FlowRunner = Callable[..., dict[str, object]]
+
+
+def _receipt_path(checkpoint_dir: Path, market: str, week: date, methodology_version: str) -> Path:
+    identity = hashlib.sha256(methodology_version.encode()).hexdigest()[:12]
+    return checkpoint_dir / f"{market}-backfill-{week.isoformat()}-{identity}.receipt.json"
+
+
+def _json_result(value: object) -> object:
+    return json.loads(json.dumps(value, default=str))
 
 
 def _complete_weeks(from_date: date, to_date: date) -> tuple[date, ...]:
@@ -80,15 +90,22 @@ def run_backfill(
     results: list[dict[str, object]] = []
     weekly_rows: list[object] = []
     for week in weeks:
-        result = runner(
-            valuation_week=week,
-            market="us",
-            resume=resume,
-            development_prices=development_prices,
-            environment=environment,
-            methodology_version=methodology_version,
-            checkpoint_dir=target,
-        )
+        receipt = _receipt_path(target, "us", week, methodology_version)
+        if resume and receipt.exists():
+            result = json.loads(receipt.read_text(encoding="utf-8"))
+        else:
+            result = runner(
+                valuation_week=week,
+                market="us",
+                resume=resume,
+                development_prices=development_prices,
+                environment=environment,
+                methodology_version=methodology_version,
+                checkpoint_dir=target,
+            )
+            result = _json_result(result)
+            if result.get("status") == "success":
+                receipt.write_text(json.dumps(result, sort_keys=True, separators=(",", ":")), encoding="utf-8")
         results.append(result)
         weekly_rows.extend(result.get("weekly_rows", ()))
         if result.get("status") != "success":

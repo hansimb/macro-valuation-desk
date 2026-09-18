@@ -1,4 +1,4 @@
-+# MVD US country-index feasibility gate
+# MVD US country-index feasibility gate
 
 **Gate date:** 2026-09-18
 
@@ -21,21 +21,23 @@ Measured fixture result on 2026-09-18:
 | Measure | Result |
 |---|---:|
 | Tests | 4 passed |
-| Runtime | 3.46 s |
+| Runtime | 4.08 s |
 | Complete fixture weeks | 3 |
-| Weekly methodology-versioned rows per run | 18 |
+| Weekly methodology-versioned rows per three-week backfill | 18 |
 | Metrics per week | 6 |
 | Repeated full runs compared | 2 |
 | Repeated weekly-row differences | 0 |
 | Failed/partial fixture weeks | 0 |
 
-The fixture explicitly crosses:
+The acceptance fixture runs the real Task 10 calculation and persistence path with deterministic filing, price, cohort-state, share-reconciliation, and database adapters. It explicitly crosses:
 
 - an original filing followed by an amendment becoming visible;
 - a 2-for-1 split and a post-split week;
 - one missing price day;
 - a transition from cohort v1 to cohort v2;
 - a four-trading-day holiday week.
+
+The persisted point-in-time rows prove that the amended earnings fact becomes visible only at its publication cutoff. Persisted raw price rows retain the split metadata and omit the intended missing day. Persisted cohort membership changes from `A/B/C` to `A/B/D`, the holiday week has four daily observations, and all 18 weekly rows retain `us-country-index-v1`. A receipt-backed resumed rerun returns identical rows without trying to republish superseded Task 10 runs.
 
 The test also verifies refusal of an unbounded range, reversed dates, partial-week bounds, a non-US market, and production publication with development prices. A failed weekly runner stops the bounded job and reports the exact failed week.
 
