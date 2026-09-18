@@ -20,8 +20,8 @@ Measured fixture result on 2026-09-18:
 
 | Measure | Result |
 |---|---:|
-| Tests | 4 passed |
-| Runtime | 4.08 s |
+| Tests | 5 passed |
+| Runtime | 4.35 s |
 | Complete fixture weeks | 3 |
 | Weekly methodology-versioned rows per three-week backfill | 18 |
 | Metrics per week | 6 |
@@ -37,7 +37,7 @@ The acceptance fixture runs the real Task 10 calculation and persistence path wi
 - a transition from cohort v1 to cohort v2;
 - a four-trading-day holiday week.
 
-The persisted point-in-time rows prove that the amended earnings fact becomes visible only at its publication cutoff. Persisted raw price rows retain the split metadata and omit the intended missing day. Persisted cohort membership changes from `A/B/C` to `A/B/D`, the holiday week has four daily observations, and all 18 weekly rows retain `us-country-index-v1`. A receipt-backed resumed rerun returns identical rows without trying to republish superseded Task 10 runs.
+The persisted point-in-time rows prove that the amended earnings fact becomes visible only at its publication cutoff. Persisted raw price rows retain the split metadata and omit the intended missing day. Persisted cohort membership changes from `A/B/C` to `A/B/D`, the holiday week has four daily observations, and all 18 weekly rows retain `us-country-index-v1`. A receipt-backed resumed rerun returns identical rows without trying to republish superseded Task 10 runs. Receipt identity binds the environment, development-price mode, methodology, market/week, provider-factory provenance, and the validated Task 10 checkpoint fingerprint. A development receipt therefore cannot satisfy a production resume or bypass its price-license guard.
 
 The test also verifies refusal of an unbounded range, reversed dates, partial-week bounds, a non-US market, and production publication with development prices. A failed weekly runner stops the bounded job and reports the exact failed week.
 

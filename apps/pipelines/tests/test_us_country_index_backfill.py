@@ -99,6 +99,8 @@ class CorporateActionPrices(Prices):
 class RealAcceptanceFixture:
     """Runs the real Task 10 flow with deterministic source and DB fixtures."""
 
+    receipt_source_provenance = "fixture:task-13-real-task10-v2"
+
     def __init__(self):
         self.calls: list[dict[str, object]] = []
         self.databases: list[Database] = []
@@ -133,6 +135,14 @@ class RealAcceptanceFixture:
             environment="development",
             sensitivity_draws=8,
         )
+        if result["status"] == "success":
+            checkpoint = kwargs["checkpoint_dir"] / f"{run_id}.validation.json"
+            import json
+            envelope = json.loads(checkpoint.read_text(encoding="utf-8"))
+            result["backfill_provenance"] = {
+                "task_checkpoint": str(checkpoint.resolve()),
+                "task_checkpoint_fingerprint": envelope["fingerprint"],
+            }
         rows = [
             row for row in database.rows.get("core.country_weekly_metrics", {}).values()
             if row["run_id"] == run_id
@@ -234,3 +244,43 @@ def test_cli_requires_bounds_and_returns_failure_when_a_week_fails(tmp_path, cap
     )
     assert code == 1
     assert "fixture source failed" in capsys.readouterr().out
+
+
+def test_development_receipt_cannot_satisfy_production_resume(tmp_path):
+    development = RealAcceptanceFixture()
+    assert run_backfill(
+        date(2026, 3, 2),
+        date(2026, 3, 6),
+        market="us",
+        resume=True,
+        development_prices=True,
+        environment="development",
+        checkpoint_dir=tmp_path,
+        flow_runner=development,
+    )["status"] == "success"
+
+    production_calls = []
+
+    def production_guard(**kwargs):
+        production_calls.append(kwargs)
+        return {
+            "status": "failed",
+            "failure_summary": "development-only prices cannot be published in production",
+            "weekly_rows": (),
+        }
+
+    production_guard.receipt_source_provenance = development.receipt_source_provenance
+    resumed = run_backfill(
+        date(2026, 3, 2),
+        date(2026, 3, 6),
+        market="us",
+        resume=True,
+        development_prices=False,
+        environment="production",
+        checkpoint_dir=tmp_path,
+        flow_runner=production_guard,
+    )
+
+    assert resumed["status"] == "failed"
+    assert "development-only" in resumed["failure_summary"]
+    assert len(production_calls) == 1, "production must execute its license guard instead of reading a development receipt"

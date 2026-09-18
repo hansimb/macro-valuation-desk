@@ -10,6 +10,7 @@ import argparse
 from datetime import UTC, date, datetime, time, timedelta
 import hashlib
 import json
+import os
 from pathlib import Path
 from typing import Any, Callable, Sequence
 
@@ -24,9 +25,12 @@ class BackfillConfigurationError(ValueError):
 FlowRunner = Callable[..., dict[str, object]]
 
 
-def _receipt_path(checkpoint_dir: Path, market: str, week: date, methodology_version: str) -> Path:
-    identity = hashlib.sha256(methodology_version.encode()).hexdigest()[:12]
-    return checkpoint_dir / f"{market}-backfill-{week.isoformat()}-{identity}.receipt.json"
+RECEIPT_VERSION = 2
+
+
+def _receipt_path(checkpoint_dir: Path, identity: dict[str, object]) -> Path:
+    digest = hashlib.sha256(json.dumps(identity, sort_keys=True, separators=(",", ":")).encode()).hexdigest()[:16]
+    return checkpoint_dir / f"{identity['market']}-backfill-{identity['week']}-{digest}.receipt.json"
 
 
 def _json_result(value: object) -> object:
@@ -52,7 +56,7 @@ def _run_country_flow_week(**kwargs: object) -> dict[str, object]:
         raise BackfillConfigurationError(f"checkpoint exists for {week}; rerun with --resume")
     # Task 10 evaluates the previous complete week relative to its clock.
     clock_value = datetime.combine(week + timedelta(days=7), time(12), UTC)
-    return run_us_country_index_flow(
+    result = run_us_country_index_flow(
         market_id=kwargs["market"],
         methodology_version=kwargs["methodology_version"],
         environment=kwargs["environment"],
@@ -60,6 +64,64 @@ def _run_country_flow_week(**kwargs: object) -> dict[str, object]:
         checkpoint_dir=checkpoint_dir,
         clock=lambda: clock_value,
     )
+    checkpoint = checkpoint_dir / f"{run_id}.validation.json"
+    if result.get("status") == "success":
+        envelope = json.loads(checkpoint.read_text(encoding="utf-8"))
+        result["backfill_provenance"] = {
+            "task_checkpoint": str(checkpoint.resolve()),
+            "task_checkpoint_fingerprint": envelope["fingerprint"],
+        }
+    return result
+
+
+def _source_provenance(runner: FlowRunner) -> str:
+    explicit = getattr(runner, "receipt_source_provenance", None)
+    if explicit:
+        return str(explicit)
+    factory = os.getenv("MVD_US_COUNTRY_INDEX_PROVIDER_FACTORY")
+    return f"provider_factory:{factory or 'unconfigured'}"
+
+
+def _receipt_identity(*, week: date, environment: str, development_prices: bool,
+                      methodology_version: str, runner: FlowRunner) -> dict[str, object]:
+    return {
+        "market": "us",
+        "week": week.isoformat(),
+        "methodology_version": methodology_version,
+        "environment": environment.lower(),
+        "development_prices": development_prices,
+        "source_provenance": _source_provenance(runner),
+    }
+
+
+def _load_receipt(path: Path, expected_identity: dict[str, object]) -> dict[str, object]:
+    try:
+        envelope = json.loads(path.read_text(encoding="utf-8"))
+        if envelope.get("version") != RECEIPT_VERSION or envelope.get("identity") != expected_identity:
+            raise ValueError("identity mismatch")
+        result = envelope["result"]
+        provenance = result["backfill_provenance"]
+        checkpoint = Path(provenance["task_checkpoint"])
+        task_envelope = json.loads(checkpoint.read_text(encoding="utf-8"))
+        if task_envelope.get("fingerprint") != provenance["task_checkpoint_fingerprint"]:
+            raise ValueError("Task 10 checkpoint fingerprint mismatch")
+        if result.get("status") != "success":
+            raise ValueError("receipt is not successful")
+        return result
+    except (KeyError, TypeError, ValueError, OSError, json.JSONDecodeError) as exc:
+        raise BackfillConfigurationError(f"invalid backfill receipt {path.name}: {exc}") from exc
+
+
+def _write_receipt(path: Path, identity: dict[str, object], result: dict[str, object]) -> None:
+    provenance = result.get("backfill_provenance")
+    if not isinstance(provenance, dict) or not provenance.get("task_checkpoint_fingerprint"):
+        raise BackfillConfigurationError("successful backfill result is missing Task 10 checkpoint provenance")
+    temporary = path.with_suffix(".tmp")
+    temporary.write_text(
+        json.dumps({"version": RECEIPT_VERSION, "identity": identity, "result": result}, sort_keys=True, separators=(",", ":")),
+        encoding="utf-8",
+    )
+    os.replace(temporary, path)
 
 
 def run_backfill(
@@ -90,9 +152,16 @@ def run_backfill(
     results: list[dict[str, object]] = []
     weekly_rows: list[object] = []
     for week in weeks:
-        receipt = _receipt_path(target, "us", week, methodology_version)
+        identity = _receipt_identity(
+            week=week,
+            environment=environment,
+            development_prices=development_prices,
+            methodology_version=methodology_version,
+            runner=runner,
+        )
+        receipt = _receipt_path(target, identity)
         if resume and receipt.exists():
-            result = json.loads(receipt.read_text(encoding="utf-8"))
+            result = _load_receipt(receipt, identity)
         else:
             result = runner(
                 valuation_week=week,
@@ -105,7 +174,7 @@ def run_backfill(
             )
             result = _json_result(result)
             if result.get("status") == "success":
-                receipt.write_text(json.dumps(result, sort_keys=True, separators=(",", ":")), encoding="utf-8")
+                _write_receipt(receipt, identity, result)
         results.append(result)
         weekly_rows.extend(result.get("weekly_rows", ()))
         if result.get("status") != "success":
