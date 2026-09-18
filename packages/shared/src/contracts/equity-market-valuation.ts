@@ -82,6 +82,84 @@ export interface EquityMarketValuationMetric {
   referenceIds?: string[];
 }
 
+export interface MvdCountryValuationSensitivityComponent {
+  code: string;
+  intervalWidthContribution: string | null;
+  available: boolean | null;
+}
+
+export interface MvdCountryValuationSensitivity {
+  point: string | null;
+  lower: string | null;
+  upper: string | null;
+  status: string;
+  model: string | null;
+  intervalLabel: string | null;
+  reason: string | null;
+  draws: number | null;
+  components: MvdCountryValuationSensitivityComponent[];
+}
+
+export interface MvdCountryValuationCoverage {
+  wholeCohort: {
+    market: string;
+    reported: string | null;
+    carriedForward: string | null;
+    imputed: string | null;
+    missingOrInvalid: string | null;
+  };
+  eligibleScope: {
+    market: string;
+    eligible: string;
+  };
+  formationMarket: string;
+  currentMarket: string;
+}
+
+export interface MvdCountryValuationConstituents {
+  actualCount: number;
+  targetCount: number;
+  effectiveCount: string | null;
+  largestWeight: string | null;
+  topFiveConcentration: string | null;
+  topTenConcentration: string | null;
+  membershipOverlap: string | null;
+}
+
+export interface MvdCountryValuationWarning {
+  code: string;
+  level: string;
+  message: string;
+  affectedMarketWeight: string | null;
+  intervalWidthContribution: string | null;
+  reason: Record<string, unknown>;
+}
+
+export interface MvdCountryValuationMetric {
+  metricKey: string;
+  value: string | null;
+  weeklyMin: string | null;
+  weeklyMax: string | null;
+  status: string;
+  method: string;
+  formula: string;
+  sensitivity: MvdCountryValuationSensitivity;
+  coverage: MvdCountryValuationCoverage;
+  constituents: MvdCountryValuationConstituents;
+  cohort: {
+    version: string;
+    effectiveDate: string;
+  };
+  valuation: {
+    week: string;
+    dates: string[];
+    dailyObservationCount: number;
+  };
+  warnings: MvdCountryValuationWarning[];
+  methodologyVersion: string;
+  referenceIds: string[];
+}
+
 export interface EquityMarketValuationMarketOverview {
   marketId: string;
   marketName: string;
@@ -91,7 +169,7 @@ export interface EquityMarketValuationMarketOverview {
     publishedAt: string;
     methodologyVersion: string;
   };
-  metrics: Record<string, EquityMarketValuationMetric>;
+  metrics: Record<string, MvdCountryValuationMetric>;
 }
 
 export interface EquityMarketValuationRegionOverview {
@@ -117,7 +195,7 @@ export interface EquityMarketValuationHistoryObservation {
     publishedAt: string;
     methodologyVersion: string;
   };
-  metrics: Record<string, EquityMarketValuationMetric>;
+  metrics: Record<string, MvdCountryValuationMetric>;
 }
 
 export interface EquityMarketValuationHistoryResponse {

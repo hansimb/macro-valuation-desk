@@ -13,11 +13,33 @@ import { buildServer } from "../src/server";
 const sourceCoverage = {
   sensitivity: {
     interval_label: "experimental seeded sensitivity interval",
+    status: "experimental",
+    reason: null,
+    model_version: "mvd-country-index-v1",
     seed: "us-pe-20260907",
     point_estimate: "21.345678901234567890",
+    lower: "19.70",
+    upper: "24.10",
     draws: 1000,
     components: [{ code: "concentration", interval_width_contribution: "0.42", available: true }],
     warnings: [{ code: "staleness", reason: "late filing acceptance" }],
+  },
+  references: [{ id: "price-feed", label: "Primary price feed", url: "https://prices.example.test/us" }],
+};
+
+const unavailableSourceCoverage = {
+  sensitivity: {
+    interval_label: "unavailable sensitivity interval",
+    status: "unavailable",
+    reason: "non_positive_denominator_in_sensitivity_draw",
+    model_version: "mvd-country-index-v1",
+    seed: "us-pfcf-20260907",
+    point_estimate: null,
+    lower: null,
+    upper: null,
+    draws: 1000,
+    components: [{ code: "denominator", interval_width_contribution: null, available: false }],
+    warnings: [{ code: "non_positive_denominator", reason: "non-positive denominator" }],
   },
 };
 
@@ -102,6 +124,9 @@ describe("equity market valuations route", () => {
           weekly_min_value: null,
           weekly_max_value: null,
           metric_status: "unavailable",
+          interval_lower: "0.01",
+          interval_upper: "999.99",
+          source_coverage: unavailableSourceCoverage,
           structured_reasons: ["non_positive_denominator"],
           warnings: [],
         },
@@ -144,10 +169,10 @@ describe("equity market valuations route", () => {
                   formula: "aggregate market capitalization / aggregate TTM common net income",
                   sensitivity: {
                     point: "21.345678901234567890",
-                    lower: "19.90",
-                    upper: "23.80",
-                    status: "experimental seeded sensitivity interval",
-                    model: null,
+                    lower: "19.70",
+                    upper: "24.10",
+                    status: "experimental",
+                    model: "mvd-country-index-v1",
                     intervalLabel: "experimental seeded sensitivity interval",
                     reason: null,
                     draws: 1000,
@@ -205,13 +230,37 @@ describe("equity market valuations route", () => {
                     expect.stringMatching(/^source:price-feed:[a-z0-9]+$/),
                   ],
                 },
-                pfcf: expect.objectContaining({
+                pfcf: {
+                  metricKey: "pfcf",
                   value: null,
                   weeklyMin: null,
                   weeklyMax: null,
                   status: "unavailable",
+                  method: "aggregate_market_capitalization_divided_by_aggregate_ttm_free_cash_flow",
+                  formula: "aggregate market capitalization / aggregate TTM free cash flow",
+                  sensitivity: {
+                    point: null,
+                    lower: null,
+                    upper: null,
+                    status: "unavailable",
+                    model: "mvd-country-index-v1",
+                    intervalLabel: "unavailable sensitivity interval",
+                    reason: "non_positive_denominator_in_sensitivity_draw",
+                    draws: 1000,
+                    components: [{ code: "denominator", intervalWidthContribution: null, available: false }],
+                  },
+                  coverage: expect.any(Object),
+                  constituents: expect.any(Object),
+                  cohort: { version: "us-largecap-v12", effectiveDate: "2026-09-01" },
+                  valuation: expect.any(Object),
                   warnings: [expect.objectContaining({ code: "non_positive_denominator" })],
-                }),
+                  methodologyVersion: "mvd-country-index-v1",
+                  referenceIds: [
+                    "methodology:mvd-country-index-v1",
+                    "source:price-feed",
+                    expect.stringMatching(/^source:price-feed:[a-z0-9]+$/),
+                  ],
+                },
               },
             },
           ],
@@ -246,6 +295,15 @@ describe("equity market valuations route", () => {
         }),
       ],
     });
+
+    expect(response.json().regions[0].markets[0].metrics.pe.referenceIds).toEqual([
+      "methodology:mvd-country-index-v1",
+      "source:price-feed",
+      expect.stringMatching(/^source:price-feed:[a-z0-9]+$/),
+    ]);
+    expect(new Set(response.json().regions[0].markets[0].metrics.pe.referenceIds).size).toBe(
+      response.json().regions[0].markets[0].metrics.pe.referenceIds.length,
+    );
   });
 
   it("uses one coherent market publication snapshot instead of mixing latest metric pointers", async () => {
@@ -290,6 +348,44 @@ describe("equity market valuations route", () => {
     expect(response.json().references).toEqual([
       { id: "methodology:mvd-country-index-v1", label: "MVD country index methodology mvd-country-index-v1", url: null },
     ]);
+  });
+
+  it("normalizes a stringified nested sensitivity payload without conflating its persisted fields", async () => {
+    queryMock.mockResolvedValue({
+      rows: [
+        {
+          ...publishedPe,
+          source_coverage: JSON.stringify({
+            sensitivity: JSON.stringify({
+              status: "unavailable",
+              reason: "non_positive_denominator_in_sensitivity_draw",
+              model_version: "configured-sensitivity-method-v7",
+              interval_label: "unavailable sensitivity interval",
+              point_estimate: null,
+              lower: null,
+              upper: null,
+              draws: 250,
+              components: [],
+            }),
+          }),
+        },
+      ],
+    });
+
+    const response = await app.inject({ method: "GET", url: "/equity-markets/valuations" });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json().regions[0].markets[0].metrics.pe.sensitivity).toEqual({
+      point: null,
+      lower: null,
+      upper: null,
+      status: "unavailable",
+      model: "configured-sensitivity-method-v7",
+      intervalLabel: "unavailable sensitivity interval",
+      reason: "non_positive_denominator_in_sensitivity_draw",
+      draws: 250,
+      components: [],
+    });
   });
 
   it("returns an empty MVD overview when no published observation exists", async () => {

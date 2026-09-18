@@ -46,7 +46,12 @@ const historyRow = {
   source_coverage: {
     sensitivity: {
       interval_label: "experimental seeded sensitivity interval",
+      status: "experimental",
+      reason: null,
+      model_version: "mvd-country-index-v1",
       point_estimate: "21.30",
+      lower: "20.05",
+      upper: "22.55",
       draws: 1000,
       components: [],
     },
@@ -105,9 +110,13 @@ describe("equity market valuation history route", () => {
     });
     expect(response.json().observations[0].metrics.pe.cohort.effectiveDate).toBe("2026-09-01");
     expect(response.json().observations[0].metrics.pe.sensitivity).toMatchObject({
-      status: "experimental seeded sensitivity interval",
+      status: "experimental",
+      model: "mvd-country-index-v1",
       intervalLabel: "experimental seeded sensitivity interval",
       point: "21.30",
+      lower: "20.05",
+      upper: "22.55",
+      reason: null,
       draws: 1000,
     });
     expect(response.json().references).toEqual([

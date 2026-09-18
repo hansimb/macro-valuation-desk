@@ -5,6 +5,7 @@ import type {
   EquityMarketValuationRow,
   EquityMarketValuationReference,
   EquityMarketValuationsResponse,
+  MvdCountryValuationMetric,
 } from "../../../../packages/shared/src/contracts/equity-market-valuation";
 import { getDbPool } from "../lib/db";
 
@@ -290,16 +291,23 @@ function referencesFromCoverage(value: unknown): EquityMarketValuationReference[
 }
 
 function referenceIdsFor(row: PublishedCountryIndexMetricRow, state: MutableReferenceState): string[] {
-  const ids = [
+  const ids: string[] = [];
+  const pushUnique = (id: string) => {
+    if (!ids.includes(id)) {
+      ids.push(id);
+    }
+  };
+
+  pushUnique(
     addReference(state, {
       id: `methodology:${row.methodology_version}`,
       label: `MVD country index methodology ${row.methodology_version}`,
       url: null,
     }),
-  ];
+  );
 
   for (const reference of [...referencesFromCoverage(row.run_source_coverage), ...referencesFromCoverage(row.source_coverage)]) {
-    ids.push(addReference(state, reference));
+    pushUnique(addReference(state, reference));
   }
 
   return ids;
@@ -318,12 +326,13 @@ function sensitivityComponents(value: unknown) {
   }));
 }
 
+function nullableString(value: unknown): string | null {
+  return typeof value === "string" ? value : null;
+}
+
 function sensitivityFor(row: PublishedCountryIndexMetricRow) {
   const sourceCoverage = jsonObject(row.source_coverage);
-  const sensitivity =
-    typeof sourceCoverage.sensitivity === "object" && sourceCoverage.sensitivity !== null
-      ? (sourceCoverage.sensitivity as Record<string, unknown>)
-      : {};
+  const sensitivity = jsonObject(sourceCoverage.sensitivity);
   const intervalLabel = typeof sensitivity.interval_label === "string" ? sensitivity.interval_label : null;
   const model =
     typeof sensitivity.model === "string"
@@ -333,10 +342,10 @@ function sensitivityFor(row: PublishedCountryIndexMetricRow) {
         : null;
 
   return {
-    point: typeof sensitivity.point_estimate === "string" ? sensitivity.point_estimate : row.metric_value,
-    lower: row.interval_lower,
-    upper: row.interval_upper,
-    status: typeof sensitivity.status === "string" ? sensitivity.status : intervalLabel ?? "unavailable",
+    point: nullableString(sensitivity.point_estimate),
+    lower: nullableString(sensitivity.lower),
+    upper: nullableString(sensitivity.upper),
+    status: typeof sensitivity.status === "string" ? sensitivity.status : "unavailable",
     model,
     intervalLabel,
     reason: typeof sensitivity.reason === "string" ? sensitivity.reason : null,
@@ -386,7 +395,7 @@ function warningsFor(row: PublishedCountryIndexMetricRow) {
   return warnings;
 }
 
-export function metricFromRow(row: PublishedCountryIndexMetricRow, state: MutableReferenceState): EquityMarketValuationMetric {
+export function metricFromRow(row: PublishedCountryIndexMetricRow, state: MutableReferenceState): MvdCountryValuationMetric {
   const method = METRIC_METHODS[row.metric_key] ?? {
     method: `aggregate_country_index_${row.metric_key}`,
     formula: `aggregate country index ${row.metric_key}`,
@@ -484,17 +493,17 @@ const LEGACY_METRIC_KEYS = {
   dividendYieldPct: "dividend_yield",
 } as const;
 
-function legacyMetric(metrics: Record<string, EquityMarketValuationMetric>, key: keyof typeof LEGACY_METRIC_KEYS): EquityMarketValuationMetric {
+function legacyMetric(metrics: Record<string, MvdCountryValuationMetric>, key: keyof typeof LEGACY_METRIC_KEYS): EquityMarketValuationMetric {
   return metrics[LEGACY_METRIC_KEYS[key]] ?? { value: null, method: "unavailable" };
 }
 
-function sourceUrlForMetric(metric: EquityMarketValuationMetric | undefined, references: EquityMarketValuationReference[]): string {
+function sourceUrlForMetric(metric: MvdCountryValuationMetric | undefined, references: EquityMarketValuationReference[]): string {
   const referenceIds = metric?.referenceIds ?? [];
   return references.find((reference) => reference.id !== undefined && referenceIds.includes(reference.id) && reference.url)?.url ?? "";
 }
 
 function legacyMarkets(
-  regions: { region: string; markets: Array<{ marketId: string; marketName: string; latestWeek: string; metrics: Record<string, EquityMarketValuationMetric> }> }[],
+  regions: { region: string; markets: Array<{ marketId: string; marketName: string; latestWeek: string; metrics: Record<string, MvdCountryValuationMetric> }> }[],
   references: EquityMarketValuationReference[],
 ): EquityMarketValuationRow[] {
   return regions.flatMap((region) =>
@@ -557,7 +566,7 @@ export async function registerEquityMarketValuationsRoute(app: FastifyInstance) 
             marketName: string;
             latestWeek: string;
             publication: { runId: string; publishedAt: string; methodologyVersion: string };
-            metrics: Record<string, EquityMarketValuationMetric>;
+            metrics: Record<string, MvdCountryValuationMetric>;
           }
         >;
       }

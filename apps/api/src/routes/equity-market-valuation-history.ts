@@ -3,7 +3,7 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import type {
   EquityMarketValuationHistoryObservation,
   EquityMarketValuationHistoryResponse,
-  EquityMarketValuationMetric,
+  MvdCountryValuationMetric,
 } from "../../../../packages/shared/src/contracts/equity-market-valuation";
 import { getDbPool } from "../lib/db";
 import {
@@ -162,7 +162,7 @@ export async function registerEquityMarketValuationHistoryRoute(app: FastifyInst
               dailyObservationCount: row.daily_observation_count,
             },
             publication: { runId: row.run_id, publishedAt: toIsoString(row.published_at), methodologyVersion: row.methodology_version },
-            metrics: {} as Record<string, EquityMarketValuationMetric>,
+            metrics: {} as Record<string, MvdCountryValuationMetric>,
           };
 
         if (!(row.metric_key in observation.metrics)) {
