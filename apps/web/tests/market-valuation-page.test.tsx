@@ -50,5 +50,17 @@ describe("Market valuation page", () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: async () => ({ asOf: null, regions: [], markets: [], references: [] }) }));
     render(<ThemeProvider>{await MarketValuationPage()}</ThemeProvider>);
     expect(screen.getByText("Live market valuation data is unavailable right now.")).toBeInTheDocument();
+    expect(screen.getByText("Run the MVD country valuation pipeline to publish weekly observations.")).toBeInTheDocument();
+    expect(screen.queryByText(/ETF and index valuation snapshots/i)).not.toBeInTheDocument();
+  });
+
+  it("renders diagnostics without metric columns when every country metric is unavailable", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: async () => ({
+      asOf: "2026-09-07", regions: [{ region: "North America", markets: [{ marketId: "us", marketName: "United States", latestWeek: "2026-09-07", publication: { runId: "run-us", publishedAt: "2026-09-14T02:00:00Z", methodologyVersion: "v1" }, metrics: { pe: metric("pe", null) } }] }], markets: [], references: [],
+    }) }));
+    render(<ThemeProvider>{await MarketValuationPage()}</ThemeProvider>);
+    expect(screen.getByRole("link", { name: /United States valuation history/i })).toBeInTheDocument();
+    expect(screen.queryByRole("columnheader", { name: "P/E" })).not.toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "Companies" })).toBeInTheDocument();
   });
 });

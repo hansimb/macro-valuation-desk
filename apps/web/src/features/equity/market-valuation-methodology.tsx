@@ -89,7 +89,30 @@ function MetricHistory({ data, metricKey, citations }: { data: EquityMarketValua
       <Box bg="surface" borderColor="edge" borderWidth="1px" p="5" rounded="panel"><Text color="muted" textStyle="caption">{latest.metric.sensitivity.intervalLabel ?? "Sensitivity interval"}</Text><Text fontSize="2xl" fontWeight="700">{range(latest.metric.sensitivity.lower, latest.metric.sensitivity.upper, metricKey)}</Text></Box>
     </SimpleGrid>
     <HistoryChart data={points.map(({ week, value, weeklyMin, weeklyMax, sensitivityLower, sensitivityUpper }) => ({ week, value, weeklyMin, weeklyMax, sensitivityRange: sensitivityLower === null || sensitivityUpper === null ? null : [sensitivityLower, sensitivityUpper] }))} label={label} marketName={data.marketName} metricKey={metricKey} />
-    <Box overflowX="auto"><Box as="table" aria-label={`${data.marketName} ${label} history data`} borderCollapse="collapse" minW="52rem" w="100%"><Box as="thead"><Box as="tr"><Box as="th" p="3" textAlign="left">Week</Box><Box as="th" p="3" textAlign="right">Median</Box><Box as="th" p="3" textAlign="right">Daily range</Box><Box as="th" p="3" textAlign="right">Sensitivity</Box><Box as="th" p="3" textAlign="right">Cohort</Box><Box as="th" p="3" textAlign="right">Published</Box></Box></Box><Box as="tbody">{points.map(({ observation, metric, week }) => <Box as="tr" borderTopColor="edge" borderTopWidth="1px" key={`${week}-${observation.publication.runId}`}><Box as="td" p="3">{week}</Box><Box as="td" p="3" textAlign="right">{formatValue(metric.value, metricKey)}</Box><Box as="td" p="3" textAlign="right">{range(metric.weeklyMin, metric.weeklyMax, metricKey)}</Box><Box as="td" p="3" textAlign="right">{range(metric.sensitivity.lower, metric.sensitivity.upper, metricKey)}</Box><Box as="td" p="3" textAlign="right">{metric.cohort.version}</Box><Box as="td" p="3" textAlign="right">{observation.publication.publishedAt.slice(0, 10)}</Box></Box>)}</Box></Box></Box>
+    <Box as="table" aria-label={`${data.marketName} ${label} history data`} borderCollapse="collapse" display={{ base: "block", md: "table" }} tableLayout="fixed" w="100%">
+      <Box as="thead" display={{ base: "none", md: "table-header-group" }}>
+        <Box as="tr"><Box as="th" p="3" textAlign="left">Week</Box><Box as="th" p="3" textAlign="right">Median</Box><Box as="th" p="3" textAlign="right">Daily range</Box><Box as="th" p="3" textAlign="right">Sensitivity</Box><Box as="th" p="3" textAlign="right">Cohort</Box><Box as="th" p="3" textAlign="right">Published</Box></Box>
+      </Box>
+      <Box as="tbody" display={{ base: "block", md: "table-row-group" }}>
+        {points.map(({ observation, metric, week }) => (
+          <Box as="tr" borderTopColor="edge" borderTopWidth="1px" display={{ base: "grid", md: "table-row" }} gap="3" gridTemplateColumns="repeat(2, minmax(0, 1fr))" key={`${week}-${observation.publication.runId}`} py={{ base: "4", md: "0" }}>
+            {[
+              ["Week", week],
+              ["Median", formatValue(metric.value, metricKey)],
+              ["Daily range", range(metric.weeklyMin, metric.weeklyMax, metricKey)],
+              ["Sensitivity", range(metric.sensitivity.lower, metric.sensitivity.upper, metricKey)],
+              ["Cohort", metric.cohort.version],
+              ["Published", observation.publication.publishedAt.slice(0, 10)],
+            ].map(([cellLabel, cellValue], index) => (
+              <Box as="td" key={cellLabel} minW="0" p={{ base: "0", md: "3" }} textAlign={{ base: "left", md: index === 0 ? "left" : "right" }}>
+                <Text display={{ base: "block", md: "none" }} color="muted" textStyle="caption">{cellLabel}</Text>
+                <Text overflowWrap="anywhere">{cellValue}</Text>
+              </Box>
+            ))}
+          </Box>
+        ))}
+      </Box>
+    </Box>
     <Box bg="surface" borderColor="edge" borderWidth="1px" p={{ base: "5", md: "6" }} rounded="panel"><Stack gap="2"><Text color="accent" textStyle="eyebrow">Coverage and freshness</Text><Text>Cohort boundary: {latest.metric.cohort.version} effective {latest.metric.cohort.effectiveDate}.</Text><Text>Published {latest.observation.publication.publishedAt.slice(0, 10)} from {latest.observation.valuation.dailyObservationCount} daily observations ({latest.observation.valuation.dates[0]} to {latest.observation.valuation.dates.at(-1)}).</Text><Text color="muted">Companies: {latest.metric.constituents.actualCount} actual / {latest.metric.constituents.targetCount} target; effective count {latest.metric.constituents.effectiveCount ?? "unavailable"}. Current market coverage {range(latest.metric.coverage.currentMarket, latest.metric.coverage.currentMarket, "dividend_yield").split("–")[0]}; reported facts {formatValue(latest.metric.coverage.wholeCohort.reported, "dividend_yield")}, carried forward {formatValue(latest.metric.coverage.wholeCohort.carriedForward, "dividend_yield")}, imputed {formatValue(latest.metric.coverage.wholeCohort.imputed, "dividend_yield")}.</Text></Stack></Box>
   </Stack>;
 }

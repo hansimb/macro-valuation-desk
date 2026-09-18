@@ -116,7 +116,7 @@ describe("Equity Markets page", () => {
     await renderMarketValuationPage();
 
     expect(screen.getByText("Live market valuation data is unavailable right now.")).toBeInTheDocument();
-    expect(screen.getByText("Run the market valuation pipeline to populate ETF and index valuation snapshots.")).toBeInTheDocument();
+    expect(screen.getByText("Run the MVD country valuation pipeline to publish weekly observations.")).toBeInTheDocument();
     expect(screen.queryByText("United States broad market")).not.toBeInTheDocument();
     expect(screen.queryByText("Placeholder")).not.toBeInTheDocument();
   });

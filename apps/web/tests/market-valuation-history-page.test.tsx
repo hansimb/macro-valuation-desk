@@ -40,6 +40,7 @@ describe("Market valuation history page", () => {
     expect(screen.getByText("aggregate market capitalization / aggregate TTM common net income")).toBeInTheDocument();
     expect(screen.getByRole("img", { name: "United States P/E weekly valuation history" })).toBeInTheDocument();
     expect(screen.getByRole("table", { name: "United States P/E history data" })).toBeInTheDocument();
+    expect(screen.getAllByText("Daily range").length).toBeGreaterThan(0);
     expect(screen.getByRole("link", { name: /U.S. Securities and Exchange Commission, Companyfacts API/ })).toHaveAttribute("href", "https://data.sec.gov/api/xbrl/companyfacts/");
     expect(screen.getByRole("link", { name: /Development price adapter, adjusted close history/ })).toHaveAttribute("href", "https://query1.finance.yahoo.com/");
   });
@@ -48,5 +49,13 @@ describe("Market valuation history page", () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, status: 200, json: async () => ({ ...response, observations: [] }) }));
     render(<ThemeProvider>{await MarketValuationHistoryPage({ params: Promise.resolve({ marketId: "us" }) })}</ThemeProvider>);
     expect(screen.getByText("Valuation history is unavailable for this market.")).toBeInTheDocument();
+  });
+
+  it("shows an unavailable state when observations contain no available metric values", async () => {
+    const unavailableMetric = { ...metric("2026-09-07", "21.35"), value: null, weeklyMin: null, weeklyMax: null, status: "unavailable" };
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, status: 200, json: async () => ({ ...response, observations: [{ ...response.observations[1], metrics: { pe: unavailableMetric } }] }) }));
+    render(<ThemeProvider>{await MarketValuationHistoryPage({ params: Promise.resolve({ marketId: "us" }) })}</ThemeProvider>);
+    expect(screen.getByText("Valuation history is unavailable for this market.")).toBeInTheDocument();
+    expect(screen.queryByRole("img", { name: /weekly valuation history/i })).not.toBeInTheDocument();
   });
 });

@@ -62,7 +62,8 @@ function primaryMetric(market: EquityMarketValuationMarketOverview) {
 function CountryOverview({ data }: { data: EquityMarketValuationsResponse }) {
   const markets = data.regions?.flatMap((region) => region.markets) ?? [];
   const visibleMetrics = mvdMetricColumns.filter((column) => markets.some((market) => market.metrics[column.key]?.value !== null && market.metrics[column.key] !== undefined));
-  const gridColumns = `minmax(10rem, 1.7fr) repeat(${visibleMetrics.length}, minmax(0, .65fr)) repeat(4, minmax(0, .8fr))`;
+  const metricGridColumns = visibleMetrics.length > 0 ? ` repeat(${visibleMetrics.length}, minmax(0, .65fr))` : "";
+  const gridColumns = `minmax(10rem, 1.7fr)${metricGridColumns} repeat(4, minmax(0, .8fr))`;
 
   return (
     <Stack gap="8">
@@ -144,7 +145,7 @@ export default async function MarketValuationPage() {
   return <Stack gap={{ base: "8", md: "10" }}>
     <Stack gap="4" maxW="4xl"><BackLink href="/equity-markets" label="Back to Equity Markets" /><Text color="accent" textStyle="eyebrow">Market Valuation</Text><Heading as="h1" textStyle="hero">Market Valuation Dashboard</Heading><Text color="muted" maxW="3xl" textStyle="subtitle">MVD-owned weekly country valuation indices with coverage, concentration, freshness, and uncertainty diagnostics.</Text><Text color="muted" textStyle="caption">Latest valuation {hasCountryIndices ? "week" : "date"}: {data.asOf ?? "latest available update"}</Text></Stack>
     <Box bg="surface" borderColor="edge" borderWidth="1px" p={{ base: "5", md: "6" }} rounded="panel"><Stack gap="3"><Text color="accent" textStyle="eyebrow">Methodology</Text><Text color="muted">Each headline is the median of daily aggregate country values. Company multiples are never averaged. Open a country row for weekly ranges, sensitivity intervals, cohort boundaries, formulas, freshness, and source lineage.</Text></Stack></Box>
-    {unavailable ? <Box bg="surface" borderColor="edge" borderWidth="1px" p="6" rounded="panel"><Text fontWeight="semibold">Live market valuation data is unavailable right now.</Text><Text color="muted">Run the market valuation pipeline to populate ETF and index valuation snapshots.</Text></Box> : <Box as="section" bg="surface" borderColor="edge" borderWidth="1px" p={{ base: "4", md: "6" }} rounded="panel"><Stack gap="5"><Stack gap="2"><Text color="accent" textStyle="eyebrow">Valuation Matrix</Text><Heading as="h2" textStyle="title">Country valuation indices</Heading></Stack>{hasCountryIndices ? <CountryOverview data={data} /> : <LegacyOverview markets={data.markets} citations={legacyCitations} />}</Stack></Box>}
+    {unavailable ? <Box bg="surface" borderColor="edge" borderWidth="1px" p="6" rounded="panel"><Text fontWeight="semibold">Live market valuation data is unavailable right now.</Text><Text color="muted">Run the MVD country valuation pipeline to publish weekly observations.</Text></Box> : <Box as="section" bg="surface" borderColor="edge" borderWidth="1px" p={{ base: "4", md: "6" }} rounded="panel"><Stack gap="5"><Stack gap="2"><Text color="accent" textStyle="eyebrow">Valuation Matrix</Text><Heading as="h2" textStyle="title">Country valuation indices</Heading></Stack>{hasCountryIndices ? <CountryOverview data={data} /> : <LegacyOverview markets={data.markets} citations={legacyCitations} />}</Stack></Box>}
     {!hasCountryIndices ? <AnalysisReferencesBlock items={legacyReferences} /> : null}
   </Stack>;
 }

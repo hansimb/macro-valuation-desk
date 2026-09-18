@@ -21,6 +21,9 @@ export default async function MarketValuationHistoryPage({ params }: { params: P
   const { marketId } = await params;
   const data = await getHistory(marketId);
   const marketName = data?.marketName ?? marketId.toUpperCase();
+  const hasAvailableMetrics = data?.observations.some((observation) =>
+    Object.values(observation.metrics).some((metric) => metric.value !== null),
+  ) ?? false;
   return <Stack gap={{ base: "8", md: "10" }}>
     <Stack gap="4" maxW="4xl">
       <BackLink href="/equity-markets/market-valuation" label="Back to Market Valuation Dashboard" />
@@ -28,6 +31,6 @@ export default async function MarketValuationHistoryPage({ params }: { params: P
       <Link asChild color="text" textDecoration="none" _hover={{ textDecoration: "none" }}><NextLink href={`/equity-markets/market-valuation/${marketId}`}><Heading as="h1" textStyle="hero">{marketName} valuation history</Heading></NextLink></Link>
       <Text color="muted" maxW="3xl" textStyle="subtitle">Weekly MVD country valuation ratios with their observed daily ranges, model sensitivity, cohort diagnostics, and source lineage.</Text>
     </Stack>
-    {!data || data.observations.length === 0 ? <Box bg="surface" borderColor="edge" borderWidth="1px" p={{ base: "5", md: "6" }} rounded="panel"><Text fontWeight="semibold">Valuation history is unavailable for this market.</Text><Text color="muted">No published weekly observations were returned for the requested country.</Text></Box> : <MarketValuationMethodology data={data} />}
+    {!data || !hasAvailableMetrics ? <Box bg="surface" borderColor="edge" borderWidth="1px" p={{ base: "5", md: "6" }} rounded="panel"><Text fontWeight="semibold">Valuation history is unavailable for this market.</Text><Text color="muted">No published weekly metric values were returned for the requested country.</Text></Box> : <MarketValuationMethodology data={data} />}
   </Stack>;
 }
