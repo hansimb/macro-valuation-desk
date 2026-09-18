@@ -6,108 +6,49 @@ import EquityMarketsPage from "../src/app/equity-markets/page";
 import MarketValuationPage from "../src/app/equity-markets/market-valuation/page";
 import { ThemeProvider } from "../src/features/theme/provider";
 
-afterEach(() => {
-  cleanup();
-  vi.unstubAllGlobals();
+const metric = (key: string, value: string | null, overrides: Record<string, unknown> = {}) => ({
+  metricKey: key, value, weeklyMin: value, weeklyMax: value,
+  status: value === null ? "unavailable" : "experimental", method: `aggregate_${key}`, formula: `aggregate ${key}`,
+  sensitivity: { point: value, lower: value, upper: value, status: "experimental", model: "v1", intervalLabel: "95% interval", reason: null, draws: 1000, components: [] },
+  coverage: { wholeCohort: { market: "0.764", reported: "0.67", carriedForward: "0.12", imputed: "0.08", missingOrInvalid: "0.13" }, eligibleScope: { market: "0.764", eligible: "0.91" }, formationMarket: "0.781", currentMarket: "0.764" },
+  constituents: { actualCount: 321, targetCount: 325, effectiveCount: "87.45", largestWeight: "0.071", topFiveConcentration: "0.229", topTenConcentration: "0.351", membershipOverlap: "0.98" },
+  cohort: { version: "us-largecap-v12", effectiveDate: "2026-09-01" }, valuation: { week: "2026-09-07", dates: ["2026-09-07", "2026-09-08", "2026-09-09", "2026-09-10", "2026-09-11"], dailyObservationCount: 5 },
+  warnings: [], methodologyVersion: "mvd-country-index-v1", referenceIds: ["methodology:mvd-country-index-v1", "source:sec"], ...overrides,
 });
+
+afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
+
 describe("Market valuation page", () => {
   it("is discoverable from the equity analysis registry", () => {
-    render(
-      <ThemeProvider>
-        <EquityMarketsPage />
-      </ThemeProvider>,
-    );
-
+    render(<ThemeProvider><EquityMarketsPage /></ThemeProvider>);
     expect(screen.getByRole("link", { name: /Market Valuation Dashboard/i })).toBeInTheDocument();
-    expect(screen.getByText(/API-backed overview of broad equity valuation ratios/i)).toBeInTheDocument();
   });
 
-  it.each([
-    ["ishares.com", "BlackRock iShares"],
-    ["ssga.com", "State Street SPDR"],
-  ])("keeps a majority-available zero metric and cites issuer sources for %s", async (host, institution) => {
-    const row = {
-      marketId: "one", marketName: "Market one", region: "EU", measuredSymbol: "ONE",
-      measuredName: "First index", measuredType: "index", provider: "issuer_pages",
-      sourceUrl: `https://www.${host}/one`, asOf: "2026-07-06", missingFields: [],
-      metrics: {
-        trailingPe: { value: null, method: "unavailable" },
-        priceToBook: { value: null, method: "unavailable" },
-        priceToSales: { value: null, method: "unavailable" },
-        priceToCashFlow: { value: "11", method: "provider" },
-        priceToFreeCashFlow: { value: null, method: "unavailable" },
-        dividendYieldPct: { value: null, method: "unavailable" },
-      },
-    };
+  it("renders a fully clickable MVD country row with diagnostics and no ETF identity", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: async () => ({
-      asOf: "2026-07-07", references: [{ label: "Methodology", url: "https://example.com/method" }, { label: "Duplicate", url: "https://example.com/method" }], markets: [row, {
-        ...row, marketId: "two", marketName: "Market two",
-        metrics: { ...row.metrics, priceToCashFlow: { value: null, method: "unavailable" }, dividendYieldPct: { value: "0", method: "provider" } },
-      }, {
-        ...row, marketId: "three", marketName: "Market three",
-        metrics: { ...row.metrics, priceToCashFlow: { value: null, method: "unavailable" }, dividendYieldPct: { value: "1.2", method: "provider" } },
-      }],
+      asOf: "2026-09-07", regions: [{ region: "North America", markets: [{ marketId: "us", marketName: "United States", latestWeek: "2026-09-07", publication: { runId: "run-us", publishedAt: "2026-09-14T02:00:00Z", methodologyVersion: "mvd-country-index-v1" }, metrics: {
+        pe: metric("pe", "21.35", { warnings: [{ code: "concentration", level: "warning", message: "Dominant constituents widen the interval.", affectedMarketWeight: "0.071", intervalWidthContribution: "0.42", reason: { code: "concentration" } }] }),
+        pb: metric("pb", "4.20"), pfcf: metric("pfcf", null),
+      } }] }], markets: [], references: [{ id: "source:sec", label: "SEC company facts", url: "https://data.sec.gov/submissions/" }],
     }) }));
     render(<ThemeProvider>{await MarketValuationPage()}</ThemeProvider>);
-    expect(screen.queryByRole("columnheader", { hidden: true, name: "P/E" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("columnheader", { hidden: true, name: "P/B" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("columnheader", { hidden: true, name: "P/S" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("columnheader", { hidden: true, name: "P/CF proxy" })).not.toBeInTheDocument();
-    expect(screen.getByRole("columnheader", { hidden: true, name: "Dividend yield" })).toBeInTheDocument();
-    expect(screen.getByText("0%")).toBeInTheDocument();
-    expect(screen.getAllByRole("link", { name: "[2]" })).toHaveLength(3);
-    expect(screen.getByRole("link", { name: `[2] ${institution}, "First index (ONE)." [Online]. Available: https://www.${host}/one.` })).toHaveAttribute("href", `https://www.${host}/one`);
-    expect(screen.getAllByRole("link", { name: /\[1\] example.com, "Methodology."/ })).toHaveLength(1);
-    expect(screen.getByText("Unavailable")).toBeInTheDocument();
-    expect(screen.getAllByText("Valuation as of 2026-07-06")).toHaveLength(3);
+
+    expect(screen.getByRole("link", { name: /United States valuation history/i })).toHaveAttribute("href", "/equity-markets/market-valuation/us");
+    expect(screen.getByText("321 / 325")).toBeInTheDocument();
+    expect(screen.getByText("87.45")).toBeInTheDocument();
+    expect(screen.getByText("76.4%")).toBeInTheDocument();
+    expect(screen.getByText("67.0%")).toBeInTheDocument();
+    expect(screen.getByLabelText("Warning: Dominant constituents widen the interval.")).toBeInTheDocument();
+    expect(screen.queryByText(/ETF proxy/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/SPY|iShares|SPDR/)).not.toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "P/E" })).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "P/B" })).toBeInTheDocument();
+    expect(screen.queryByRole("columnheader", { name: "Exact P/FCF" })).not.toBeInTheDocument();
   });
 
-  it("renders API-backed valuation data instead of placeholder seed rows", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn().mockResolvedValue({
-        ok: true,
-        json: async () => ({
-          asOf: "2026-07-07",
-          markets: [
-            {
-              marketId: "finland_large_cap",
-              region: "FI",
-              marketName: "Finland large cap",
-              measuredSymbol: "EFNL.US",
-              measuredName: "iShares MSCI Finland ETF",
-              measuredType: "ETF",
-              provider: "eodhd",
-              sourceUrl: "https://eodhd.com/api/fundamentals/EFNL.US",
-              asOf: "2026-07-06",
-              metrics: {
-                trailingPe: { value: "18.20", method: "provider_price_prospective_earnings" },
-                priceToBook: { value: "2.10", method: "provider_price_to_book" },
-                priceToSales: { value: "1.70", method: "provider_price_to_sales" },
-                priceToCashFlow: { value: "11.30", method: "provider_price_to_cash_flow_proxy" },
-                priceToFreeCashFlow: { value: "10.90", method: "provider_exact_price_to_free_cash_flow" },
-                dividendYieldPct: { value: "2.45", method: "provider_dividend_yield_factor" },
-              },
-              missingFields: [],
-            },
-          ],
-          references: [],
-        }),
-      }),
-    );
-
-    const page = await MarketValuationPage();
-
-    render(<ThemeProvider>{page}</ThemeProvider>);
-
-    expect(screen.getByRole("table", { name: "Market valuation overview" })).toBeInTheDocument();
-    expect(screen.getByText("Finland large cap")).toBeInTheDocument();
-    expect(screen.getByText("EFNL.US")).toBeInTheDocument();
-    expect(screen.getByRole("img", { name: "Finland flag" })).toHaveTextContent("🇫🇮");
-    expect(screen.queryByText("FI")).not.toBeInTheDocument();
-    expect(screen.getByText("11.30")).toBeInTheDocument();
-    expect(screen.queryByText("10.90")).not.toBeInTheDocument();
-    expect(screen.queryByText("Placeholder data only")).not.toBeInTheDocument();
-    expect(screen.queryByText("Do not use these values for analysis")).not.toBeInTheDocument();
+  it("renders an explicit unavailable state", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: async () => ({ asOf: null, regions: [], markets: [], references: [] }) }));
+    render(<ThemeProvider>{await MarketValuationPage()}</ThemeProvider>);
+    expect(screen.getByText("Live market valuation data is unavailable right now.")).toBeInTheDocument();
   });
 });
