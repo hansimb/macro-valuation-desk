@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import sys
 from collections.abc import Callable
 
@@ -15,6 +16,20 @@ from src.flows.equity_market_valuation_flow import run_equity_market_valuation_f
 from src.flows.macro_seed_flow import run_macro_seed_flow
 from src.flows.taylor_rule_flow import run_taylor_rule_flow
 from src.flows.us_country_index_flow import run_us_country_index_flow
+from src.lib.runtime_env import load_project_env
+
+
+def _run_configured_us_country_index_flow() -> dict[str, object]:
+    load_project_env()
+    if not os.getenv("MVD_US_COUNTRY_INDEX_PROVIDER_FACTORY"):
+        print("Skipping us_country_index flow: provider factory is not configured.", file=sys.stderr, flush=True)
+        return {
+            "status": "skipped",
+            "publication_status": "preserved",
+            "previous_publication_preserved": True,
+            "reason": "MVD_US_COUNTRY_INDEX_PROVIDER_FACTORY is not configured",
+        }
+    return _run_child_flow("us_country_index", run_us_country_index_flow)
 
 
 def _collect_child_flow_errors(name: str, result: dict[str, object]) -> list[str]:
@@ -51,7 +66,7 @@ def run_all_flows() -> dict[str, object]:
         "equity_market_valuation",
         run_equity_market_valuation_flow,
     )
-    us_country_index_result = _run_child_flow("us_country_index", run_us_country_index_flow)
+    us_country_index_result = _run_configured_us_country_index_flow()
 
     errors = [
         *(_collect_child_flow_errors("macro_seed", macro_seed_result)),

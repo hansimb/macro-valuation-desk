@@ -1,7 +1,14 @@
 import json
 
+import pytest
+
 from src.flows import all_flows as all_flows_module
 from src.flows.all_flows import run_all_flows
+
+
+@pytest.fixture(autouse=True)
+def configured_us_provider_factory(monkeypatch):
+    monkeypatch.setenv("MVD_US_COUNTRY_INDEX_PROVIDER_FACTORY", "tests.fixture:factory")
 
 
 def test_run_all_flows_executes_macro_seed_then_taylor_rule_then_currency_then_equity_then_us_country_index(monkeypatch):
@@ -157,17 +164,27 @@ def test_all_flows_does_not_hide_child_fetch_errors(monkeypatch):
     assert result["errors"] == ["currency_analysis: eur_3m_rate: TLS failure"]
 
 
-def test_real_unconfigured_us_flow_failure_is_propagated(monkeypatch):
-    import importlib
-    us_module = importlib.import_module("src.flows.us_country_index_flow")
-    monkeypatch.setattr(us_module, "load_project_env", lambda: None)
+def test_unconfigured_us_flow_is_skipped_without_failing_standard_pipeline(monkeypatch):
     monkeypatch.delenv("MVD_US_COUNTRY_INDEX_PROVIDER_FACTORY", raising=False)
+    monkeypatch.setattr(all_flows_module, "load_project_env", lambda: None)
     for name in ("macro_seed", "taylor_rule", "currency_analysis", "equity_market_valuation"):
         monkeypatch.setattr(all_flows_module, f"run_{name}_flow", lambda: {"status": "success"})
+    monkeypatch.setattr(
+        all_flows_module,
+        "run_us_country_index_flow",
+        lambda: (_ for _ in ()).throw(AssertionError("unconfigured optional flow must not run")),
+    )
+
     result = run_all_flows()
-    assert result["status"] == "failed"
-    assert result["us_country_index"]["previous_publication_preserved"]
-    assert "MVD_US_COUNTRY_INDEX_PROVIDER_FACTORY" in result["errors"][0]
+
+    assert result["status"] == "success"
+    assert result["errors"] == []
+    assert result["us_country_index"] == {
+        "status": "skipped",
+        "publication_status": "preserved",
+        "previous_publication_preserved": True,
+        "reason": "MVD_US_COUNTRY_INDEX_PROVIDER_FACTORY is not configured",
+    }
 
 
 def test_unexpected_child_exception_becomes_failed_result(monkeypatch):
