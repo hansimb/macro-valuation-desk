@@ -17,3 +17,4 @@ Thumbs.db
 !.env.example
 !**/.env.example
 TODO.md
+.tmp
